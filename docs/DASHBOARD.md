@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 3 |
-| Design | 3 |
+| Design | 2 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 13 |
@@ -38,14 +38,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.
   - Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec.
 
-## Design  (3)
+## Design  (2)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
-  - Search for any symbol or company — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).
-  - Validate it live via Yahoo, preview its data, then add it directly to a theme.
-  - Add straight from the Fundamentals tab (per theme) — no detour to the Screener — and from the Screener too.
-  - This is what lets a custom theme hold names the screener doesn't already list.
 - **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_
   - Edit an existing theme's display name and colour.
   - Updates consistently everywhere — Prices, allocation legend, screener swatch, and history.
@@ -59,10 +54,15 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
+  - Search any symbol or company — including names outside the curated screener (e.g. AMD, TSM, AVGO) — via Yahoo's search.
+  - Add it directly to a theme from the Fundamentals tab ('＋ name' per theme) — no Screener detour — and from the Screener too (with a theme picker).
+  - New plumbing: /api/search proxy in server.py + a platform-agnostic dsSearch (web → server, iOS → Yahoo on-device); the add reuses the E1.2 rail.
+  - Thin-data names use the existing penalty/compute path (no special code).
+  - Built on dev & verified live (search, add, real position) — awaiting your click-through. NOTE: this card touches server.py + the iOS data layer, so the Mac syncs both.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

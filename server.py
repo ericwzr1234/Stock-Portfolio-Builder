@@ -146,6 +146,34 @@ def ensure_session(force=False):
         return _crumb
 
 
+def search_yahoo(query):
+    """Yahoo symbol/name search -> [{symbol,name,exchange,type}], equities & ETFs only. [] on failure."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    ensure_session()  # builds the cookie opener; the search endpoint needs no crumb
+    try:
+        qs = urllib.parse.urlencode({"q": q, "quotesCount": 10, "newsCount": 0, "listsCount": 0})
+        raw = _http_get(f"https://query2.finance.yahoo.com/v1/finance/search?{qs}", timeout=10)
+        data = json.loads(raw)
+    except Exception as e:
+        sys.stderr.write(f"[search {q!r}] {e}\n")
+        return []
+    out = []
+    for it in (data.get("quotes") or []):
+        sym = it.get("symbol")
+        qt = (it.get("quoteType") or "").upper()
+        if not sym or qt not in ("EQUITY", "ETF"):
+            continue  # skip indices, currencies, futures, options
+        out.append({
+            "symbol": sym,
+            "name": it.get("shortname") or it.get("longname") or it.get("name") or sym,
+            "exchange": it.get("exchDisp") or it.get("exchange") or "",
+            "type": qt,
+        })
+    return out
+
+
 def _rv(d, k):
     """Pull a Yahoo numeric field that may be {'raw': x} or a bare number."""
     x = d.get(k)
@@ -405,6 +433,8 @@ class Handler(BaseHTTPRequestHandler):
                 force = qs.get("force", ["0"])[0] in ("1", "true", "yes")
                 self._send(200, {"fundamentals": get_fundamentals(self._symbols(qs), force=force),
                                  "asOf": int(time.time())})
+            elif path == "/api/search":
+                self._send(200, {"results": search_yahoo(qs.get("q", [""])[0])})
             elif path == "/api/portfolio":
                 self._send(200, {"portfolio": read_db()})
             elif not path.startswith("/api/"):

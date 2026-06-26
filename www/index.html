@@ -158,6 +158,14 @@
   .ct-swatches{display:flex;flex-wrap:wrap;gap:7px}
   .ct-sw{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer;padding:0}
   .ct-sw.sel{outline:2px solid #1E2A2A;outline-offset:1px}
+  .addname-btn{ border:1px solid #DDD6C6; background:transparent; color:#3A6EA5; border-radius:6px; font-size:11px; padding:1px 7px; cursor:pointer; margin-left:4px }
+  .addname-btn:hover{ border-color:#3A6EA5; background:#F1F5FA }
+  .ts-results{ margin-top:8px; max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:4px }
+  .ts-row{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid #E6E0D2; background:#fff; border-radius:8px; padding:8px 10px; cursor:pointer }
+  .ts-row:hover{ border-color:#13605C; background:#FBF9F3 }
+  .ts-row .sym{ font-weight:600 }
+  .ts-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .ts-row .ts-ex{ flex:0 0 auto }
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
   .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
@@ -376,7 +384,9 @@
   <!-- ============ SCREENER ============ -->
   <section id="view-screener" class="view">
     <div class="section-title"><h2>Screener — top stocks by theme</h2>
-      <button id="screenerRefresh" class="btn sm">↻ Refresh live caps</button></div>
+      <span style="display:flex;gap:8px">
+        <button id="screenerSearch" class="btn sm">🔍 Search any ticker</button>
+        <button id="screenerRefresh" class="btn sm">↻ Refresh live caps</button></span></div>
     <p class="small muted" style="margin-top:-6px">The 50 largest companies by <b>live market cap</b> in each of your five themes, mutually exclusive (a name shown under one theme never appears under another). <b>Tap any stock</b> to swap it into your portfolio in place of a current holding in the same theme — the book then rebalances with the usual model.</p>
     <div id="screenerBody"></div>
     <p class="note">Universe is a curated seed (largest, most clearly-relevant names per theme); order is re-sorted on each refresh by live market cap. Stocks already in your portfolio are tagged <span class="tag live">held</span>.</p>
@@ -797,6 +807,16 @@ async function nativeFundamentals(syms){
 async function dsQuotes(syms){ return NATIVE? nativeQuotes(syms) : webQuotes(syms); }
 async function dsFundamentals(syms,force){ return NATIVE? nativeFundamentals(syms) : webFundamentals(syms,force); }
 async function dsLoadUniverse(){ if(window.__UNIVERSE) return window.__UNIVERSE; const r=await fetch("data/universe.json"); return r.json(); }
+async function webSearch(q){ const r=await api("/api/search?q="+encodeURIComponent(q)); return r.results||[]; }
+async function nativeSearch(q){
+  try{
+    const r=await yGet("https://query2.finance.yahoo.com/v1/finance/search",{q, quotesCount:10, newsCount:0, listsCount:0});
+    const quotes=((jsonOf(r.data)||{}).quotes)||[];
+    return quotes.filter(it=>it.symbol && ["EQUITY","ETF"].includes((it.quoteType||"").toUpperCase()))
+      .map(it=>({symbol:it.symbol, name:it.shortname||it.longname||it.symbol, exchange:it.exchDisp||it.exchange||"", type:(it.quoteType||"").toUpperCase()}));
+  }catch(e){ console.error("native search",e); return []; }
+}
+async function dsSearch(q){ q=(q||"").trim(); if(!q) return []; return NATIVE? nativeSearch(q) : webSearch(q); }
 
 async function loadQuotes(){ const d=await dsQuotes(tradeUniverse()); state.quotes=Object.assign({}, state.quotes, d.quotes); state.asOf=d.asOf; }
 async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.fundamentals=Object.assign({}, state.fundamentals, f); }
@@ -927,7 +947,8 @@ function renderFundamentals(){
     sp.style.width=(r.alloc*100)+"%"; sp.style.background=r.theme.color; sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
-    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
+    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}
+    <button class="addname-btn" data-addto="${r.theme.key}" title="Search & add a name to ${r.theme.name}">＋ name</button></div>`;}).join("");
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
@@ -1480,6 +1501,46 @@ function openCreateTheme(){
   const n=$("#ctName"); if(n)n.focus();
 }
 
+/* ---- search any ticker and add it to a theme (E1.3) ------------------------------------------
+   Inline from the Fundamentals legend (scoped to a theme) and from the Screener (with a theme picker). */
+let _tsTimer=null;
+function openTickerSearch(themeKey){
+  const scoped=!!(themeKey && themeByKey(themeKey));
+  const title=scoped?("Add a name to "+themeByKey(themeKey).name):"Search & add a ticker";
+  const picker=scoped?`<input type="hidden" id="tsTheme" value="${themeKey}">`
+    :`<label class="small" style="display:block;margin:10px 0 4px">Add to theme</label>
+      <select id="tsTheme" style="width:100%;padding:8px;border:1px solid #DDD6C6;border-radius:8px">${themes().map(t=>`<option value="${t.key}">${t.name}</option>`).join("")}</select>`;
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="tsModal"><div class="modal-card card pad">
+      <h2 style="font-size:16px">${title}</h2>
+      <p class="small muted">Search any symbol or company — including names outside the Screener (e.g. AMD, TSM).
+        Pick one to add; the book then rebalances to the model. Thin-data names are scored with the usual penalties.</p>
+      ${picker}
+      <label class="small" style="display:block;margin:10px 0 4px">Search</label>
+      <input type="text" id="tsQuery" placeholder="e.g. AMD or Advanced Micro" autocomplete="off"
+        style="width:100%;padding:9px;border:1px solid #DDD6C6;border-radius:8px;font-size:14px">
+      <div id="tsResults" class="ts-results"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="tsCancel">Close</button></div>
+    </div></div>`;
+  $("#tsCancel").addEventListener("click",closeModal);
+  $("#tsModal").addEventListener("click",e=>{ if(e.target.id==="tsModal")closeModal(); });
+  const q=$("#tsQuery"), res=$("#tsResults");
+  q.addEventListener("input",()=>{
+    clearTimeout(_tsTimer); const term=q.value.trim();
+    if(!term){ res.innerHTML=""; return; }
+    res.innerHTML=`<div class="muted xs" style="padding:7px">Searching…</div>`;
+    _tsTimer=setTimeout(async()=>{
+      let list=[]; try{ list=await dsSearch(term); }catch(e){}
+      if(q.value.trim()!==term) return;   // a newer keystroke superseded this one
+      if(!list.length){ res.innerHTML=`<div class="muted xs" style="padding:7px">No matches — try a different symbol or name.</div>`; return; }
+      res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${r.symbol}">
+        <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
+        <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join("");
+      $$(".ts-row").forEach(b=>b.addEventListener("click",()=>{ const tk=($("#tsTheme")||{}).value; if(tk) addTicker(tk, b.dataset.sym); }));
+    },250);
+  });
+  q.focus();
+}
+
 /* ======================================================================
    iOS LAN sync UI (native only) — connect the app to the home computer
    so both read/write the same portfolio.json.
@@ -1576,6 +1637,8 @@ function setupEvents(){
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-rmvtkr]"); if(!b)return;
     e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
+  if($("#screenerSearch")) $("#screenerSearch").addEventListener("click",()=>openTickerSearch());   // E1.3: search (Screener)
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addto]"); if(b) openTickerSearch(b.dataset.addto); });   // E1.3: '＋ name' in the Fundamentals legend
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
