@@ -1,6 +1,6 @@
 # Stock Portfolio Builder — Project Board
 
-_Updated 2026-06-18. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
+_Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
 **Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes
 
@@ -9,9 +9,9 @@ _Updated 2026-06-18. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 6 |
+| Design | 5 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 10 |
@@ -24,11 +24,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
 - **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations** _(depends E1.3, web)_
   <br>For any theme (esp. custom), recommend names similar to its picks. Likely method: live sector/industry-peer expansion via Yahoo, ranked by the 6-factor model (works free on web AND on-device iOS). Method to be finalized at design.
 
-## Design  (6)
+## Design  (5)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.1** · _E1 · User-Defined Themes_ — **Data-driven theme list (foundation)** _(web)_ · [spec](features/E1.1_data-driven-themes.md)
-  <br>state.themes replaces the hardcoded THEMES; engine + all tabs iterate it; 30% cap & 20% equal-weight base derive from N themes; persisted + version-snapshotted + migration. Invisible & regression-safe (defaults to the current 5).
 - **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a single ticker in a theme** _(depends E1.1, web)_
   <br>Generalize Swap into independent add & remove primitives + minimal UI.
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_
@@ -45,10 +43,11 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E1.1** · _E1 · User-Defined Themes_ — **Data-driven theme list (foundation)** _(web)_ · [spec](features/E1.1_data-driven-themes.md)
+  <br>DONE on dev: state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7, all renderers error-free. Awaiting your click-through before merge to main.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

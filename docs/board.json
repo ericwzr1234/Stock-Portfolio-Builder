@@ -1,6 +1,6 @@
 {
   "project": "Stock Portfolio Builder",
-  "updated": "2026-06-18",
+  "updated": "2026-06-26",
   "tagline": "Project board — features flow left→right through the pipeline. Edit this file (docs/board.json) and run tools/render_dashboard.py to update both DASHBOARD.md and dashboard.html.",
   "stages": [
     { "key": "ideation",       "label": "Ideation",       "desc": "A half-baked idea; can be pushed further down once fleshed out." },
@@ -27,9 +27,9 @@
     { "id": "C9",  "epic": "core", "stage": "done", "title": "Dynamic theme membership", "notes": "state.themeTickers (persisted + snapshotted); tickersOf / membership / tradeUniverse. Foundation the E1 epic builds on." },
     { "id": "C10", "epic": "core", "stage": "done", "title": "Cross-platform: web + iOS", "notes": "One www/ codebase; platform-agnostic data layer; Capacitor iOS wrapper; LAN sync; .native UI skin. (iOS build is the Mac's domain.)" },
 
-    { "id": "E1.1", "epic": "E1", "stage": "design", "platform": "web", "spec": "docs/features/E1.1_data-driven-themes.md",
+    { "id": "E1.1", "epic": "E1", "stage": "testing", "platform": "web", "spec": "docs/features/E1.1_data-driven-themes.md",
       "title": "Data-driven theme list (foundation)",
-      "notes": "state.themes replaces the hardcoded THEMES; engine + all tabs iterate it; 30% cap & 20% equal-weight base derive from N themes; persisted + version-snapshotted + migration. Invisible & regression-safe (defaults to the current 5)." },
+      "notes": "DONE on dev: state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7, all renderers error-free. Awaiting your click-through before merge to main." },
     { "id": "E1.2", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1",
       "title": "Add / remove a single ticker in a theme",
       "notes": "Generalize Swap into independent add & remove primitives + minimal UI." },

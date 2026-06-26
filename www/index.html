@@ -391,15 +391,22 @@ const THEMES = [
 ];
 const DEFAULT_THEME_TICKERS = {}; THEMES.forEach(t=>DEFAULT_THEME_TICKERS[t.key]=t.tickers.slice());
 
+/* Theme LIST is DATA-DRIVEN (E1.1). THEMES above are only the DEFAULTS. The live theme set —
+   which themes exist, plus each theme's key/name/color — is state.themes; null/empty => use THEMES.
+   Read the live list ONLY through themes(); look one up via themeByKey(). Membership (the tickers
+   inside a theme) stays dynamic via state.themeTickers / tickersOf(). */
+function themes(){ const t=state.themes; return (Array.isArray(t)&&t.length)?t:THEMES; }
+function themeByKey(k){ return themes().find(x=>x.key===k); }
+
 /* Theme membership is DYNAMIC — the Screener "swap" feature replaces a name within a theme.
    It lives in state.themeTickers (persisted in the portfolio + every version snapshot).
    When unset for a theme we fall back to that theme's default 5 core names above. */
-function tickersOf(key){ const m=state.themeTickers; return (m&&Array.isArray(m[key])&&m[key].length)?m[key]:DEFAULT_THEME_TICKERS[key]; }
-function membership(){ return THEMES.flatMap(t=>tickersOf(t.key)); }                 // every themed name (5×5)
+function tickersOf(key){ const m=state.themeTickers; return (m&&Array.isArray(m[key])&&m[key].length)?m[key]:(DEFAULT_THEME_TICKERS[key]||[]); }
+function membership(){ return themes().flatMap(t=>tickersOf(t.key)); }                 // every themed name (5×5)
 function holdingSyms(){ return Object.keys((state.portfolio&&state.portfolio.holdings)||{}); }
 function tradeUniverse(){ return [...new Set([...membership(), ...holdingSyms()])]; } // themed ∪ held; held-but-unthemed = a position to liquidate
 let themeOf = {};
-function rebuildThemeOf(){ themeOf={}; THEMES.forEach(t=>tickersOf(t.key).forEach(s=>{ themeOf[s]=t; })); }
+function rebuildThemeOf(){ themeOf={}; themes().forEach(t=>tickersOf(t.key).forEach(s=>{ themeOf[s]=t; })); }
 function themeOfSym(s){ return themeOf[s] || {key:"_exit", name:"Exiting position", color:"#9AA3A1"}; }
 const perTheme = t => tickersOf(t.key).length;                                        // equal-weight within theme (5 names ⇒ 20% each)
 
@@ -411,9 +418,10 @@ const state = {
   portfolio:null,                 // {holdings:{sym:{shares,costBasis}}, ...}
   weights:{peg:0.20, ev:0.20, dfcf:0.20, pe:0.15, mcap:0.10, mom:0.15},
   penalty:{peg:10, ev:1000, dfcf:50, pe:200},  // negative/missing ratio -> this multiple; pe for negative-earnings (no P/E)
-  cap:0.30,                       // max weight any single theme may hold; excess redistributed to the rest
+  cap:null,                       // max single-theme weight; null => N-adaptive default 1.5/N (=0.30 at 5 themes); excess redistributed
   overrides:{},                   // sym -> {peg?,ev?,marketCap?}
   asOf:null,
+  themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
   universe:null,                  // screener universe (window.__UNIVERSE / data/universe.json)
   screenerQuotes:{},              // sym -> quote for screener stocks (lazy-loaded, chunked)
@@ -535,7 +543,7 @@ function computeAllocation(){
   const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
   const evGet=s=>{ const v=effEv(s);   return isNum(v)?v:((carry[s]&&isNum(carry[s].ev))  ?carry[s].ev  :null); };
   const dfGet=s=>{ const v=effDfcf(s); return isNum(v)?v:((carry[s]&&isNum(carry[s].dfcf))?carry[s].dfcf:null); };
-  const rows=THEMES.map(t=>({theme:t,
+  const rows=themes().map(t=>({theme:t,
     peg :themeMetric(tickersOf(t.key),effPeg ,P.peg ,false,false),   // null PEG -> penalize
     ev  :themeMetric(tickersOf(t.key),evGet  ,P.ev  ,false,true),    // negative -> penalize; N/A -> carry-over value (else exclude)
     dfcf:themeMetric(tickersOf(t.key),dfGet  ,P.dfcf,true ,true),    // 0 = best; negative FCF -> penalize; N/A -> carry-over value
@@ -570,9 +578,10 @@ function computeAllocation(){
   });
   const tot=rows.reduce((a,r)=>a+r.alloc,0)||1;
   rows.forEach(r=>r.alloc/=tot);
-  applyThemeCap(rows, state.cap);   // no theme over the cap; excess spills to the rest, iteratively
+  const capEff = state.cap!=null ? state.cap : clamp(1.5/rows.length, 1/rows.length+1e-9, 1);  // E1.1: N-adaptive default (1.5/N => 0.30 at N=5), kept above the 1/N equal-weight floor
+  applyThemeCap(rows, capEff);   // no theme over the cap; excess spills to the rest, iteratively
   const byKey={}; rows.forEach(r=>byKey[r.theme.key]=r);
-  return {rows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:state.cap, carry};
+  return {rows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:capEff, carry};
 }
 
 // Iterative weight cap: no theme may exceed `cap`. Excess from over-cap themes is redistributed to the
@@ -603,7 +612,7 @@ function holdings(){ return (state.portfolio&&state.portfolio.holdings)||{}; }
 function isInit(){ return !!(state.portfolio&&state.portfolio.holdings&&Object.keys(state.portfolio.holdings).length); }
 function curValueBySym(){ const h=holdings(),o={}; tradeUniverse().forEach(s=>{ const sh=h[s]?h[s].shares:0; const p=price(s); o[s]=isNum(p)&&isNum(sh)?sh*p:0; }); return o; }
 function curTotal(){ const cv=curValueBySym(); return tradeUniverse().reduce((a,s)=>a+(cv[s]||0),0); }
-function curValueByTheme(){ const cv=curValueBySym(),o={}; THEMES.forEach(t=>o[t.key]=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0)); return o; }
+function curValueByTheme(){ const cv=curValueBySym(),o={}; themes().forEach(t=>o[t.key]=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0)); return o; }
 function totalContributed(){ return state.portfolio&&isNum(state.portfolio.totalContributed)?state.portfolio.totalContributed:0; }
 function totalCostBasis(){ const h=holdings(); return Object.keys(h).reduce((a,s)=>a+((h[s]&&isNum(h[s].costBasis))?h[s].costBasis:0),0); }
 
@@ -619,7 +628,7 @@ function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" $
   `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
 function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
   weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
-  themeTickers:deepCopy(state.themeTickers) }; }
+  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes) }; }
 
 function pushVersion(txn){
   const p=state.portfolio; p.versions=p.versions||[]; if(!isNum(p.head))p.head=p.versions.length-1;
@@ -631,13 +640,14 @@ function pushVersion(txn){
 
 function restoreVersion(i){
   const p=state.portfolio; p.head=i;
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; rebuildThemeOf(); return; }   // before the initial build
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
   if(s.penalty)state.penalty=deepCopy(s.penalty);
   if(s.overrides!=null)state.overrides=deepCopy(s.overrides);
   state.themeTickers = s.themeTickers!=null ? deepCopy(s.themeTickers) : null;
+  state.themes = s.themes!=null ? deepCopy(s.themes) : null;
   rebuildThemeOf();
 }
 
@@ -672,7 +682,7 @@ function planTrades(addCash, mode){
   const newTotal=cur0+addCash;
   const target={}, trade={}, sharesD={}, missing=[];
   U.forEach(s=>{ target[s]=0; });          // default: not in any theme ⇒ target $0 (sell to zero)
-  THEMES.forEach(t=>tickersOf(t.key).forEach(s=>{ target[s]=alloc.byKey[t.key].alloc*newTotal/perTheme(t); }));
+  themes().forEach(t=>{ const a=alloc.byKey[t.key]; if(!a)return; tickersOf(t.key).forEach(s=>{ target[s]=a.alloc*newTotal/perTheme(t); }); });
   if(mode==="cash"){
     const sf={}; let tot=0;
     U.forEach(s=>{ const v=Math.max(0,(target[s]||0)-(cv[s]||0)); sf[s]=v; tot+=v; });
@@ -790,6 +800,7 @@ async function loadPortfolio(){
   else { p=await webLoadPortfolio(); }
   if(p){ state.portfolio=p; if(p.weights)state.weights=p.weights; if(p.overrides)state.overrides=p.overrides; if(p.penalty)state.penalty=p.penalty;
     if(p.themeTickers)state.themeTickers=p.themeTickers;
+    if(p.themes)state.themes=p.themes;
     if(!('mom' in state.weights)) state.weights={peg:0.20,ev:0.20,dfcf:0.20,pe:0.15,mcap:0.10,mom:0.15};   // upgrade older saves to the 6-metric default
     if(!isNum(state.penalty.dfcf)) state.penalty.dfcf=50;
     if(!isNum(state.penalty.pe)) state.penalty.pe=200;
@@ -802,7 +813,7 @@ async function savePortfolio(){
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
-  state.portfolio.themeTickers=state.themeTickers;
+  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes;
   if(useRemote()){
     try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
     catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }
@@ -842,11 +853,11 @@ function renderPrices(){
       <div class="d muted">unrealized today</div></div>
     <div class="card stat"><div class="k">Total invested</div><div class="v num">${init?money(totalContributed(),0):"—"}</div>
       <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
-    <div class="card stat"><div class="k">Themes / tickers</div><div class="v num">${THEMES.length} / ${membership().length}</div>
+    <div class="card stat"><div class="k">Themes / tickers</div><div class="v num">${themes().length} / ${membership().length}</div>
       <div class="d muted">equal-weight within theme</div></div>`;
   // theme cards
   const grid=$("#priceGrid"); grid.innerHTML="";
-  THEMES.forEach(t=>{
+  themes().forEach(t=>{
     const rows=tickersOf(t.key).map(s=>{
       const q=state.quotes[s]||{}, p=price(s), ch=q.change, cp=q.changePct;
       const h=holdings()[s]; const val=(h&&isNum(p))?h.shares*p:null;
@@ -891,7 +902,7 @@ function renderFundamentals(){
   if($("#penPeg"))$("#penPeg").value=state.penalty.peg;
   if($("#penDfcf"))$("#penDfcf").value=state.penalty.dfcf;
   if($("#penPe"))$("#penPe").value=state.penalty.pe;
-  if($("#capPct"))$("#capPct").value=Math.round((state.cap||0)*100);
+  if($("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
   const A=computeAllocation();
 
   // allocation bar + legend
@@ -1132,7 +1143,7 @@ function renderCalcMain(){
 
 function holdingsTable(){
   const cv=curValueBySym(), total=curTotal(), h=holdings();
-  const rows=THEMES.map(t=>{
+  const rows=themes().map(t=>{
     const tv=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0);
     const inner=tickersOf(t.key).map(s=>{
       const sh=h[s]?h[s].shares:0, p=price(s), v=cv[s], cb=h[s]?h[s].costBasis:0;
@@ -1165,10 +1176,10 @@ function renderRebalanceOutput(plan){
   const sumBuy=buys.reduce((a,s)=>a+plan.trade[s],0);
   const sumSell=sells.reduce((a,s)=>a+plan.trade[s],0);
   // per theme breakdown
-  const themeRows=THEMES.map(t=>{
+  const themeRows=themes().map(t=>{
     const before=tickersOf(t.key).reduce((a,s)=>a+(plan.cv[s]||0),0);
     const after=tickersOf(t.key).reduce((a,s)=>a+(plan.target[s]||0),0);
-    const r=plan.alloc.byKey[t.key];
+    const r=plan.alloc.byKey[t.key]; if(!r) return "";
     const wB=plan.cur0>0?before/plan.cur0:0, wA=after/plan.newTotal;
     return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${t.color}"></span> ${t.name}</td>
       <td class="num">${pct(r.alloc)}</td>
@@ -1272,7 +1283,7 @@ function renderHistory(){
         <div class="row" style="gap:10px;align-items:center"><span class="small muted">${money(tx.valueBefore,0)} → <b>${money(tx.valueAfter,0)}</b></span>${btn}</div>
       </div>
       <div class="kvs" style="margin-top:8px">
-        ${THEMES.map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
+        ${themes().map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
       </div>
       <details class="exp"><summary>${(tx.trades||[]).length} trades · weights PEG ${Math.round((tx.weights&&tx.weights.peg||.5)*100)}% / EV ${Math.round((tx.weights&&tx.weights.ev||.5)*100)}%</summary>
         <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
@@ -1291,7 +1302,7 @@ function renderScreener(){
   if(!state.universe){ body.innerHTML=`<div class="empty">Stock universe not loaded.</div>`; return; }
   const held=new Set(holdingSyms());
   body.innerHTML=state.universe.themes.map(t=>{
-    const theme=THEMES.find(x=>x.key===t.key)||{name:t.name,color:"#888"};
+    const theme=themeByKey(t.key)||{name:t.name,color:"#888"};
     const rows=t.stocks.map(s=>({s, mc:screenerMcap(s)})).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,50);
     const trs=rows.map((row,idx)=>{
       const s=row.s, q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{};
@@ -1328,7 +1339,7 @@ async function ensureScreener(){
 }
 
 function openSwap(newSym, themeKey){
-  const t=THEMES.find(x=>x.key===themeKey); if(!t) return;
+  const t=themeByKey(themeKey); if(!t) return;
   if(!isInit()){ toast("Build your portfolio first (Calculator tab)"); return; }
   const current=tickersOf(themeKey);
   if(current.includes(newSym)){ toast(newSym+" is already in "+t.name); return; }
@@ -1357,7 +1368,7 @@ async function doSwap(themeKey, oldSym, newSym){
   if(i<0){ toast("Holding not found"); return; }
   cur[i]=newSym;
   // promote the dynamic membership map (seed every theme from current, then apply this swap)
-  const map={}; THEMES.forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); }); map[themeKey]=cur;
+  const map={}; themes().forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); }); map[themeKey]=cur;
   state.themeTickers=map; rebuildThemeOf();
   closeModal();
   toast("Fetching "+newSym+"…");
