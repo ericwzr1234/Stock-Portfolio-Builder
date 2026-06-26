@@ -27,9 +27,9 @@
     { "id": "C9",  "epic": "core", "stage": "done", "title": "Dynamic theme membership", "notes": "state.themeTickers (persisted + snapshotted); tickersOf / membership / tradeUniverse. Foundation the E1 epic builds on." },
     { "id": "C10", "epic": "core", "stage": "done", "title": "Cross-platform: web + iOS", "notes": "One www/ codebase; platform-agnostic data layer; Capacitor iOS wrapper; LAN sync; .native UI skin. (iOS build is the Mac's domain.)" },
 
-    { "id": "E1.1", "epic": "E1", "stage": "testing", "platform": "web", "spec": "docs/features/E1.1_data-driven-themes.md",
+    { "id": "E1.1", "epic": "E1", "stage": "done", "platform": "web", "spec": "docs/features/E1.1_data-driven-themes.md",
       "title": "Data-driven theme list (foundation)",
-      "notes": "DONE on dev: state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7, all renderers error-free. Awaiting your click-through before merge to main." },
+      "notes": "Integrated to main 2026-06-26. state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7. The foundation E1.2–E1.7 build on." },
     { "id": "E1.2", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.2_add-remove-ticker.md",
       "title": "Add / remove a single ticker in a theme",
       "notes": "Generalize Swap into independent Add & Remove primitives on the same preview→Apply→version rail; minimal UI (Add button in the swap modal, ✕ remove in the holdings table). Spec written, awaiting sign-off." },

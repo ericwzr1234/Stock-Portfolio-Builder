@@ -11,10 +11,10 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 1 |
 | Design | 5 |
 | Implementation | 0 |
-| Testing | 1 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 10 |
+| Done | 11 |
 
 ---
 
@@ -43,11 +43,10 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (1)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E1.1** · _E1 · User-Defined Themes_ — **Data-driven theme list (foundation)** _(web)_ · [spec](features/E1.1_data-driven-themes.md)
-  <br>DONE on dev: state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7, all renderers error-free. Awaiting your click-through before merge to main.
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -59,7 +58,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (10)
+## Done  (11)
 _Integrated into the product (on main)._
 
 - **C1** · _Core tool (shipped)_ — **Themed 6-factor allocation model**
@@ -82,3 +81,5 @@ _Integrated into the product (on main)._
   <br>state.themeTickers (persisted + snapshotted); tickersOf / membership / tradeUniverse. Foundation the E1 epic builds on.
 - **C10** · _Core tool (shipped)_ — **Cross-platform: web + iOS**
   <br>One www/ codebase; platform-agnostic data layer; Capacitor iOS wrapper; LAN sync; .native UI skin. (iOS build is the Mac's domain.)
+- **E1.1** · _E1 · User-Defined Themes_ — **Data-driven theme list (foundation)** _(web)_ · [spec](features/E1.1_data-driven-themes.md)
+  <br>Integrated to main 2026-06-26. state.themes + themes()/themeByKey() accessors; 14 THEMES sites converted; cap auto-scales 1.5/N; persisted + version-snapshotted. Verified live — regression maxDiff=0 vs default, generality proven at N=3/5/7. The foundation E1.2–E1.7 build on.
