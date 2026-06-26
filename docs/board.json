@@ -12,8 +12,9 @@
     { "key": "done",           "label": "Done",           "desc": "Integrated into the product (on main)." }
   ],
   "epics": [
-    { "key": "core", "name": "Core tool (shipped)",      "color": "#13605C" },
-    { "key": "E1",   "name": "E1 · User-Defined Themes", "color": "#3A6EA5" }
+    { "key": "core", "name": "Core tool (shipped)",       "color": "#13605C" },
+    { "key": "E1",   "name": "E1 · User-Defined Themes",  "color": "#3A6EA5" },
+    { "key": "E2",   "name": "E2 · User-Defined Metrics", "color": "#A4683C" }
   ],
   "items": [
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
@@ -115,6 +116,14 @@
       "title": "Similar-stock recommendations", "notes": [
       "For any theme — especially custom ones — recommend names similar to its current picks.",
       "Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.",
-      "Works free on both web and on-device iOS; the exact method is finalized at design." ] }
+      "Works free on both web and on-device iOS; the exact method is finalized at design." ] },
+
+    { "id": "E2.1", "epic": "E2", "stage": "ideation", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "User-selectable scoring metrics", "notes": [
+      "Today the 6 scoring factors (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) are hardcoded; only their weights are adjustable.",
+      "Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.",
+      "Only metrics available or computable from our data source (Yahoo) are offered; the current 6 stay the default set (regression-safe).",
+      "Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.",
+      "Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec." ] }
   ]
 }

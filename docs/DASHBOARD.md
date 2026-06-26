@@ -2,13 +2,13 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
-| Ideation | 1 |
+| Ideation | 2 |
 | Design | 4 |
 | Implementation | 0 |
 | Testing | 0 |
@@ -18,13 +18,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (1)
+## Ideation  (2)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations** _(depends E1.3, web)_
   - For any theme — especially custom ones — recommend names similar to its current picks.
   - Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.
   - Works free on both web and on-device iOS; the exact method is finalized at design.
+- **E2.1** · _E2 · User-Defined Metrics_ — **User-selectable scoring metrics** _(web)_ · [spec](features/E2_user-defined-metrics.md)
+  - Today the 6 scoring factors (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) are hardcoded; only their weights are adjustable.
+  - Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.
+  - Only metrics available or computable from our data source (Yahoo) are offered; the current 6 stay the default set (regression-safe).
+  - Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.
+  - Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec.
 
 ## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
