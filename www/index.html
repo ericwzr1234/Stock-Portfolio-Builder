@@ -153,6 +153,8 @@
   .screener-row{cursor:pointer}
   .screener-row:hover{background:#FBF9F3}
   .screener-row td{vertical-align:middle}
+  .rmv-tkr{ border:1px solid #DDD6C6; background:transparent; color:#9AA3A1; border-radius:999px; width:19px; height:19px; line-height:1; font-size:11px; cursor:pointer; padding:0; margin-left:6px; vertical-align:middle; }
+  .rmv-tkr:hover{ border-color:#B0894F; color:#B0894F; }
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
   .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
@@ -1148,7 +1150,7 @@ function holdingsTable(){
     const inner=tickersOf(t.key).map(s=>{
       const sh=h[s]?h[s].shares:0, p=price(s), v=cv[s], cb=h[s]?h[s].costBasis:0;
       const gl=v-cb;
-      return `<tr><td class="sym">${s}</td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
+      return `<tr><td class="sym">${s} <button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${t.name}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
         <td class="num">${money(v,0)}</td><td class="num">${total>0?pct(v/total):"—"}</td>
         <td class="num ${gl>=0?'up':'down'}">${signed(gl,0).replace(/^([+-])/,'$1$')}</td></tr>`;}).join("");
     return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${t.name}</b></td>
@@ -1348,9 +1350,12 @@ function openSwap(newSym, themeKey){
       <span class="sym">${s}</span><span class="muted small">${nameOf(s)}</span>
       <span class="spacer"></span><span class="num small">${money(cv[s]||0,0)}</span></label>`).join("");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="swapModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">Swap into ${t.name}</h2>
-      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) and remove one current holding from <b>${t.name}</b>.
-        The book then rebalances to the model — selling the removed name to $0 and redeploying its cash.</p>
+      <h2 style="font-size:16px">Add ${newSym} to ${t.name}</h2>
+      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) to <b>${t.name}</b> — as a new name
+        (the theme grows to ${current.length+1}), or by replacing one current holding. Either way the book
+        rebalances to the model; review the plan, then Apply.</p>
+      <button class="btn primary" id="swapAdd" style="width:100%;margin:2px 0 12px">➕ Add as a new name</button>
+      <div class="small muted" style="text-align:center;margin:0 0 8px">— or replace one —</div>
       <div class="swap-list">${opts}</div>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn" id="swapCancel">Cancel</button>
@@ -1358,28 +1363,60 @@ function openSwap(newSym, themeKey){
       </div></div></div>`;
   $("#swapCancel").addEventListener("click",closeModal);
   $("#swapModal").addEventListener("click",e=>{ if(e.target.id==="swapModal")closeModal(); });
+  $("#swapAdd").addEventListener("click",()=>addTicker(themeKey, newSym));
   $("#swapConfirm").addEventListener("click",()=>{ const sel=$("input[name=swapTarget]:checked");
     if(!sel){ toast("Pick a holding to replace"); return; } doSwap(themeKey, sel.value, newSym); });
 }
 function closeModal(){ const m=$("#modalRoot"); if(m)m.innerHTML=""; }
 
+/* ---- membership editing: shared primitive for swap / add / remove (E1.2) ----------------------
+   Apply a new ticker list to ONE theme. Enforces one-theme-per-ticker (a newly-present name is pulled
+   out of any other theme it was in). Fetch data for any new names, then preview a full realign that the
+   user reviews + applies via "Apply & save" — the same undoable version rail a swap uses. */
+async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
+  const map={}; themes().forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); });   // seed the live map from every theme
+  const want=[...new Set(newArr)];
+  want.forEach(s=>{ Object.keys(map).forEach(k=>{ if(k!==themeKey) map[k]=map[k].filter(x=>x!==s); }); });   // one theme per ticker
+  map[themeKey]=want;
+  state.themeTickers=map; rebuildThemeOf();
+  closeModal();
+  if(fetchSyms&&fetchSyms.length){
+    toast("Fetching "+fetchSyms.join(", ")+"…");
+    try{ const d=await dsQuotes(fetchSyms); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
+    try{ const f=await dsFundamentals(fetchSyms,false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
+  }
+  if(isInit()){
+    switchView("calc"); renderCalc();
+    const plan=planTrades(0,"full"); lastPlan=plan;
+    if($("#addCash")) $("#addCash").value="0";
+    renderRebalanceOutput(plan);
+    const rebOut=$("#rebOut"); if(rebOut) rebOut.scrollIntoView({behavior:"smooth",block:"nearest"});
+    toast(doneMsg+" · review the plan, then Apply");
+  } else { renderAll(); toast(doneMsg+" · will apply on your next Build"); }
+}
+
+async function addTicker(themeKey, sym){
+  const t=themeByKey(themeKey); if(!t) return;
+  const cur=tickersOf(themeKey);
+  if(cur.includes(sym)){ toast(sym+" is already in "+t.name); return; }
+  const from=themeOf[sym];
+  const msg=(from&&from.key!==themeKey)?("Moved "+sym+" from "+from.name+" → "+t.name):("Added "+sym+" to "+t.name);
+  await setMembership(themeKey, [...cur, sym], [sym], msg);
+}
+
+async function removeTicker(themeKey, sym){
+  const t=themeByKey(themeKey); if(!t) return;
+  const cur=tickersOf(themeKey); if(!cur.includes(sym)) return;
+  const next=cur.filter(x=>x!==sym);
+  if(!next.length && !confirm(t.name+" will have no names left (≈0% weight). Remove "+sym+" anyway?")) return;
+  await setMembership(themeKey, next, [], "Removed "+sym+" from "+t.name);
+}
+
 async function doSwap(themeKey, oldSym, newSym){
   const cur=tickersOf(themeKey).slice(); const i=cur.indexOf(oldSym);
   if(i<0){ toast("Holding not found"); return; }
   cur[i]=newSym;
-  // promote the dynamic membership map (seed every theme from current, then apply this swap)
-  const map={}; themes().forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); }); map[themeKey]=cur;
-  state.themeTickers=map; rebuildThemeOf();
-  closeModal();
-  toast("Fetching "+newSym+"…");
-  try{ const d=await dsQuotes([newSym]); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
-  try{ const f=await dsFundamentals([newSym],false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
-  switchView("calc"); renderCalc();
-  const plan=planTrades(0,"full"); lastPlan=plan;
-  if($("#addCash")) $("#addCash").value="0";
-  renderRebalanceOutput(plan);
-  const rebOut=$("#rebOut"); if(rebOut) rebOut.scrollIntoView({behavior:"smooth",block:"nearest"});
-  toast("Swapped "+oldSym+" → "+newSym+" · review the plan, then Apply");
+  await setMembership(themeKey, cur, [newSym], "Swapped "+oldSym+" → "+newSym);
 }
 
 /* ======================================================================
@@ -1475,6 +1512,8 @@ function setupEvents(){
     catch(e){ toast("Screener refresh failed"); } finally{ $("#screenerRefresh").disabled=false; } });
   $("main").addEventListener("click",e=>{ const b=e.target.closest("[data-vaction]"); if(!b||b.disabled)return;
     const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(parseInt(b.dataset.idx,10)); else if(a==="sync")openSyncSheet(); });
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-rmvtkr]"); if(!b)return;
+    e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });

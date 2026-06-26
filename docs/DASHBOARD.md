@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 5 |
+| Design | 4 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 11 |
@@ -24,11 +24,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
 - **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations** _(depends E1.3, web)_
   <br>For any theme (esp. custom), recommend names similar to its picks. Likely method: live sector/industry-peer expansion via Yahoo, ranked by the 6-factor model (works free on web AND on-device iOS). Method to be finalized at design.
 
-## Design  (5)
+## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a single ticker in a theme** _(depends E1.1, web)_ · [spec](features/E1.2_add-remove-ticker.md)
-  <br>Generalize Swap into independent Add & Remove primitives on the same preview→Apply→version rail; minimal UI (Add button in the swap modal, ✕ remove in the holdings table). Spec written, awaiting sign-off.
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_
   <br>Search any symbol (even outside the curated universe) → validate via Yahoo → preview → add to a chosen theme.
 - **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_
@@ -43,10 +41,11 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a single ticker in a theme** _(depends E1.1, web)_ · [spec](features/E1.2_add-remove-ticker.md)
+  <br>Built on dev: setMembership() helper (move semantics, one theme per ticker) + addTicker/removeTicker; doSwap rewired through it. UI: '➕ Add as a new name' in the swap modal + ✕ remove in the holdings table. Verified live — add/move/remove/swap-regression all pass. Awaiting your click-through before merge.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
