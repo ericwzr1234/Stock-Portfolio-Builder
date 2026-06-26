@@ -1,0 +1,13 @@
+{
+  "appId": "com.eric.portfoliobuilder",
+  "appName": "Portfolio Builder",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

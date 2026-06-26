@@ -1,0 +1,15 @@
+# Normalize line endings so Windows (CRLF) and Mac (LF) don't produce noisy whole-file diffs.
+# Text is stored as LF in the repo; checked out native per platform.
+* text=auto eol=lf
+# Windows batch file must stay CRLF.
+*.bat text eol=crlf
+# Mac launcher / shell scripts must stay LF.
+*.command text eol=lf
+*.sh text eol=lf
+# Binary assets — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.pdf binary

@@ -1,0 +1,1849 @@
+{
+  "schemaVersion": 1,
+  "note": "Mutually-exclusive theme universes for the Portfolio Builder screener. Core tickers are pinned to their theme; shared names resolve to the higher-priority theme (stablecoin > robotics > data > enterpriseai > personalai). mcapB is an approximate seed; the app re-sorts by live market cap and shows the top 50 per theme.",
+  "themes": [
+    {
+      "key": "stablecoin",
+      "name": "Stablecoin",
+      "core": [
+        "CRCL",
+        "MA",
+        "V",
+        "COIN",
+        "JPM"
+      ],
+      "stocks": [
+        {
+          "ticker": "JPM",
+          "name": "JPMorgan Chase & Co.",
+          "mcapB": 820,
+          "rationale": "Megabank with JPM Coin, deposit token and blockchain payments",
+          "core": true
+        },
+        {
+          "ticker": "V",
+          "name": "Visa Inc.",
+          "mcapB": 611,
+          "rationale": "Card network piloting stablecoin settlement and on-chain payments",
+          "core": true
+        },
+        {
+          "ticker": "MA",
+          "name": "Mastercard Inc.",
+          "mcapB": 428,
+          "rationale": "Card rail with broad stablecoin settlement and crypto programs",
+          "core": true
+        },
+        {
+          "ticker": "BAC",
+          "name": "Bank of America Corp.",
+          "mcapB": 340,
+          "rationale": "Megabank exploring stablecoin issuance and digital payments",
+          "core": false
+        },
+        {
+          "ticker": "WFC",
+          "name": "Wells Fargo & Co.",
+          "mcapB": 255,
+          "rationale": "Megabank in bank stablecoin consortium and digital cash",
+          "core": false
+        },
+        {
+          "ticker": "MS",
+          "name": "Morgan Stanley",
+          "mcapB": 215,
+          "rationale": "Bank expanding crypto and digital asset offerings",
+          "core": false
+        },
+        {
+          "ticker": "HSBC",
+          "name": "HSBC Holdings plc",
+          "mcapB": 215,
+          "rationale": "Global bank with tokenized deposits and digital payments",
+          "core": false
+        },
+        {
+          "ticker": "AXP",
+          "name": "American Express Co.",
+          "mcapB": 215,
+          "rationale": "Card network and payments franchise with digital exposure",
+          "core": false
+        },
+        {
+          "ticker": "GS",
+          "name": "Goldman Sachs Group",
+          "mcapB": 210,
+          "rationale": "Bank with digital assets desk and tokenization platform",
+          "core": false
+        },
+        {
+          "ticker": "INTU",
+          "name": "Intuit Inc.",
+          "mcapB": 190,
+          "rationale": "Fintech software with payments and money-movement rails",
+          "core": false
+        },
+        {
+          "ticker": "C",
+          "name": "Citigroup Inc.",
+          "mcapB": 160,
+          "rationale": "Global bank with Citi Token Services for digital cash",
+          "core": false
+        },
+        {
+          "ticker": "SCHW",
+          "name": "Charles Schwab Corp.",
+          "mcapB": 150,
+          "rationale": "Brokerage launching spot crypto trading platform",
+          "core": false
+        },
+        {
+          "ticker": "TD",
+          "name": "Toronto-Dominion Bank",
+          "mcapB": 140,
+          "rationale": "Large bank with digital payments and crypto exposure",
+          "core": false
+        },
+        {
+          "ticker": "MELI",
+          "name": "MercadoLibre Inc.",
+          "mcapB": 130,
+          "rationale": "LatAm fintech with Mercado Pago and crypto wallet",
+          "core": false
+        },
+        {
+          "ticker": "COF",
+          "name": "Capital One Financial",
+          "mcapB": 110,
+          "rationale": "Card-focused bank with digital payments exposure",
+          "core": false
+        },
+        {
+          "ticker": "HOOD",
+          "name": "Robinhood Markets Inc.",
+          "mcapB": 80,
+          "rationale": "Brokerage with crypto trading and stablecoin initiatives",
+          "core": false
+        },
+        {
+          "ticker": "PNC",
+          "name": "PNC Financial Services",
+          "mcapB": 78,
+          "rationale": "Bank with crypto custody and stablecoin partnership",
+          "core": false
+        },
+        {
+          "ticker": "FI",
+          "name": "Fiserv Inc.",
+          "mcapB": 75,
+          "rationale": "Payments processor launching FIUSD bank stablecoin platform",
+          "core": false
+        },
+        {
+          "ticker": "BK",
+          "name": "Bank of New York Mellon",
+          "mcapB": 70,
+          "rationale": "Custodian and reserve manager for stablecoin issuers",
+          "core": false
+        },
+        {
+          "ticker": "USB",
+          "name": "U.S. Bancorp",
+          "mcapB": 70,
+          "rationale": "Bank with crypto custody and digital payments",
+          "core": false
+        },
+        {
+          "ticker": "NU",
+          "name": "Nu Holdings Ltd.",
+          "mcapB": 70,
+          "rationale": "Latin American digital bank with crypto and stablecoin",
+          "core": false
+        },
+        {
+          "ticker": "DFS",
+          "name": "Discover Financial Services",
+          "mcapB": 50,
+          "rationale": "Card network and payments franchise",
+          "core": false
+        },
+        {
+          "ticker": "COIN",
+          "name": "Coinbase Global Inc.",
+          "mcapB": 44,
+          "rationale": "Largest US crypto exchange, USDC partner and issuer",
+          "core": true
+        },
+        {
+          "ticker": "MSTR",
+          "name": "Strategy Inc.",
+          "mcapB": 43,
+          "rationale": "Largest corporate bitcoin holder, pure crypto proxy",
+          "core": false
+        },
+        {
+          "ticker": "XYZ",
+          "name": "Block Inc.",
+          "mcapB": 42,
+          "rationale": "Payments fintech with Cash App and bitcoin services",
+          "core": false
+        },
+        {
+          "ticker": "FIS",
+          "name": "Fidelity National Information Services",
+          "mcapB": 40,
+          "rationale": "Core banking and payments tech enabling stablecoin rails",
+          "core": false
+        },
+        {
+          "ticker": "PYPL",
+          "name": "PayPal Holdings Inc.",
+          "mcapB": 37,
+          "rationale": "Payments fintech issuing PYUSD stablecoin",
+          "core": false
+        },
+        {
+          "ticker": "NMR",
+          "name": "Nomura Holdings",
+          "mcapB": 30,
+          "rationale": "Bank with digital asset subsidiary Laser Digital",
+          "core": false
+        },
+        {
+          "ticker": "SOFI",
+          "name": "SoFi Technologies Inc.",
+          "mcapB": 25,
+          "rationale": "Digital bank relaunching crypto and stablecoin features",
+          "core": false
+        },
+        {
+          "ticker": "AFRM",
+          "name": "Affirm Holdings Inc.",
+          "mcapB": 25,
+          "rationale": "Payments fintech in BNPL and digital checkout",
+          "core": false
+        },
+        {
+          "ticker": "GPN",
+          "name": "Global Payments Inc.",
+          "mcapB": 22,
+          "rationale": "Merchant payments processor with digital settlement rails",
+          "core": false
+        },
+        {
+          "ticker": "CRCL",
+          "name": "Circle Internet Group",
+          "mcapB": 21,
+          "rationale": "USDC issuer, core stablecoin infrastructure company",
+          "core": true
+        },
+        {
+          "ticker": "TOST",
+          "name": "Toast Inc.",
+          "mcapB": 20,
+          "rationale": "Payments platform for restaurants, digital money movement",
+          "core": false
+        },
+        {
+          "ticker": "WISE",
+          "name": "Wise plc",
+          "mcapB": 12,
+          "rationale": "Cross-border money-movement fintech exploring stablecoin rails",
+          "core": false
+        },
+        {
+          "ticker": "ALLY",
+          "name": "Ally Financial Inc.",
+          "mcapB": 12,
+          "rationale": "Digital bank with payments and crypto interest",
+          "core": false
+        },
+        {
+          "ticker": "GLXY",
+          "name": "Galaxy Digital Inc.",
+          "mcapB": 10,
+          "rationale": "Crypto financial services and digital asset manager",
+          "core": false
+        },
+        {
+          "ticker": "IREN",
+          "name": "IREN Ltd.",
+          "mcapB": 8,
+          "rationale": "Bitcoin miner and digital infrastructure provider",
+          "core": false
+        },
+        {
+          "ticker": "MARA",
+          "name": "MARA Holdings Inc.",
+          "mcapB": 6,
+          "rationale": "Large bitcoin miner with crypto treasury exposure",
+          "core": false
+        },
+        {
+          "ticker": "BULL",
+          "name": "Webull Corp.",
+          "mcapB": 6,
+          "rationale": "Brokerage offering crypto trading to retail investors",
+          "core": false
+        },
+        {
+          "ticker": "RIOT",
+          "name": "Riot Platforms Inc.",
+          "mcapB": 4,
+          "rationale": "Bitcoin miner with crypto-linked balance sheet",
+          "core": false
+        },
+        {
+          "ticker": "DLO",
+          "name": "DLocal Ltd.",
+          "mcapB": 4,
+          "rationale": "Emerging-market cross-border payments with stablecoin settlement",
+          "core": false
+        },
+        {
+          "ticker": "COMP",
+          "name": "Compass Inc.",
+          "mcapB": 4,
+          "rationale": "Digital transactions platform exploring blockchain payments",
+          "core": false
+        },
+        {
+          "ticker": "CORZ",
+          "name": "Core Scientific Inc.",
+          "mcapB": 4,
+          "rationale": "Bitcoin mining and digital infrastructure operator",
+          "core": false
+        },
+        {
+          "ticker": "STNE",
+          "name": "StoneCo Ltd.",
+          "mcapB": 4,
+          "rationale": "Brazilian payments fintech with digital money movement",
+          "core": false
+        },
+        {
+          "ticker": "CLSK",
+          "name": "CleanSpark Inc.",
+          "mcapB": 3,
+          "rationale": "Bitcoin mining company with crypto exposure",
+          "core": false
+        },
+        {
+          "ticker": "PAYO",
+          "name": "Payoneer Global Inc.",
+          "mcapB": 3,
+          "rationale": "Cross-border payments fintech serving global SMBs",
+          "core": false
+        },
+        {
+          "ticker": "HUT",
+          "name": "Hut 8 Corp.",
+          "mcapB": 3,
+          "rationale": "Bitcoin miner with digital asset holdings",
+          "core": false
+        },
+        {
+          "ticker": "CIFR",
+          "name": "Cipher Mining Inc.",
+          "mcapB": 3,
+          "rationale": "Bitcoin mining and digital infrastructure company",
+          "core": false
+        },
+        {
+          "ticker": "WULF",
+          "name": "TeraWulf Inc.",
+          "mcapB": 3,
+          "rationale": "Bitcoin miner with crypto-linked operations",
+          "core": false
+        },
+        {
+          "ticker": "BTDR",
+          "name": "Bitdeer Technologies Group",
+          "mcapB": 3,
+          "rationale": "Bitcoin mining and crypto infrastructure company",
+          "core": false
+        },
+        {
+          "ticker": "PAGS",
+          "name": "PagSeguro Digital Ltd.",
+          "mcapB": 3,
+          "rationale": "Brazilian payments fintech and digital banking",
+          "core": false
+        },
+        {
+          "ticker": "LC",
+          "name": "LendingClub Corp.",
+          "mcapB": 2,
+          "rationale": "Digital bank with fintech payments exposure",
+          "core": false
+        },
+        {
+          "ticker": "BTBT",
+          "name": "Bit Digital Inc.",
+          "mcapB": 1.5,
+          "rationale": "Bitcoin miner with crypto treasury and Ethereum staking",
+          "core": false
+        }
+      ]
+    },
+    {
+      "key": "robotics",
+      "name": "Robotics",
+      "core": [
+        "ISRG",
+        "ROK",
+        "NVDA",
+        "SYM",
+        "TSLA"
+      ],
+      "stocks": [
+        {
+          "ticker": "NVDA",
+          "name": "NVIDIA",
+          "mcapB": 5000,
+          "rationale": "GPUs powering AI training and robotics compute (Isaac/Jetson)",
+          "core": true
+        },
+        {
+          "ticker": "TSM",
+          "name": "Taiwan Semiconductor",
+          "mcapB": 2350,
+          "rationale": "Foundry making the chips behind robotics and AI compute",
+          "core": false
+        },
+        {
+          "ticker": "AVGO",
+          "name": "Broadcom",
+          "mcapB": 1960,
+          "rationale": "Custom AI silicon and connectivity for compute infrastructure",
+          "core": false
+        },
+        {
+          "ticker": "TSLA",
+          "name": "Tesla",
+          "mcapB": 1490,
+          "rationale": "Autonomous vehicles and Optimus humanoid robot program",
+          "core": true
+        },
+        {
+          "ticker": "AMD",
+          "name": "Advanced Micro Devices",
+          "mcapB": 760,
+          "rationale": "GPUs and CPUs for AI training and edge compute",
+          "core": false
+        },
+        {
+          "ticker": "CAT",
+          "name": "Caterpillar",
+          "mcapB": 447,
+          "rationale": "Autonomous mining trucks and automated heavy machinery",
+          "core": false
+        },
+        {
+          "ticker": "ASML",
+          "name": "ASML Holding",
+          "mcapB": 420,
+          "rationale": "Lithography enabling advanced chips powering AI and robotics",
+          "core": false
+        },
+        {
+          "ticker": "GE",
+          "name": "GE Aerospace",
+          "mcapB": 280,
+          "rationale": "Aerospace automation and advanced manufacturing systems",
+          "core": false
+        },
+        {
+          "ticker": "SIEGY",
+          "name": "Siemens",
+          "mcapB": 210,
+          "rationale": "Factory automation, motion control and digital industries",
+          "core": false
+        },
+        {
+          "ticker": "QCOM",
+          "name": "Qualcomm",
+          "mcapB": 190,
+          "rationale": "Edge AI and robotics compute platforms",
+          "core": false
+        },
+        {
+          "ticker": "SBGSY",
+          "name": "Schneider Electric SE (ADR)",
+          "mcapB": 185,
+          "rationale": "~$185B global industrial automation leader with a dedicated Industrial Automation segment (PLCs, drives, motion/control hardware across discrete, process and hybrid industries). A direct large-cap peer to Siemens (SIEGY, already listed), ABB (ABBNY) and Rockwell (ROK) \u2014 core to physical/factory automation and a clear gap in the list.",
+          "core": false
+        },
+        {
+          "ticker": "TXN",
+          "name": "Texas Instruments",
+          "mcapB": 180,
+          "rationale": "Analog and embedded chips for motion control and robots",
+          "core": false
+        },
+        {
+          "ticker": "MU",
+          "name": "Micron Technology",
+          "mcapB": 180,
+          "rationale": "Memory feeding AI training and robotics compute",
+          "core": false
+        },
+        {
+          "ticker": "AMAT",
+          "name": "Applied Materials",
+          "mcapB": 170,
+          "rationale": "Chipmaking equipment powering AI and robotics silicon",
+          "core": false
+        },
+        {
+          "ticker": "ISRG",
+          "name": "Intuitive Surgical",
+          "mcapB": 160,
+          "rationale": "Dominant da Vinci surgical robotics platform",
+          "core": true
+        },
+        {
+          "ticker": "DHR",
+          "name": "Danaher",
+          "mcapB": 160,
+          "rationale": "Lab automation and robotic life-science instrumentation",
+          "core": false
+        },
+        {
+          "ticker": "DE",
+          "name": "Deere & Company",
+          "mcapB": 156,
+          "rationale": "Autonomous tractors and precision agriculture robotics",
+          "core": false
+        },
+        {
+          "ticker": "HON",
+          "name": "Honeywell",
+          "mcapB": 150,
+          "rationale": "Warehouse automation, Intelligrated robotics and control systems",
+          "core": false
+        },
+        {
+          "ticker": "ARM",
+          "name": "Arm Holdings",
+          "mcapB": 150,
+          "rationale": "CPU architecture for edge AI and robotics processors",
+          "core": false
+        },
+        {
+          "ticker": "ETN",
+          "name": "Eaton",
+          "mcapB": 140,
+          "rationale": "Power management and motion control for automation",
+          "core": false
+        },
+        {
+          "ticker": "LRCX",
+          "name": "Lam Research",
+          "mcapB": 140,
+          "rationale": "Semiconductor fab equipment enabling AI/robotics chips",
+          "core": false
+        },
+        {
+          "ticker": "GEV",
+          "name": "GE Vernova",
+          "mcapB": 140,
+          "rationale": "Power and grid systems supplying AI data-center compute",
+          "core": false
+        },
+        {
+          "ticker": "ABBNY",
+          "name": "ABB Ltd",
+          "mcapB": 130,
+          "rationale": "Global leader in industrial robots and automation",
+          "core": false
+        },
+        {
+          "ticker": "KLAC",
+          "name": "KLA Corporation",
+          "mcapB": 130,
+          "rationale": "Process control equipment for advanced chip fabrication",
+          "core": false
+        },
+        {
+          "ticker": "INTC",
+          "name": "Intel",
+          "mcapB": 120,
+          "rationale": "Processors and AI accelerators for compute infrastructure",
+          "core": false
+        },
+        {
+          "ticker": "KYCCF",
+          "name": "Keyence",
+          "mcapB": 120,
+          "rationale": "Machine vision and sensors for factory automation",
+          "core": false
+        },
+        {
+          "ticker": "ADI",
+          "name": "Analog Devices",
+          "mcapB": 120,
+          "rationale": "Precision analog and motion-sensing chips for robotics",
+          "core": false
+        },
+        {
+          "ticker": "PH",
+          "name": "Parker Hannifin",
+          "mcapB": 95,
+          "rationale": "Motion and control hardware for automation systems",
+          "core": false
+        },
+        {
+          "ticker": "TT",
+          "name": "Trane Technologies",
+          "mcapB": 95,
+          "rationale": "Automated building systems and industrial controls",
+          "core": false
+        },
+        {
+          "ticker": "MIELY",
+          "name": "Mitsubishi Electric Corporation (ADR)",
+          "mcapB": 82,
+          "rationale": "~$82B diversified industrial maker and one of Japan's 'Big Five' industrial robot manufacturers alongside Fanuc (FANUY, already listed). Major factory-automation supplier of industrial robots, servos, drives, and PLCs/HMIs. Direct, sizeable robotics/automation exposure currently missing.",
+          "core": false
+        },
+        {
+          "ticker": "MRVL",
+          "name": "Marvell Technology",
+          "mcapB": 80,
+          "rationale": "Custom AI silicon and data-center connectivity",
+          "core": false
+        },
+        {
+          "ticker": "ITW",
+          "name": "Illinois Tool Works",
+          "mcapB": 80,
+          "rationale": "Industrial automation equipment and robotic welding systems",
+          "core": false
+        },
+        {
+          "ticker": "EMR",
+          "name": "Emerson Electric",
+          "mcapB": 75,
+          "rationale": "Process automation, control systems and motion hardware",
+          "core": false
+        },
+        {
+          "ticker": "VRT",
+          "name": "Vertiv Holdings",
+          "mcapB": 75,
+          "rationale": "Data-center power and cooling for AI compute",
+          "core": false
+        },
+        {
+          "ticker": "ROP",
+          "name": "Roper Technologies",
+          "mcapB": 58,
+          "rationale": "Automation software and control technology niches",
+          "core": false
+        },
+        {
+          "ticker": "NXPI",
+          "name": "NXP Semiconductors",
+          "mcapB": 55,
+          "rationale": "Automotive and edge chips for autonomous machines",
+          "core": false
+        },
+        {
+          "ticker": "AME",
+          "name": "AMETEK",
+          "mcapB": 42,
+          "rationale": "Precision motion, automation and instrumentation hardware",
+          "core": false
+        },
+        {
+          "ticker": "ROK",
+          "name": "Rockwell Automation",
+          "mcapB": 40,
+          "rationale": "Pure-play US industrial automation and control leader",
+          "core": true
+        },
+        {
+          "ticker": "FANUY",
+          "name": "Fanuc",
+          "mcapB": 35,
+          "rationale": "World-leading factory robots and CNC controls",
+          "core": false
+        },
+        {
+          "ticker": "HXGBY",
+          "name": "Hexagon AB",
+          "mcapB": 35,
+          "rationale": "Metrology, sensors and automation software",
+          "core": false
+        },
+        {
+          "ticker": "SYM",
+          "name": "Symbotic",
+          "mcapB": 30,
+          "rationale": "AI-powered warehouse robotics and automation systems",
+          "core": true
+        },
+        {
+          "ticker": "ON",
+          "name": "ON Semiconductor",
+          "mcapB": 30,
+          "rationale": "Power and sensing chips for EVs and automation",
+          "core": false
+        },
+        {
+          "ticker": "DOV",
+          "name": "Dover",
+          "mcapB": 25,
+          "rationale": "Automation components and robotic handling systems",
+          "core": false
+        },
+        {
+          "ticker": "JBL",
+          "name": "Jabil",
+          "mcapB": 24,
+          "rationale": "Automated manufacturing for AI hardware and robotics",
+          "core": false
+        },
+        {
+          "ticker": "TER",
+          "name": "Teradyne",
+          "mcapB": 22,
+          "rationale": "Automated test and Universal Robots collaborative robotics",
+          "core": false
+        },
+        {
+          "ticker": "FLEX",
+          "name": "Flex Ltd",
+          "mcapB": 20,
+          "rationale": "Automated electronics manufacturing for robotics/compute",
+          "core": false
+        },
+        {
+          "ticker": "ZBRA",
+          "name": "Zebra Technologies",
+          "mcapB": 18,
+          "rationale": "Warehouse automation, robotics and machine vision",
+          "core": false
+        },
+        {
+          "ticker": "NVT",
+          "name": "nVent Electric",
+          "mcapB": 18,
+          "rationale": "Electrical connection and protection for automation/data centers",
+          "core": false
+        },
+        {
+          "ticker": "CRDO",
+          "name": "Credo Technology",
+          "mcapB": 18,
+          "rationale": "High-speed connectivity for AI compute infrastructure",
+          "core": false
+        },
+        {
+          "ticker": "NDSN",
+          "name": "Nordson",
+          "mcapB": 12,
+          "rationale": "Precision dispensing and automated manufacturing systems",
+          "core": false
+        },
+        {
+          "ticker": "PAYC",
+          "name": "Paycom",
+          "mcapB": 12,
+          "rationale": "Automation software; included as borderline automation play",
+          "core": false
+        },
+        {
+          "ticker": "CGNX",
+          "name": "Cognex",
+          "mcapB": 7,
+          "rationale": "Machine vision systems for robotics and automation",
+          "core": false
+        },
+        {
+          "ticker": "AEIS",
+          "name": "Advanced Energy Industries",
+          "mcapB": 7,
+          "rationale": "Precision power for semiconductor and automation equipment",
+          "core": false
+        },
+        {
+          "ticker": "ENS",
+          "name": "EnerSys",
+          "mcapB": 4,
+          "rationale": "Industrial batteries for warehouse robots and AGVs",
+          "core": false
+        },
+        {
+          "ticker": "OMCL",
+          "name": "Omnicell",
+          "mcapB": 2,
+          "rationale": "Pharmacy automation and medication-dispensing robotics",
+          "core": false
+        }
+      ]
+    },
+    {
+      "key": "data",
+      "name": "Data Providers",
+      "core": [
+        "SNOW",
+        "SPGI",
+        "MCO",
+        "MSCI",
+        "RDDT"
+      ],
+      "stocks": [
+        {
+          "ticker": "CRWD",
+          "name": "CrowdStrike",
+          "mcapB": 174,
+          "rationale": "Security threat data and analytics cloud platform",
+          "core": false
+        },
+        {
+          "ticker": "APP",
+          "name": "AppLovin",
+          "mcapB": 130,
+          "rationale": "Mobile advertising data and analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "SPGI",
+          "name": "S&P Global",
+          "mcapB": 128,
+          "rationale": "Credit ratings, indices, market intelligence and financial data leader",
+          "core": true
+        },
+        {
+          "ticker": "ICE",
+          "name": "Intercontinental Exchange",
+          "mcapB": 100,
+          "rationale": "Market data, indices and fixed-income analytics",
+          "core": false
+        },
+        {
+          "ticker": "CME",
+          "name": "CME Group",
+          "mcapB": 95,
+          "rationale": "Derivatives market data and benchmark price information",
+          "core": false
+        },
+        {
+          "ticker": "DDOG",
+          "name": "Datadog",
+          "mcapB": 83,
+          "rationale": "Cloud observability and analytics data platform",
+          "core": false
+        },
+        {
+          "ticker": "SNOW",
+          "name": "Snowflake",
+          "mcapB": 82,
+          "rationale": "Cloud data warehouse and data-sharing marketplace platform",
+          "core": true
+        },
+        {
+          "ticker": "MCO",
+          "name": "Moody's",
+          "mcapB": 78,
+          "rationale": "Credit ratings and risk analytics data provider",
+          "core": true
+        },
+        {
+          "ticker": "RELX",
+          "name": "RELX PLC",
+          "mcapB": 78,
+          "rationale": "Scientific, legal and risk information analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "TRI",
+          "name": "Thomson Reuters",
+          "mcapB": 72,
+          "rationale": "Legal, tax and news/financial information services",
+          "core": false
+        },
+        {
+          "ticker": "NDAQ",
+          "name": "Nasdaq",
+          "mcapB": 48,
+          "rationale": "Indices, market data and financial analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "FICO",
+          "name": "Fair Isaac",
+          "mcapB": 45,
+          "rationale": "Credit scoring data and analytics software",
+          "core": false
+        },
+        {
+          "ticker": "MSCI",
+          "name": "MSCI",
+          "mcapB": 43,
+          "rationale": "Stock indices, ESG and portfolio analytics data",
+          "core": true
+        },
+        {
+          "ticker": "VEEV",
+          "name": "Veeva Systems",
+          "mcapB": 42,
+          "rationale": "Life-sciences cloud data and analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "TTD",
+          "name": "The Trade Desk",
+          "mcapB": 35,
+          "rationale": "Advertising data and demand-side analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "EFX",
+          "name": "Equifax",
+          "mcapB": 33,
+          "rationale": "Consumer credit data and analytics bureau",
+          "core": false
+        },
+        {
+          "ticker": "WTW",
+          "name": "Willis Towers Watson",
+          "mcapB": 32,
+          "rationale": "Risk, insurance data and actuarial analytics",
+          "core": false
+        },
+        {
+          "ticker": "RDDT",
+          "name": "Reddit",
+          "mcapB": 30,
+          "rationale": "Social content platform and data-licensing marketplace",
+          "core": true
+        },
+        {
+          "ticker": "IT",
+          "name": "Gartner",
+          "mcapB": 24,
+          "rationale": "Technology research, data and advisory information services",
+          "core": false
+        },
+        {
+          "ticker": "TYL",
+          "name": "Tyler Technologies",
+          "mcapB": 24,
+          "rationale": "Government data and information software systems",
+          "core": false
+        },
+        {
+          "ticker": "VRSK",
+          "name": "Verisk Analytics",
+          "mcapB": 22,
+          "rationale": "Insurance and risk data analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "MDB",
+          "name": "MongoDB",
+          "mcapB": 22,
+          "rationale": "Cloud database platform for application data",
+          "core": false
+        },
+        {
+          "ticker": "TRU",
+          "name": "TransUnion",
+          "mcapB": 18,
+          "rationale": "Consumer credit data and risk analytics bureau",
+          "core": false
+        },
+        {
+          "ticker": "NTNX",
+          "name": "Nutanix",
+          "mcapB": 18,
+          "rationale": "Hybrid cloud data infrastructure platform",
+          "core": false
+        },
+        {
+          "ticker": "FDS",
+          "name": "FactSet Research Systems",
+          "mcapB": 16,
+          "rationale": "Financial data and analytics workstation provider",
+          "core": false
+        },
+        {
+          "ticker": "MORN",
+          "name": "Morningstar",
+          "mcapB": 14,
+          "rationale": "Investment research, fund data and ratings provider",
+          "core": false
+        },
+        {
+          "ticker": "CSGP",
+          "name": "CoStar Group",
+          "mcapB": 12.4,
+          "rationale": "Leading provider of commercial real estate data, analytics and information services, plus data-driven marketplaces (CoStar Suite, LoopNet, Apartments.com, BizBuySell). ~75% subscription revenue. Squarely a business-data and content/data-marketplace company; a clear, sizeable omission alongside peers like VRSK, EFX and TRU.",
+          "core": false
+        },
+        {
+          "ticker": "TTAN",
+          "name": "ServiceTitan",
+          "mcapB": 12,
+          "rationale": "Trades software with operational business data analytics",
+          "core": false
+        },
+        {
+          "ticker": "PEGA",
+          "name": "Pegasystems",
+          "mcapB": 12,
+          "rationale": "Decisioning and customer data analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "PCOR",
+          "name": "Procore",
+          "mcapB": 11,
+          "rationale": "Construction data and project analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "NICE",
+          "name": "NICE Ltd",
+          "mcapB": 11,
+          "rationale": "Customer-interaction data and analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "ESTC",
+          "name": "Elastic",
+          "mcapB": 9,
+          "rationale": "Search and observability data analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "EXLS",
+          "name": "ExlService",
+          "mcapB": 9,
+          "rationale": "Data analytics and digital operations services",
+          "core": false
+        },
+        {
+          "ticker": "DAY",
+          "name": "Dayforce",
+          "mcapB": 9,
+          "rationale": "Human capital workforce data and analytics",
+          "core": false
+        },
+        {
+          "ticker": "CFLT",
+          "name": "Confluent",
+          "mcapB": 8,
+          "rationale": "Real-time data streaming platform built on Kafka",
+          "core": false
+        },
+        {
+          "ticker": "INFA",
+          "name": "Informatica",
+          "mcapB": 8,
+          "rationale": "Enterprise data management and integration platform",
+          "core": false
+        },
+        {
+          "ticker": "FOUR",
+          "name": "Shift4 Payments",
+          "mcapB": 8,
+          "rationale": "Payments data and commerce analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "DBX",
+          "name": "Dropbox",
+          "mcapB": 8,
+          "rationale": "Cloud content storage and data collaboration platform",
+          "core": false
+        },
+        {
+          "ticker": "G",
+          "name": "Genpact",
+          "mcapB": 7,
+          "rationale": "Data-driven analytics and business process services",
+          "core": false
+        },
+        {
+          "ticker": "S",
+          "name": "SentinelOne",
+          "mcapB": 7,
+          "rationale": "Security data and threat analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "DNB",
+          "name": "Dun & Bradstreet",
+          "mcapB": 5,
+          "rationale": "Business credit and commercial data provider",
+          "core": false
+        },
+        {
+          "ticker": "VERX",
+          "name": "Vertex",
+          "mcapB": 5,
+          "rationale": "Tax data and compliance analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "WK",
+          "name": "Workiva",
+          "mcapB": 5,
+          "rationale": "Connected reporting and regulatory data platform",
+          "core": false
+        },
+        {
+          "ticker": "VRNS",
+          "name": "Varonis Systems",
+          "mcapB": 5,
+          "rationale": "Data security posture and analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "BOX",
+          "name": "Box",
+          "mcapB": 5,
+          "rationale": "Cloud content management and data platform",
+          "core": false
+        },
+        {
+          "ticker": "BRZE",
+          "name": "Braze",
+          "mcapB": 4,
+          "rationale": "Customer engagement data platform and analytics",
+          "core": false
+        },
+        {
+          "ticker": "ZI",
+          "name": "ZoomInfo",
+          "mcapB": 4,
+          "rationale": "B2B contact and company data marketplace",
+          "core": false
+        },
+        {
+          "ticker": "CLVT",
+          "name": "Clarivate",
+          "mcapB": 3,
+          "rationale": "Scientific, IP and academic data analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "DV",
+          "name": "DoubleVerify",
+          "mcapB": 3,
+          "rationale": "Digital advertising data verification and analytics",
+          "core": false
+        },
+        {
+          "ticker": "BL",
+          "name": "BlackLine",
+          "mcapB": 3,
+          "rationale": "Financial close and accounting data analytics",
+          "core": false
+        },
+        {
+          "ticker": "ALRM",
+          "name": "Alarm.com",
+          "mcapB": 3,
+          "rationale": "Connected-property data and analytics platform",
+          "core": false
+        },
+        {
+          "ticker": "TDC",
+          "name": "Teradata",
+          "mcapB": 3,
+          "rationale": "Enterprise data warehouse and analytics provider",
+          "core": false
+        },
+        {
+          "ticker": "AMPL",
+          "name": "Amplitude",
+          "mcapB": 2,
+          "rationale": "Digital product analytics and behavioral data",
+          "core": false
+        },
+        {
+          "ticker": "CRTO",
+          "name": "Criteo",
+          "mcapB": 2,
+          "rationale": "Commerce advertising data and analytics platform",
+          "core": false
+        }
+      ]
+    },
+    {
+      "key": "enterpriseai",
+      "name": "Enterprise AI",
+      "core": [
+        "NOW",
+        "PLTR",
+        "MSFT",
+        "CRM",
+        "PATH"
+      ],
+      "stocks": [
+        {
+          "ticker": "MSFT",
+          "name": "Microsoft",
+          "mcapB": 3500,
+          "rationale": "Azure cloud, Copilot AI, enterprise software at scale",
+          "core": true
+        },
+        {
+          "ticker": "ORCL",
+          "name": "Oracle",
+          "mcapB": 540,
+          "rationale": "Cloud infrastructure and AI-enabled enterprise databases/apps",
+          "core": false
+        },
+        {
+          "ticker": "CSCO",
+          "name": "Cisco Systems",
+          "mcapB": 478,
+          "rationale": "Mega-cap enterprise infrastructure vendor with large and growing software/SaaS exposure: networking, AI-ready data center fabric, plus security and observability via Splunk. Core enterprise IT/AI-infrastructure supplier; a clear omission given its size.",
+          "core": false
+        },
+        {
+          "ticker": "PLTR",
+          "name": "Palantir Technologies",
+          "mcapB": 340,
+          "rationale": "AIP platform for enterprise/government AI automation",
+          "core": true
+        },
+        {
+          "ticker": "CRM",
+          "name": "Salesforce",
+          "mcapB": 250,
+          "rationale": "CRM SaaS leader; Agentforce AI agents for enterprise",
+          "core": true
+        },
+        {
+          "ticker": "PANW",
+          "name": "Palo Alto Networks",
+          "mcapB": 230,
+          "rationale": "AI-driven enterprise cybersecurity platform leader",
+          "core": false
+        },
+        {
+          "ticker": "SAP",
+          "name": "SAP SE",
+          "mcapB": 190,
+          "rationale": "Enterprise ERP/SaaS embedding AI (Joule) for business",
+          "core": false
+        },
+        {
+          "ticker": "SHOP",
+          "name": "Shopify",
+          "mcapB": 160,
+          "rationale": "Commerce SaaS platform adding AI merchant automation",
+          "core": false
+        },
+        {
+          "ticker": "ADBE",
+          "name": "Adobe",
+          "mcapB": 160,
+          "rationale": "Creative/document SaaS with Firefly generative AI",
+          "core": false
+        },
+        {
+          "ticker": "ANET",
+          "name": "Arista Networks",
+          "mcapB": 150,
+          "rationale": "AI-data-center networking and cloud infrastructure software",
+          "core": false
+        },
+        {
+          "ticker": "ADP",
+          "name": "Automatic Data Processing",
+          "mcapB": 120,
+          "rationale": "HR/payroll SaaS with AI-driven workforce automation",
+          "core": false
+        },
+        {
+          "ticker": "NOW",
+          "name": "ServiceNow",
+          "mcapB": 105,
+          "rationale": "Workflow automation platform with embedded enterprise AI",
+          "core": true
+        },
+        {
+          "ticker": "DASH",
+          "name": "DoorDash",
+          "mcapB": 95,
+          "rationale": "Logistics platform applying AI automation at scale",
+          "core": false
+        },
+        {
+          "ticker": "CDNS",
+          "name": "Cadence Design Systems",
+          "mcapB": 80,
+          "rationale": "AI-powered EDA and design automation software",
+          "core": false
+        },
+        {
+          "ticker": "SNPS",
+          "name": "Synopsys",
+          "mcapB": 75,
+          "rationale": "AI-driven chip design EDA software for enterprises",
+          "core": false
+        },
+        {
+          "ticker": "FTNT",
+          "name": "Fortinet",
+          "mcapB": 75,
+          "rationale": "AI-enhanced network and enterprise cybersecurity",
+          "core": false
+        },
+        {
+          "ticker": "WDAY",
+          "name": "Workday",
+          "mcapB": 65,
+          "rationale": "HR/finance SaaS embedding AI for enterprises",
+          "core": false
+        },
+        {
+          "ticker": "NET",
+          "name": "Cloudflare",
+          "mcapB": 60,
+          "rationale": "Edge cloud platform with AI inference and security",
+          "core": false
+        },
+        {
+          "ticker": "TEAM",
+          "name": "Atlassian",
+          "mcapB": 55,
+          "rationale": "Developer/collaboration SaaS with Rovo AI tooling",
+          "core": false
+        },
+        {
+          "ticker": "ZS",
+          "name": "Zscaler",
+          "mcapB": 45,
+          "rationale": "Zero-trust cloud security with AI threat detection",
+          "core": false
+        },
+        {
+          "ticker": "TWLO",
+          "name": "Twilio",
+          "mcapB": 31,
+          "rationale": "Programmable customer-engagement and communications platform sold to businesses, with AI products (CustomerAI) and strong developer-tooling/API positioning. Fits business-process automation and developer tooling for enterprises.",
+          "core": false
+        },
+        {
+          "ticker": "HUBS",
+          "name": "HubSpot",
+          "mcapB": 28,
+          "rationale": "CRM/marketing SaaS with Breeze AI agents",
+          "core": false
+        },
+        {
+          "ticker": "ZM",
+          "name": "Zoom Communications",
+          "mcapB": 26,
+          "rationale": "Enterprise SaaS communications/collaboration platform actively repositioning around AI (AI Companion, Contact Center, Workplace agents) sold to businesses. Sizeable and increasingly an AI-for-enterprise productivity play.",
+          "core": false
+        },
+        {
+          "ticker": "NTAP",
+          "name": "NetApp",
+          "mcapB": 24,
+          "rationale": "Data storage infrastructure for enterprise AI workloads",
+          "core": false
+        },
+        {
+          "ticker": "AKAM",
+          "name": "Akamai Technologies",
+          "mcapB": 21,
+          "rationale": "Enterprise cloud/edge platform pivoting to security and cloud compute (web app/API protection, edge AI inference, cloud services) sold to businesses. Relevant cloud-infrastructure + cybersecurity name of meaningful size.",
+          "core": false
+        },
+        {
+          "ticker": "PSTG",
+          "name": "Pure Storage",
+          "mcapB": 20,
+          "rationale": "Flash storage infrastructure powering enterprise AI",
+          "core": false
+        },
+        {
+          "ticker": "CHKP",
+          "name": "Check Point Software",
+          "mcapB": 19,
+          "rationale": "Pure-play enterprise cybersecurity vendor (network security, cloud security, AI-driven threat prevention). Directly in the cybersecurity slice of the theme and sizeable; CRWD/ZS/PANW/FTNT are already covered, this fills an obvious gap.",
+          "core": false
+        },
+        {
+          "ticker": "GWRE",
+          "name": "Guidewire",
+          "mcapB": 18,
+          "rationale": "Insurance SaaS platform embedding AI/analytics",
+          "core": false
+        },
+        {
+          "ticker": "DT",
+          "name": "Dynatrace",
+          "mcapB": 15,
+          "rationale": "AI-powered observability and application monitoring software",
+          "core": false
+        },
+        {
+          "ticker": "IOT",
+          "name": "Samsara",
+          "mcapB": 15,
+          "rationale": "Connected operations cloud with AI fleet automation",
+          "core": false
+        },
+        {
+          "ticker": "OKTA",
+          "name": "Okta",
+          "mcapB": 15,
+          "rationale": "Identity security platform for enterprise AI access",
+          "core": false
+        },
+        {
+          "ticker": "BSY",
+          "name": "Bentley Systems",
+          "mcapB": 15,
+          "rationale": "Infrastructure engineering software with AI digital twins",
+          "core": false
+        },
+        {
+          "ticker": "GTLB",
+          "name": "GitLab",
+          "mcapB": 10,
+          "rationale": "DevSecOps platform with AI-assisted developer tooling",
+          "core": false
+        },
+        {
+          "ticker": "BILL",
+          "name": "BILL Holdings",
+          "mcapB": 6,
+          "rationale": "AI-driven financial operations automation for businesses",
+          "core": false
+        },
+        {
+          "ticker": "GLBE",
+          "name": "Global-E Online",
+          "mcapB": 6,
+          "rationale": "Cross-border commerce SaaS with AI localization",
+          "core": false
+        },
+        {
+          "ticker": "PATH",
+          "name": "UiPath",
+          "mcapB": 5,
+          "rationale": "RPA and agentic AI business-process automation leader",
+          "core": true
+        },
+        {
+          "ticker": "KVYO",
+          "name": "Klaviyo",
+          "mcapB": 5,
+          "rationale": "Marketing automation SaaS with AI personalization",
+          "core": false
+        },
+        {
+          "ticker": "FROG",
+          "name": "JFrog",
+          "mcapB": 4,
+          "rationale": "DevOps software supply-chain platform with AI tooling",
+          "core": false
+        },
+        {
+          "ticker": "FRSH",
+          "name": "Freshworks",
+          "mcapB": 4,
+          "rationale": "Customer/IT service SaaS with AI agents",
+          "core": false
+        },
+        {
+          "ticker": "AI",
+          "name": "C3.ai",
+          "mcapB": 3,
+          "rationale": "Enterprise AI application software platform",
+          "core": false
+        },
+        {
+          "ticker": "APPN",
+          "name": "Appian",
+          "mcapB": 3,
+          "rationale": "Low-code process automation platform with AI",
+          "core": false
+        },
+        {
+          "ticker": "PD",
+          "name": "PagerDuty",
+          "mcapB": 2,
+          "rationale": "AI-driven incident response and operations automation",
+          "core": false
+        }
+      ]
+    },
+    {
+      "key": "personalai",
+      "name": "Personal AI",
+      "core": [
+        "AAPL",
+        "AMZN",
+        "META",
+        "GOOGL",
+        "IBM"
+      ],
+      "stocks": [
+        {
+          "ticker": "GOOGL",
+          "name": "Alphabet Inc.",
+          "mcapB": 4630,
+          "rationale": "Gemini AI, Search, Android, Pixel devices and Assistant",
+          "core": true
+        },
+        {
+          "ticker": "AAPL",
+          "name": "Apple Inc.",
+          "mcapB": 4350,
+          "rationale": "iPhone, Apple Intelligence, Siri; flagship personal AI devices",
+          "core": true
+        },
+        {
+          "ticker": "AMZN",
+          "name": "Amazon.com Inc.",
+          "mcapB": 2870,
+          "rationale": "Alexa, Echo devices, AI shopping assistant Rufus",
+          "core": true
+        },
+        {
+          "ticker": "META",
+          "name": "Meta Platforms Inc.",
+          "mcapB": 1700,
+          "rationale": "Meta AI assistant, smart glasses, consumer social apps",
+          "core": true
+        },
+        {
+          "ticker": "SSNLF",
+          "name": "Samsung Electronics Co.",
+          "mcapB": 1549,
+          "rationale": "Galaxy AI phones, consumer devices with embedded AI",
+          "core": false
+        },
+        {
+          "ticker": "WMT",
+          "name": "Walmart Inc.",
+          "mcapB": 820,
+          "rationale": "Consumer retail AI shopping assistant Sparky and tools",
+          "core": false
+        },
+        {
+          "ticker": "NFLX",
+          "name": "Netflix Inc.",
+          "mcapB": 331,
+          "rationale": "AI-driven recommendations, consumer streaming personalization",
+          "core": false
+        },
+        {
+          "ticker": "BABA",
+          "name": "Alibaba Group Holding",
+          "mcapB": 320,
+          "rationale": "Consumer commerce with Qwen AI assistant and apps",
+          "core": false
+        },
+        {
+          "ticker": "IBM",
+          "name": "International Business Machines",
+          "mcapB": 250,
+          "rationale": "watsonx AI platform; core anchor for theme",
+          "core": true
+        },
+        {
+          "ticker": "DIS",
+          "name": "Walt Disney Company",
+          "mcapB": 200,
+          "rationale": "Large US-listed consumer media and streaming platform (Disney+, Hulu) using AI for content recommendations and personalization; a clear consumer-facing AI media name not present on the list or reserved.",
+          "core": false
+        },
+        {
+          "ticker": "PDD",
+          "name": "PDD Holdings Inc.",
+          "mcapB": 160,
+          "rationale": "Temu/Pinduoduo consumer commerce with AI recommendations",
+          "core": false
+        },
+        {
+          "ticker": "UBER",
+          "name": "Uber Technologies Inc.",
+          "mcapB": 144,
+          "rationale": "AI-powered consumer mobility and delivery assistant",
+          "core": false
+        },
+        {
+          "ticker": "SONY",
+          "name": "Sony Group Corp.",
+          "mcapB": 120,
+          "rationale": "Consumer electronics, PlayStation, AI-embedded devices",
+          "core": false
+        },
+        {
+          "ticker": "SE",
+          "name": "Sea Limited",
+          "mcapB": 110,
+          "rationale": "Shopee consumer commerce with AI personalization in Asia",
+          "core": false
+        },
+        {
+          "ticker": "SPOT",
+          "name": "Spotify Technology S.A.",
+          "mcapB": 102,
+          "rationale": "AI DJ, personalized music recommendations for consumers",
+          "core": false
+        },
+        {
+          "ticker": "RBLX",
+          "name": "Roblox Corp.",
+          "mcapB": 90,
+          "rationale": "Consumer gaming platform with generative AI creation tools",
+          "core": false
+        },
+        {
+          "ticker": "NTDOY",
+          "name": "Nintendo Co. Ltd.",
+          "mcapB": 90,
+          "rationale": "Consumer gaming hardware with AI-enhanced experiences",
+          "core": false
+        },
+        {
+          "ticker": "DELL",
+          "name": "Dell Technologies Inc.",
+          "mcapB": 90,
+          "rationale": "AI-enabled consumer PCs and personal computing devices",
+          "core": false
+        },
+        {
+          "ticker": "ABNB",
+          "name": "Airbnb Inc.",
+          "mcapB": 80,
+          "rationale": "AI travel concierge, consumer booking personalization",
+          "core": false
+        },
+        {
+          "ticker": "NTES",
+          "name": "NetEase Inc.",
+          "mcapB": 80,
+          "rationale": "Consumer gaming with AI-driven experiences in China",
+          "core": false
+        },
+        {
+          "ticker": "CPNG",
+          "name": "Coupang Inc.",
+          "mcapB": 55,
+          "rationale": "Korean consumer commerce with AI-powered personalization",
+          "core": false
+        },
+        {
+          "ticker": "JD",
+          "name": "JD.com Inc.",
+          "mcapB": 50,
+          "rationale": "Consumer e-commerce with AI shopping personalization",
+          "core": false
+        },
+        {
+          "ticker": "GRMN",
+          "name": "Garmin Ltd.",
+          "mcapB": 46,
+          "rationale": "Consumer wearables and devices with embedded AI",
+          "core": false
+        },
+        {
+          "ticker": "BIDU",
+          "name": "Baidu Inc.",
+          "mcapB": 40,
+          "rationale": "Ernie AI assistant, consumer search and devices in China",
+          "core": false
+        },
+        {
+          "ticker": "WBD",
+          "name": "Warner Bros. Discovery",
+          "mcapB": 40,
+          "rationale": "Max streaming with AI consumer content personalization",
+          "core": false
+        },
+        {
+          "ticker": "FIG",
+          "name": "Figma Inc.",
+          "mcapB": 35,
+          "rationale": "AI design tools for consumers and creators",
+          "core": false
+        },
+        {
+          "ticker": "EBAY",
+          "name": "eBay Inc.",
+          "mcapB": 33,
+          "rationale": "AI shopping tools and listing assistants for consumers",
+          "core": false
+        },
+        {
+          "ticker": "PINS",
+          "name": "Pinterest Inc.",
+          "mcapB": 28,
+          "rationale": "AI visual search and personalized consumer discovery",
+          "core": false
+        },
+        {
+          "ticker": "HPQ",
+          "name": "HP Inc.",
+          "mcapB": 25,
+          "rationale": "AI PCs and consumer computing devices",
+          "core": false
+        },
+        {
+          "ticker": "GRAB",
+          "name": "Grab Holdings Ltd.",
+          "mcapB": 22,
+          "rationale": "Southeast Asia consumer super-app with AI assistant",
+          "core": false
+        },
+        {
+          "ticker": "DKNG",
+          "name": "DraftKings Inc.",
+          "mcapB": 20,
+          "rationale": "AI personalization in consumer betting and gaming app",
+          "core": false
+        },
+        {
+          "ticker": "SNAP",
+          "name": "Snap Inc.",
+          "mcapB": 18,
+          "rationale": "My AI chatbot, AR consumer features, smart glasses",
+          "core": false
+        },
+        {
+          "ticker": "DUOL",
+          "name": "Duolingo Inc.",
+          "mcapB": 18,
+          "rationale": "AI tutor, consumer language learning personalization",
+          "core": false
+        },
+        {
+          "ticker": "LOGI",
+          "name": "Logitech International",
+          "mcapB": 16,
+          "rationale": "Consumer peripherals integrating AI-enhanced features",
+          "core": false
+        },
+        {
+          "ticker": "CHWY",
+          "name": "Chewy Inc.",
+          "mcapB": 15,
+          "rationale": "AI consumer pet commerce personalization and assistants",
+          "core": false
+        },
+        {
+          "ticker": "ROKU",
+          "name": "Roku Inc.",
+          "mcapB": 13,
+          "rationale": "Consumer streaming devices with AI content recommendations",
+          "core": false
+        },
+        {
+          "ticker": "PARA",
+          "name": "Paramount Global",
+          "mcapB": 11,
+          "rationale": "Streaming consumer platforms with AI recommendation engines",
+          "core": false
+        },
+        {
+          "ticker": "GME",
+          "name": "GameStop Corp.",
+          "mcapB": 9,
+          "rationale": "Consumer gaming retail with emerging AI initiatives",
+          "core": false
+        },
+        {
+          "ticker": "BILI",
+          "name": "Bilibili Inc.",
+          "mcapB": 9,
+          "rationale": "Consumer video community with AI content features",
+          "core": false
+        },
+        {
+          "ticker": "MTCH",
+          "name": "Match Group Inc.",
+          "mcapB": 8,
+          "rationale": "AI-driven matching across consumer dating apps",
+          "core": false
+        },
+        {
+          "ticker": "ETSY",
+          "name": "Etsy Inc.",
+          "mcapB": 7,
+          "rationale": "AI search and recommendations for consumer marketplace",
+          "core": false
+        },
+        {
+          "ticker": "LYFT",
+          "name": "Lyft Inc.",
+          "mcapB": 7,
+          "rationale": "AI-powered consumer rideshare matching and assistance",
+          "core": false
+        },
+        {
+          "ticker": "WIX",
+          "name": "Wix.com Ltd.",
+          "mcapB": 7,
+          "rationale": "AI website builder for consumers and creators",
+          "core": false
+        },
+        {
+          "ticker": "PTON",
+          "name": "Peloton Interactive Inc.",
+          "mcapB": 3,
+          "rationale": "AI-powered personal fitness coaching and consumer hardware",
+          "core": false
+        },
+        {
+          "ticker": "BB",
+          "name": "BlackBerry Ltd.",
+          "mcapB": 3,
+          "rationale": "AI-embedded consumer connected-car and IoT software",
+          "core": false
+        },
+        {
+          "ticker": "YELP",
+          "name": "Yelp Inc.",
+          "mcapB": 2,
+          "rationale": "AI-assisted consumer local discovery and recommendations",
+          "core": false
+        },
+        {
+          "ticker": "LZ",
+          "name": "LegalZoom.com Inc.",
+          "mcapB": 2,
+          "rationale": "AI-assisted legal services for consumers",
+          "core": false
+        },
+        {
+          "ticker": "VZIO",
+          "name": "Vizio Holding Corp.",
+          "mcapB": 2,
+          "rationale": "Consumer smart TVs with AI content recommendation",
+          "core": false
+        },
+        {
+          "ticker": "SONO",
+          "name": "Sonos Inc.",
+          "mcapB": 1.5,
+          "rationale": "Consumer smart speakers with voice and AI integration",
+          "core": false
+        },
+        {
+          "ticker": "BMBL",
+          "name": "Bumble Inc.",
+          "mcapB": 1,
+          "rationale": "AI matchmaking features in consumer dating app",
+          "core": false
+        }
+      ]
+    }
+  ]
+}

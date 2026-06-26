@@ -1,0 +1,52 @@
+{
+  "project": "Stock Portfolio Builder",
+  "updated": "2026-06-18",
+  "tagline": "Project board — features flow left→right through the pipeline. Edit this file (docs/board.json) and run tools/render_dashboard.py to update both DASHBOARD.md and dashboard.html.",
+  "stages": [
+    { "key": "ideation",       "label": "Ideation",       "desc": "A half-baked idea; can be pushed further down once fleshed out." },
+    { "key": "design",         "label": "Design",         "desc": "Detailed requirements captured; a spec exists in docs/features/." },
+    { "key": "implementation", "label": "Implementation", "desc": "Being built on the dev branch." },
+    { "key": "testing",        "label": "Testing",        "desc": "Built; waiting for you to try it." },
+    { "key": "refinement",     "label": "Refinement",     "desc": "Tested but not yet approved; new instructions → back to Implementation." },
+    { "key": "integration",    "label": "Integration",    "desc": "Approved; merging dev → main (prod) + updating docs." },
+    { "key": "done",           "label": "Done",           "desc": "Integrated into the product (on main)." }
+  ],
+  "epics": [
+    { "key": "core", "name": "Core tool (shipped)",      "color": "#13605C" },
+    { "key": "E1",   "name": "E1 · User-Defined Themes", "color": "#3A6EA5" }
+  ],
+  "items": [
+    { "id": "C1",  "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": "PEG / EV-EBITDA / Debt-FCF / P-E (cheaper⇒higher) + log avg market cap + price momentum; adjustable weights (20/20/20/15/10/15); 30% per-theme cap; equal-weight within theme." },
+    { "id": "C2",  "epic": "core", "stage": "done", "title": "Bad / missing data handling", "notes": "Reported-negative ⇒ penalty (prem); not-applicable (banks) ⇒ quality carry-over (qual); missing-but-computable ⇒ derive from TTM statements (calc); manual cell overrides (ovr)." },
+    { "id": "C3",  "epic": "core", "stage": "done", "title": "Free live-data layer (Yahoo)", "notes": "No keys. Quotes + fundamentals, ~15s/6h caching, embedded seed fallback. Web via server.py proxy; iOS on-device via CapacitorHttp." },
+    { "id": "C4",  "epic": "core", "stage": "done", "title": "Calculator / Rebalance", "notes": "Build initial · full rebalance (buys+sells) · cash-only · realign-only; self-funding (net = cash added)." },
+    { "id": "C5",  "epic": "core", "stage": "done", "title": "Version history (undo/redo/revert)", "notes": "Every build/rebalance is a checkpoint snapshotting holdings + settings + theme membership; git-style fork." },
+    { "id": "C6",  "epic": "core", "stage": "done", "title": "Prices tab", "notes": "Live prices grouped by theme; per-theme value & weight once a portfolio exists." },
+    { "id": "C7",  "epic": "core", "stage": "done", "title": "Screener tab", "notes": "Top ~50 by live market cap per theme, mutually exclusive across themes; curated universe (tools/build_universe.py)." },
+    { "id": "C8",  "epic": "core", "stage": "done", "title": "Swap a stock in", "notes": "Tap a screener stock ⇒ replace a same-theme holding ⇒ full realign ⇒ Apply & save (undoable checkpoint)." },
+    { "id": "C9",  "epic": "core", "stage": "done", "title": "Dynamic theme membership", "notes": "state.themeTickers (persisted + snapshotted); tickersOf / membership / tradeUniverse. Foundation the E1 epic builds on." },
+    { "id": "C10", "epic": "core", "stage": "done", "title": "Cross-platform: web + iOS", "notes": "One www/ codebase; platform-agnostic data layer; Capacitor iOS wrapper; LAN sync; .native UI skin. (iOS build is the Mac's domain.)" },
+
+    { "id": "E1.1", "epic": "E1", "stage": "design", "platform": "web", "spec": "docs/features/E1.1_data-driven-themes.md",
+      "title": "Data-driven theme list (foundation)",
+      "notes": "state.themes replaces the hardcoded THEMES; engine + all tabs iterate it; 30% cap & 20% equal-weight base derive from N themes; persisted + version-snapshotted + migration. Invisible & regression-safe (defaults to the current 5)." },
+    { "id": "E1.2", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1",
+      "title": "Add / remove a single ticker in a theme",
+      "notes": "Generalize Swap into independent add & remove primitives + minimal UI." },
+    { "id": "E1.3", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.2",
+      "title": "Ticker search & validate",
+      "notes": "Search any symbol (even outside the curated universe) → validate via Yahoo → preview → add to a chosen theme." },
+    { "id": "E1.4", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1",
+      "title": "Create a new theme",
+      "notes": "Name + colour; appears across all tabs; starts empty." },
+    { "id": "E1.5", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
+      "title": "Rename / recolour a theme",
+      "notes": "Edit a theme's name and colour." },
+    { "id": "E1.6", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
+      "title": "Delete a theme / delete-all / restore defaults",
+      "notes": "Removing a theme makes its held names exiting positions (liquidate on realign). Plus reset-to-default-5." },
+    { "id": "E1.7", "epic": "E1", "stage": "ideation", "platform": "web", "depends": "E1.3",
+      "title": "Similar-stock recommendations",
+      "notes": "For any theme (esp. custom), recommend names similar to its picks. Likely method: live sector/industry-peer expansion via Yahoo, ranked by the 6-factor model (works free on web AND on-device iOS). Method to be finalized at design." }
+  ]
+}

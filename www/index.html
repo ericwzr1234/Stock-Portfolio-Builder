@@ -1,0 +1,1508 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portfolio Builder</title>
+<style>
+  :root{
+    --cream:#F7F3EA; --paper:#FFFFFF; --ink:#1E2A2A; --muted:#6B7472;
+    --line:#E2DCCE; --line2:#EDE8DB;
+    --teal:#13605C; --teal-d:#0E4A47; --blue:#3A6EA5; --sage:#7E9C84;
+    --slate:#5B6B8C; --gold:#B0894F;
+    --buy:#13605C; --sell:#B25640; --pos:#1F7A50; --neg:#B25640;
+    --chip:#F0EADD;
+    --shadow:0 1px 2px rgba(30,42,42,.06),0 6px 18px rgba(30,42,42,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--cream);color:var(--ink);
+    font-family:"Segoe UI",Inter,Roboto,system-ui,-apple-system,sans-serif;
+    font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;font-weight:650;letter-spacing:.1px}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  a{color:var(--blue)}
+  button{font-family:inherit}
+
+  header.top{position:sticky;top:0;z-index:30;background:rgba(247,243,234,.92);
+    backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid var(--line)}
+  .top-in{max-width:1180px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand .mark{font-weight:750;font-size:18px;color:var(--teal)}
+  .brand .sub{color:var(--muted);font-size:12px}
+  .status{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#bbb;box-shadow:0 0 0 3px rgba(0,0,0,.04)}
+  .dot.open{background:#2bb673}.dot.pre,.dot.post{background:var(--gold)}.dot.closed{background:#b6b6b6}
+  .spacer{flex:1}
+  .ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  select,input[type=number]{font-family:inherit;font-size:13px;color:var(--ink);background:var(--paper);
+    border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+  input[type=number]{width:120px}
+  .btn{cursor:pointer;border:1px solid var(--line);background:var(--paper);color:var(--ink);
+    border-radius:8px;padding:7px 13px;font-size:13px;font-weight:550;transition:.12s}
+  .btn:hover{border-color:var(--teal);color:var(--teal)}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.primary:hover{background:var(--teal-d);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.danger:hover{border-color:var(--sell);color:var(--sell)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.sm{padding:4px 9px;font-size:12px}
+
+  nav.tabs{max-width:1180px;margin:0 auto;padding:0 22px;display:flex;gap:4px}
+  nav.tabs button{border:none;background:none;padding:12px 4px;margin-right:18px;cursor:pointer;
+    font-size:14px;font-weight:600;color:var(--muted);border-bottom:2.5px solid transparent}
+  nav.tabs button.active{color:var(--teal);border-bottom-color:var(--teal)}
+
+  main{max-width:1180px;margin:0 auto;padding:20px 22px 80px}
+  .view{display:none}.view.active{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+  .pad{padding:16px 18px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}.xs{font-size:11px}
+  .tag{display:inline-block;font-size:10.5px;font-weight:650;letter-spacing:.4px;text-transform:uppercase;
+    padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--muted)}
+  .tag.seed{background:#F4E7CF;color:#8a6d2f}
+  .tag.live{background:#E0EFE4;color:#2c6b46}
+  .tag.ovr{background:#E4ECF6;color:#33567e}
+  .tag.pen{background:#F6E2DC;color:#a24a33}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--muted);font-weight:600}
+
+  /* summary band */
+  .band{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .stat{padding:14px 16px}
+  .stat .k{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .stat .v{font-size:23px;font-weight:700;margin-top:3px}
+  .stat .d{font-size:12px;margin-top:2px}
+
+  /* theme grids */
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(470px,1fr));gap:14px}
+  .theme{overflow:hidden}
+  .theme .head{display:flex;align-items:center;justify-content:space-between;padding:12px 15px;border-bottom:1px solid var(--line2)}
+  .theme .head .lhs{display:flex;align-items:center;gap:9px}
+  .swatch{width:11px;height:11px;border-radius:3px}
+  .theme .head h3{font-size:14.5px}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:right;padding:8px 15px;font-size:13px;border-bottom:1px solid var(--line2)}
+  .theme th,.theme td{padding-left:6px;padding-right:6px}
+  .tag.na{background:#ECEAE4;color:#7a7a72}
+  .tag.calc{background:#E0EFEA;color:#2c6b5e}
+  .tag.qual{background:#E6E2F2;color:#5b4a8c}
+  th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;
+    border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  tr:last-child td{border-bottom:none}
+  td.sym{font-weight:650}
+  td .co{color:var(--muted);font-weight:400;font-size:11px;display:block;margin-top:1px}
+  .up{color:var(--pos)}.down{color:var(--neg)}
+  tfoot td{font-weight:650;background:#FBF9F3;border-top:1px solid var(--line)}
+  .editable{cursor:text;border-bottom:1px dashed var(--blue);padding-bottom:1px}
+  .editable:hover{border-bottom-color:var(--blue);color:var(--blue)}
+  .editable:hover::after{content:"✎";font-size:10px;margin-left:3px;opacity:.7}
+  .reset{cursor:pointer;color:var(--muted);margin-left:5px;font-size:12px;line-height:1}
+  .reset:hover{color:var(--sell)}
+  .vbanner{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#EDF2EF;border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:12.5px}
+  .vbanner.warn{background:#FBF3E2;border-color:#ECDFC0;color:#6f5a2a}
+  .vcard.cur{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset}
+  .vcard.fut{opacity:.6;border-style:dashed}
+  .tag.fut{background:#EDEBE6;color:#8a8a82}
+
+  /* allocation bars */
+  .allocbar{height:13px;border-radius:7px;background:var(--line2);overflow:hidden;display:flex;width:100%}
+  .allocbar > span{height:100%}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px}
+  .legend .it{display:flex;align-items:center;gap:6px;font-size:12px}
+
+  .section-title{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
+  .section-title h2{font-size:16px}
+  .hint{background:#FBF6E9;border:1px solid #ECE0C2;color:#6f5a2a;border-radius:9px;padding:9px 12px;font-size:12.5px}
+  .note{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+  @media(max-width:880px){.grid2{grid-template-columns:1fr}.band{grid-template-columns:repeat(2,1fr)}}
+
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--muted);font-weight:600}
+  .slider-row{display:flex;align-items:center;gap:12px;margin:6px 0}
+  input[type=range]{flex:1;accent-color:var(--teal)}
+
+  .trade-buy{color:var(--buy);font-weight:650}
+  .trade-sell{color:var(--sell);font-weight:650}
+  .trade-hold{color:var(--muted)}
+  .badge-action{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px}
+  .badge-buy{background:#E0EFE9;color:var(--buy)}
+  .badge-sell{background:#F6E5E0;color:var(--sell)}
+  .badge-hold{background:#EFEFEC;color:var(--muted)}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 18px;border-radius:9px;font-size:13px;box-shadow:var(--shadow);opacity:0;pointer-events:none;
+    transition:.2s;z-index:60}
+  .toast.show{opacity:1}
+  .drift{display:inline-block;min-width:46px}
+  details.exp{margin-top:8px}
+  details.exp summary{cursor:pointer;color:var(--muted);font-size:12px}
+  .kvs{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px;margin-top:6px}
+  .kvs .kk{color:var(--muted)}
+  .right{text-align:right}.center{text-align:center}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  code.mono{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12px}
+
+  /* screener + swap modal */
+  .screener-row{cursor:pointer}
+  .screener-row:hover{background:#FBF9F3}
+  .screener-row td{vertical-align:middle}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
+  .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
+  .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+  .swap-opt{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid var(--line2);border-radius:9px;cursor:pointer}
+  .swap-opt:hover{border-color:var(--teal)}
+  .swap-opt input{accent-color:var(--teal)}
+  .swap-opt .spacer{flex:1}
+
+  /* ====================================================================
+     iOS / native app skin — applied ONLY inside the Capacitor app
+     (html.native, set at launch). The browser/web version is untouched.
+     ==================================================================== */
+  .native body{ font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif; font-size:15px; }
+  .native *{ -webkit-tap-highlight-color:transparent; }
+
+  /* header: compact, sits below the notch / dynamic island.
+     NOTE: kill the inherited backdrop-filter — it creates a containing block that would
+     trap the position:fixed bottom tab bar inside the header instead of the viewport. */
+  .native header.top{ padding-top:env(safe-area-inset-top); background:rgba(247,243,234,.96);
+    -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .native .top-in{ max-width:none; padding:9px 16px; gap:10px; }
+  .native .brand .mark{ font-size:17px; }
+  .native .brand .sub, .native #refreshSel, .native #updated{ display:none; }  /* declutter; auto-refresh stays on */
+  .native .status{ font-size:11px; }
+  .native .ctrls{ gap:6px; }
+
+  /* content: leave room for the bottom tab bar; tighter side padding */
+  .native main{ max-width:none; padding:14px 14px calc(88px + env(safe-area-inset-bottom)); }
+  .native .section-title h2{ font-size:17px; }
+  .native .card{ border-radius:16px; }
+  .native .pad{ padding:15px 16px; }
+  .native .note, .native .hint{ font-size:12.5px; }
+
+  /* the tab bar becomes a fixed, iOS-style bottom bar with icons */
+  .native nav.tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:50; max-width:none; margin:0;
+    display:flex; gap:0; justify-content:space-around;
+    padding:7px 4px calc(5px + env(safe-area-inset-bottom));
+    background:rgba(252,250,245,.93); -webkit-backdrop-filter:saturate(160%) blur(14px); backdrop-filter:saturate(160%) blur(14px);
+    border-top:1px solid var(--line);
+  }
+  .native nav.tabs button{
+    flex:1; margin:0; padding:4px 2px; border:none; border-bottom:none;
+    display:flex; flex-direction:column; align-items:center; gap:3px; font-size:0; color:var(--muted);
+  }
+  .native nav.tabs button.active{ color:var(--teal); }
+  .native nav.tabs button::before{
+    content:""; width:24px; height:24px; background-color:currentColor;
+    -webkit-mask:center/23px no-repeat; mask:center/23px no-repeat;
+  }
+  .native nav.tabs button::after{ font-size:10px; font-weight:600; letter-spacing:.1px; }
+  .native nav.tabs button[data-view="prices"]::after{ content:"Prices"; }
+  .native nav.tabs button[data-view="fundamentals"]::after{ content:"Model"; }
+  .native nav.tabs button[data-view="calc"]::after{ content:"Rebalance"; }
+  .native nav.tabs button[data-view="screener"]::after{ content:"Screener"; }
+  .native nav.tabs button[data-view="history"]::after{ content:"History"; }
+  .native nav.tabs button[data-view="prices"]::before{ -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M4%209h4v11H4zM10%204h4v16h-4zM16%2013h4v7h-4z'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M4%209h4v11H4zM10%204h4v16h-4zM16%2013h4v7h-4z'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="fundamentals"]::before{ -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M11%202v20c-5.07-.5-9-4.79-9-10s3.93-9.5%209-10zm2.03%200v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0%2011.01V22c4.74-.47%208.5-4.25%208.97-8.99h-8.97z'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M11%202v20c-5.07-.5-9-4.79-9-10s3.93-9.5%209-10zm2.03%200v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0%2011.01V22c4.74-.47%208.5-4.25%208.97-8.99h-8.97z'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="calc"]::before{ -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M6.99%2011L3%2015l3.99%204v-3H14v-2H6.99v-3zM21%209l-3.99-4v3H10v2h7.01v3L21%209z'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M6.99%2011L3%2015l3.99%204v-3H14v-2H6.99v-3zM21%209l-3.99-4v3H10v2h7.01v3L21%209z'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="screener"]::before{ -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M15.5%2014h-.79l-.28-.27a6.5%206.5%200%2010-.7.7l.27.28v.79l5%204.99L20.49%2019l-4.99-5zm-6%200A4.5%204.5%200%20119.5%205a4.5%204.5%200%20010%209z'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M15.5%2014h-.79l-.28-.27a6.5%206.5%200%2010-.7.7l.27.28v.79l5%204.99L20.49%2019l-4.99-5zm-6%200A4.5%204.5%200%20119.5%205a4.5%204.5%200%20010%209z'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="history"]::before{ -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M13%203a9%209%200%2000-9%209H1l3.89%203.89.07.14L9%2012H6a7%207%200%20117%207c-1.52%200-2.9-.62-3.9-1.62l-1.42%201.42A8.95%208.95%200%200013%2021a9%209%200%20000-18zm-1%205v5l4.28%202.54.72-1.21-3.5-2.08V8z'/%3E%3C/svg%3E"); mask-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M13%203a9%209%200%2000-9%209H1l3.89%203.89.07.14L9%2012H6a7%207%200%20117%207c-1.52%200-2.9-.62-3.9-1.62l-1.42%201.42A8.95%208.95%200%200013%2021a9%209%200%20000-18zm-1%205v5l4.28%202.54.72-1.21-3.5-2.08V8z'/%3E%3C/svg%3E"); }
+
+  /* bigger, comfier controls (16px inputs prevent iOS focus-zoom) */
+  .native .btn{ padding:11px 16px; font-size:15px; border-radius:11px; }
+  .native .btn.sm{ padding:7px 12px; font-size:13px; border-radius:9px; }
+  .native input[type=number]{ font-size:16px; padding:10px 12px; border-radius:10px; }
+  .native select{ font-size:15px; padding:10px 12px; border-radius:10px; }
+
+  /* stat band: 2-up */
+  .native .band{ grid-template-columns:repeat(2,1fr); gap:10px; }
+  .native .stat .v{ font-size:20px; }
+
+  /* single-column theme cards on phone (the desktop grid has a 470px min track that overflows) */
+  .native .theme-grid{ grid-template-columns:1fr; gap:12px; }
+  .native .theme{ overflow-x:auto; overflow-y:hidden; }   /* wide tables swipe instead of clipping */
+  /* tables: comfortable rows; drop the screener rank column to save width */
+  .native .theme th, .native .theme td{ padding:9px 5px; font-size:12.5px; }
+  .native #view-screener table td:first-child, .native #view-screener table th:first-child{ display:none; }
+  .native #view-screener td.sym, .native #view-screener thead th:nth-child(2){ text-align:left; }  /* stock name reads left after rank is hidden */
+  .native .screener-row td{ padding-top:13px; padding-bottom:13px; }
+
+  /* freeze the first (label/ticker) column while a wide table scrolls sideways */
+  .native .tscroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .native .theme td.sym, .native .tscroll td.sym,
+  .native .theme tfoot td:first-child, .native .tscroll tfoot td:first-child,
+  .native .theme thead th:first-child, .native .tscroll thead th:first-child,
+  .native #view-screener .theme thead th:nth-child(2){
+    position:sticky; left:0; z-index:2; background:var(--paper);
+    box-shadow:6px 0 6px -6px rgba(30,42,42,.18);
+  }
+  .native .theme thead th:first-child, .native .tscroll thead th:first-child,
+  .native #view-screener .theme thead th:nth-child(2){ z-index:3; }
+  .native .theme tfoot td:first-child, .native .tscroll tfoot td:first-child{ background:#FBF9F3; }
+
+  /* swap dialog becomes a slide-up bottom sheet */
+  .native .modal-backdrop{ align-items:flex-end; padding:0; }
+  .native .modal-card{ max-width:none; width:100%; border-radius:20px 20px 0 0; max-height:82vh;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom)); animation:pbSheet .26s cubic-bezier(.2,.8,.2,1); }
+  @keyframes pbSheet{ from{ transform:translateY(100%); } to{ transform:none; } }
+  .native .swap-opt{ padding:13px 12px; }
+</style>
+<script src="data/universe.js"></script>
+<script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="mark">◧ Portfolio Builder</span>
+      <span class="sub">themed PEG / EV·EBITDA allocator</span>
+    </div>
+    <div class="status"><span id="mktDot" class="dot"></span><span id="mktLabel">—</span></div>
+    <div class="spacer"></div>
+    <div class="ctrls">
+      <span id="updated" class="small muted">—</span>
+      <select id="refreshSel" title="Auto-refresh prices">
+        <option value="0">Auto: off</option>
+        <option value="30">Auto: 30s</option>
+        <option value="60" selected>Auto: 60s</option>
+        <option value="120">Auto: 2m</option>
+        <option value="300">Auto: 5m</option>
+      </select>
+      <button id="refreshBtn" class="btn">↻ Refresh</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-view="prices" class="active">Prices</button>
+    <button data-view="fundamentals">Fundamentals &amp; Allocation</button>
+    <button data-view="calc">Calculator / Rebalance</button>
+    <button data-view="screener">Screener</button>
+    <button data-view="history">History</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ PRICES ============ -->
+  <section id="view-prices" class="view active">
+    <div class="band" id="priceBand"></div>
+    <div class="theme-grid" id="priceGrid"></div>
+    <p class="note">Prices via Yahoo Finance (free, delayed up to ~15 min for some tickers). Market-cap from the
+      same feed. Nothing here costs money and no key is used.</p>
+  </section>
+
+  <!-- ============ FUNDAMENTALS & ALLOCATION ============ -->
+  <section id="view-fundamentals" class="view">
+    <div class="grid2" style="margin-bottom:18px">
+      <div class="card pad">
+        <div class="section-title"><h2>Theme allocation model</h2>
+          <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
+        <p class="small muted" style="margin-top:-4px">
+          Each theme is scored on six metrics: <b>PEG</b>, <b>EV/EBITDA</b>, <b>Total&nbsp;Debt/FCF</b> and <b>P/E</b> (all TTM,
+          lower = cheaper / more sustainable = more weight), <b>average market cap</b> (log scale, bigger = steadier),
+          and <b>price momentum</b> (higher = stronger uptrend = more weight). Each is normalized across the five themes; set how much each counts:</p>
+        <div class="row small" style="gap:12px;align-items:center;margin-top:4px;flex-wrap:wrap">
+          <span class="muted">Metric weights →</span>
+          <label>PEG&nbsp;<input type="number" id="wPeg" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>EV/EBITDA&nbsp;<input type="number" id="wEv" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>Debt/FCF&nbsp;<input type="number" id="wDfcf" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>P/E&nbsp;<input type="number" id="wPe" value="15" min="0" step="5" style="width:48px"> %</label>
+          <label>Mkt cap&nbsp;<input type="number" id="wMcap" value="10" min="0" step="5" style="width:48px"> %</label>
+          <label>Momentum&nbsp;<input type="number" id="wMom" value="15" min="0" step="5" style="width:48px"> %</label>
+          <span class="muted xs" id="wEffNote"></span>
+        </div>
+        <div class="row small" style="gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <span class="muted">Negative / no-earnings penalty →</span>
+          <label>EV/EBITDA&nbsp;<input type="number" id="penEv" value="1000" min="0" step="100" style="width:72px"></label>
+          <label>PEG&nbsp;<input type="number" id="penPeg" value="10" min="0" step="1" style="width:52px"></label>
+          <label>Debt/FCF&nbsp;<input type="number" id="penDfcf" value="50" min="0" step="10" style="width:58px"></label>
+          <label>P/E&nbsp;<input type="number" id="penPe" value="200" min="0" step="25" style="width:58px"></label>
+          <span class="muted xs">a reported negative ratio → this multiple; a not-applicable one (e.g. a bank's EV/EBITDA) is excluded</span>
+        </div>
+        <div class="row small" style="gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <span class="muted">Max per theme →</span>
+          <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
+          <span class="muted xs">cap any one sector at this; the excess spills to the others (repeated until all fit)</span>
+        </div>
+        <div class="allocbar" id="allocBar" style="margin-top:14px"></div>
+        <div class="legend" id="allocLegend"></div>
+        <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
+          <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
+        </details>
+      </div>
+      <div class="card pad">
+        <h2 style="font-size:16px">Target vs current weight</h2>
+        <p class="small muted" style="margin-top:2px">Where your money is vs where the model wants it.</p>
+        <table id="driftTable"><thead><tr><th>Theme</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
+          <tbody></tbody></table>
+        <p class="note">Current weights need an initialized portfolio (Calculator tab).</p>
+      </div>
+    </div>
+    <div class="theme-grid" id="fundGrid"></div>
+    <p class="note">PEG uses Yahoo's trailing PEG when published, otherwise its standard PEG. EV/EBITDA is TTM.
+      <b>Click any PEG or EV/EBITDA value</b> (blue dashed underline) to type your own number from a better source —
+      it's saved, flagged <span class="tag ovr">ovr</span>, and used everywhere in the model. Click <b>↺</b> to revert to
+      the live value. Overriding a negative name (e.g. entering a real EV/EBITDA for SNOW) replaces the super-premium
+      penalty with your figure.</p>
+  </section>
+
+  <!-- ============ CALCULATOR / REBALANCE ============ -->
+  <section id="view-calc" class="view">
+    <div id="calcUninit"></div>
+    <div id="calcMain"></div>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section id="view-history" class="view">
+    <div class="section-title"><h2>Transaction history</h2>
+      <button id="resetBtn" class="btn sm danger ghost">Reset portfolio…</button></div>
+    <div id="historyBody"></div>
+  </section>
+
+  <!-- ============ SCREENER ============ -->
+  <section id="view-screener" class="view">
+    <div class="section-title"><h2>Screener — top stocks by theme</h2>
+      <button id="screenerRefresh" class="btn sm">↻ Refresh live caps</button></div>
+    <p class="small muted" style="margin-top:-6px">The 50 largest companies by <b>live market cap</b> in each of your five themes, mutually exclusive (a name shown under one theme never appears under another). <b>Tap any stock</b> to swap it into your portfolio in place of a current holding in the same theme — the book then rebalances with the usual model.</p>
+    <div id="screenerBody"></div>
+    <p class="note">Universe is a curated seed (largest, most clearly-relevant names per theme); order is re-sorted on each refresh by live market cap. Stocks already in your portfolio are tagged <span class="tag live">held</span>.</p>
+  </section>
+</main>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+/* ======================================================================
+   Configuration
+   ====================================================================== */
+const THEMES = [
+  {key:"stablecoin",  name:"Stablecoin",     color:"#13605C", tickers:["CRCL","MA","V","COIN","JPM"]},
+  {key:"personalai",  name:"Personal AI",    color:"#3A6EA5", tickers:["AAPL","AMZN","META","GOOGL","IBM"]},
+  {key:"enterpriseai",name:"Enterprise AI",  color:"#7E9C84", tickers:["NOW","PLTR","MSFT","CRM","PATH"]},
+  {key:"robotics",    name:"Robotics",       color:"#5B6B8C", tickers:["ISRG","ROK","NVDA","SYM","TSLA"]},
+  {key:"data",        name:"Data Providers", color:"#B0894F", tickers:["SNOW","SPGI","MCO","MSCI","RDDT"]},
+];
+const DEFAULT_THEME_TICKERS = {}; THEMES.forEach(t=>DEFAULT_THEME_TICKERS[t.key]=t.tickers.slice());
+
+/* Theme membership is DYNAMIC — the Screener "swap" feature replaces a name within a theme.
+   It lives in state.themeTickers (persisted in the portfolio + every version snapshot).
+   When unset for a theme we fall back to that theme's default 5 core names above. */
+function tickersOf(key){ const m=state.themeTickers; return (m&&Array.isArray(m[key])&&m[key].length)?m[key]:DEFAULT_THEME_TICKERS[key]; }
+function membership(){ return THEMES.flatMap(t=>tickersOf(t.key)); }                 // every themed name (5×5)
+function holdingSyms(){ return Object.keys((state.portfolio&&state.portfolio.holdings)||{}); }
+function tradeUniverse(){ return [...new Set([...membership(), ...holdingSyms()])]; } // themed ∪ held; held-but-unthemed = a position to liquidate
+let themeOf = {};
+function rebuildThemeOf(){ themeOf={}; THEMES.forEach(t=>tickersOf(t.key).forEach(s=>{ themeOf[s]=t; })); }
+function themeOfSym(s){ return themeOf[s] || {key:"_exit", name:"Exiting position", color:"#9AA3A1"}; }
+const perTheme = t => tickersOf(t.key).length;                                        // equal-weight within theme (5 names ⇒ 20% each)
+
+/* ======================================================================
+   State
+   ====================================================================== */
+const state = {
+  quotes:{}, fundamentals:{},
+  portfolio:null,                 // {holdings:{sym:{shares,costBasis}}, ...}
+  weights:{peg:0.20, ev:0.20, dfcf:0.20, pe:0.15, mcap:0.10, mom:0.15},
+  penalty:{peg:10, ev:1000, dfcf:50, pe:200},  // negative/missing ratio -> this multiple; pe for negative-earnings (no P/E)
+  cap:0.30,                       // max weight any single theme may hold; excess redistributed to the rest
+  overrides:{},                   // sym -> {peg?,ev?,marketCap?}
+  asOf:null,
+  themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
+  universe:null,                  // screener universe (window.__UNIVERSE / data/universe.json)
+  screenerQuotes:{},              // sym -> quote for screener stocks (lazy-loaded, chunked)
+  screenerLoaded:false,
+  serverUrl:"",                   // iOS: optional home-computer address for LAN sync (shared portfolio.json)
+  syncStatus:"local",             // 'local' | 'remote' | 'remote-failed'
+};
+let curView="prices";
+let timer=null;
+
+/* ======================================================================
+   Small helpers
+   ====================================================================== */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const isNum=v=>typeof v==="number"&&isFinite(v);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function money(v,dp=0){ if(!isNum(v))return "—";
+  return (v<0?"-$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp}); }
+function num(v,dp=2){ return isNum(v)?v.toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp}):"—"; }
+function pct(v,dp=1){ return isNum(v)?(v*100).toFixed(dp)+"%":"—"; }
+function signed(v,dp=2){ if(!isNum(v))return "—"; return (v>=0?"+":"")+v.toFixed(dp); }
+function bil(v){ if(!isNum(v))return "—"; if(v>=1e12)return "$"+(v/1e12).toFixed(2)+"T"; if(v>=1e9)return "$"+(v/1e9).toFixed(1)+"B"; return "$"+(v/1e6).toFixed(0)+"M"; }
+function median(arr){ const a=arr.filter(isNum).slice().sort((x,y)=>x-y); if(!a.length)return null;
+  const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+/* effective fundamentals: manual override > live/seed feed */
+function effPeg(s){ const o=state.overrides[s]; if(o&&isNum(o.peg))return o.peg; const f=state.fundamentals[s]; return f&&isNum(f.peg)?f.peg:null; }
+function effEv(s){ const o=state.overrides[s]; if(o&&isNum(o.ev))return o.ev; const f=state.fundamentals[s]; return f&&isNum(f.ev)?f.ev:null; }
+function effDfcf(s){ const o=state.overrides[s]; if(o&&isNum(o.dfcf))return o.dfcf; const f=state.fundamentals[s]; return f&&isNum(f.dfcf)?f.dfcf:null; }
+function effPe(s){ const o=state.overrides[s]; if(o&&isNum(o.pe))return o.pe; const f=state.fundamentals[s]; return f&&isNum(f.pe)?f.pe:null; }
+function momOf(s){ const f=state.fundamentals[s]; return f&&isNum(f.mom)?f.mom:null; }   // price momentum vs 50/200-day MA (display/compute only, not overridable)
+function effMcap(s){ const o=state.overrides[s]; if(o&&isNum(o.marketCap))return o.marketCap;
+  const q=state.quotes[s]; if(q&&isNum(q.marketCap))return q.marketCap;
+  const f=state.fundamentals[s]; return f&&isNum(f.marketCap)?f.marketCap:null; }
+function price(s){ const q=state.quotes[s]; return q&&isNum(q.price)?q.price:null; }
+function nameOf(s){ return (state.quotes[s]&&state.quotes[s].name)||(state.fundamentals[s]&&state.fundamentals[s].name)||s; }
+
+/* ======================================================================
+   Strategy: theme cap-weighted metrics -> target weights
+   ====================================================================== */
+function themeMetric(tickers, getter, penaltyVal, allowZero, nullExcludes){
+  // Market-cap weighted ratio across a theme's names:
+  //  - valid value           -> used as-is (allowZero=true also accepts 0, e.g. Debt/FCF debt-free = best).
+  //  - reported non-positive  -> PENALIZED (replaced by penaltyVal): a real but bad value (e.g. negative EV/EBITDA).
+  //  - missing / N-A (null)   -> if nullExcludes, EXCLUDED (metric doesn't apply, e.g. a bank's EV/EBITDA & FCF);
+  //                              otherwise PENALIZED (null usually = losses, e.g. no trailing P/E).
+  let num=0, den=0, penalized=[], excluded=[];
+  for(const s of tickers){
+    let v=getter(s); const mc=effMcap(s);
+    if(!(isNum(mc)&&mc>0)) continue;                 // no market-cap data -> cannot weight (rare)
+    if(!isNum(v)){
+      if(nullExcludes){ excluded.push(s); continue; }
+      v=penaltyVal; penalized.push(s);
+    } else if(!(allowZero ? v>=0 : v>0)){
+      v=penaltyVal; penalized.push(s);
+    }
+    num+=v*mc; den+=mc;
+  }
+  return den>0 ? {value:num/den, penalized, excluded} : {value:null, penalized, excluded};
+}
+
+function themeAvgMcap(tickers){   // simple average market cap of a theme's names (bigger = more stable)
+  let sum=0, n=0;
+  for(const s of tickers){ const mc=effMcap(s); if(isNum(mc)&&mc>0){ sum+=mc; n++; } }
+  return n>0 ? sum/n : null;
+}
+function themeMomentum(tickers){   // cap-weighted price momentum (vs 50/200-day MA); missing -> excluded
+  let num=0, den=0, excluded=[];
+  for(const s of tickers){ const m=momOf(s), mc=effMcap(s);
+    if(!(isNum(mc)&&mc>0)) continue;
+    if(!isNum(m)){ excluded.push(s); continue; }
+    num+=m*mc; den+=mc;
+  }
+  return den>0 ? {value:num/den, excluded} : {value:null, excluded};
+}
+
+// Quality carry-over: a name that genuinely can't report a factor (a bank's EV/EBITDA & Debt/FCF) shouldn't
+// sit out — it inherits its STANDING on the factors it DOES report. We rank every name on each reported factor
+// cross-sectionally, average those percentiles into a composite quality, then impute the missing factor at that
+// same percentile of the factor's distribution. So a dominant, cheap name (JPM: low P/E, huge cap) earns a
+// favorable imputed EV/EBITDA & Debt/FCF that actively lifts its sector. Returns {sym:{ev?,dfcf?}}.
+function computeCarryover(){
+  const F={
+    peg : s=>{const v=effPeg(s);  return isNum(v)?(v>0?1/v:1/state.penalty.peg):1/state.penalty.peg;},
+    pe  : s=>{const v=effPe(s);   return isNum(v)?(v>0?1/v:1/state.penalty.pe ):1/state.penalty.pe ;},
+    mcap: s=>{const v=effMcap(s); return isNum(v)&&v>0?Math.log(v/1e9):null;},
+    mom : s=>{const v=momOf(s);   return isNum(v)?v:null;},
+    ev  : s=>{const v=effEv(s);   return isNum(v)?(v>0?1/v:1/state.penalty.ev):null;},      // null => N/A, impute
+    dfcf: s=>{const v=effDfcf(s); return isNum(v)?(v>=0?1/Math.max(v,0.1):1/state.penalty.dfcf):null;}, // null => N/A
+  };
+  const MEMB=membership();
+  const dist={}; Object.keys(F).forEach(k=>{ dist[k]=MEMB.map(F[k]).filter(isNum).sort((a,b)=>a-b); });
+  const rank=(a,v)=>{ if(a.length<2)return 0.5; let c=0; for(const x of a) if(x<v)c++; return c/(a.length-1); };
+  const quant=(a,p)=>{ if(!a.length)return null; const i=clamp(p,0,1)*(a.length-1),lo=Math.floor(i),hi=Math.ceil(i); return a[lo]+(a[hi]-a[lo])*(i-lo); };
+  const carry={};
+  for(const s of MEMB){
+    const ranks=[]; Object.keys(F).forEach(k=>{ const g=F[k](s); if(isNum(g))ranks.push(rank(dist[k],g)); });
+    if(!ranks.length) continue;
+    const qp=ranks.reduce((a,b)=>a+b,0)/ranks.length;            // composite quality percentile (0..1)
+    ['ev','dfcf'].forEach(k=>{
+      if(F[k](s)===null){                                        // genuinely N/A -> impute at this percentile
+        const g=quant(dist[k],qp);
+        if(isNum(g)&&g>0){ carry[s]=carry[s]||{}; carry[s][k]= k==='dfcf'?Math.max(0,1/g):1/g; }
+      }
+    });
+  }
+  return carry;
+}
+
+function computeAllocation(){
+  const W=state.weights;
+  const wp=W.peg||0, we=W.ev||0, wd=W.dfcf||0, wpe=W.pe||0, wm=W.mcap||0, wmo=W.mom||0;
+  const wsum=(wp+we+wd+wpe+wm+wmo)||1;
+  const wPeg=wp/wsum, wEv=we/wsum, wDf=wd/wsum, wPe=wpe/wsum, wMc=wm/wsum, wMo=wmo/wsum;
+  const P=state.penalty;
+  const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
+  const evGet=s=>{ const v=effEv(s);   return isNum(v)?v:((carry[s]&&isNum(carry[s].ev))  ?carry[s].ev  :null); };
+  const dfGet=s=>{ const v=effDfcf(s); return isNum(v)?v:((carry[s]&&isNum(carry[s].dfcf))?carry[s].dfcf:null); };
+  const rows=THEMES.map(t=>({theme:t,
+    peg :themeMetric(tickersOf(t.key),effPeg ,P.peg ,false,false),   // null PEG -> penalize
+    ev  :themeMetric(tickersOf(t.key),evGet  ,P.ev  ,false,true),    // negative -> penalize; N/A -> carry-over value (else exclude)
+    dfcf:themeMetric(tickersOf(t.key),dfGet  ,P.dfcf,true ,true),    // 0 = best; negative FCF -> penalize; N/A -> carry-over value
+    pe  :themeMetric(tickersOf(t.key),effPe  ,P.pe  ,false,false),   // null/negative P/E (losses) -> penalize
+    mom :themeMomentum(tickersOf(t.key)) }));
+  rows.forEach(r=>{ r.mcap=themeAvgMcap(tickersOf(r.theme.key)); });   // avg market cap per theme
+  const medPeg=median(rows.map(r=>r.peg.value)), medEv=median(rows.map(r=>r.ev.value)),
+        medDf=median(rows.map(r=>r.dfcf.value)), medPe=median(rows.map(r=>r.pe.value)), medMc=median(rows.map(r=>r.mcap));
+  rows.forEach(r=>{
+    r.pegUsed = isNum(r.peg.value)?r.peg.value:medPeg;
+    r.evUsed  = isNum(r.ev.value) ?r.ev.value :medEv;
+    r.dfcfUsed= isNum(r.dfcf.value)?r.dfcf.value:medDf;
+    r.peUsed  = isNum(r.pe.value) ?r.pe.value :medPe;
+    r.mcapUsed= isNum(r.mcap)     ?r.mcap     :medMc;
+    r.pegScore = isNum(r.pegUsed)&&r.pegUsed>0 ? 1/r.pegUsed : 0;      // cheaper ⇒ higher
+    r.evScore  = isNum(r.evUsed) &&r.evUsed >0 ? 1/r.evUsed  : 0;      // cheaper ⇒ higher
+    r.dfcfScore= isNum(r.dfcfUsed)&&r.dfcfUsed>=0 ? 1/Math.max(r.dfcfUsed,0.1) : 0;  // LOWER ⇒ higher; 0 = debt-free = best
+    r.peScore  = isNum(r.peUsed) &&r.peUsed >0 ? 1/r.peUsed  : 0;      // cheaper ⇒ higher
+    r.mcapScore= isNum(r.mcapUsed)&&r.mcapUsed>0 ? Math.max(0, Math.log(r.mcapUsed/1e9)) : 0;   // BIGGER ⇒ higher (log)
+    r.momScore = isNum(r.mom.value) ? Math.max(0, r.mom.value) : 0;    // HIGHER ⇒ higher; downtrends floored at 0
+  });
+  const sP=rows.reduce((a,r)=>a+r.pegScore,0), sE=rows.reduce((a,r)=>a+r.evScore,0), sD=rows.reduce((a,r)=>a+r.dfcfScore,0),
+        sPe=rows.reduce((a,r)=>a+r.peScore,0), sM=rows.reduce((a,r)=>a+r.mcapScore,0), sMo=rows.reduce((a,r)=>a+r.momScore,0);
+  rows.forEach(r=>{
+    r.pegN = sP>0 ? r.pegScore/sP : 1/rows.length;
+    r.evN  = sE>0 ? r.evScore/sE  : 1/rows.length;
+    r.dfcfN= sD>0 ? r.dfcfScore/sD: 1/rows.length;
+    r.peN  = sPe>0? r.peScore/sPe : 1/rows.length;
+    r.mcapN= sM>0 ? r.mcapScore/sM: 1/rows.length;
+    r.momN = sMo>0? r.momScore/sMo: 1/rows.length;
+    r.alloc = wPeg*r.pegN + wEv*r.evN + wDf*r.dfcfN + wPe*r.peN + wMc*r.mcapN + wMo*r.momN;
+  });
+  const tot=rows.reduce((a,r)=>a+r.alloc,0)||1;
+  rows.forEach(r=>r.alloc/=tot);
+  applyThemeCap(rows, state.cap);   // no theme over the cap; excess spills to the rest, iteratively
+  const byKey={}; rows.forEach(r=>byKey[r.theme.key]=r);
+  return {rows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:state.cap, carry};
+}
+
+// Iterative weight cap: no theme may exceed `cap`. Excess from over-cap themes is redistributed to the
+// still-uncapped themes in proportion to their model weight; repeated until every theme is <= cap.
+function applyThemeCap(rows, cap){
+  rows.forEach(r=>{ r.allocRaw=r.alloc; });               // remember the uncapped model weight
+  const n=rows.length;
+  if(!(cap>0 && cap<1)) return;                           // 100% (or invalid) -> no cap
+  if(cap<=1/n+1e-9){ rows.forEach(r=>{ r.alloc=1/n; }); return; }   // cap at/below equal weight -> equalize
+  const capped=new Set();
+  for(let guard=0; guard<=n; guard++){
+    const uncapped=rows.filter(r=>!capped.has(r.theme.key));
+    const rawSum=uncapped.reduce((a,r)=>a+r.allocRaw,0);
+    const remaining=1-cap*capped.size;
+    if(!uncapped.length || rawSum<=0) break;
+    uncapped.forEach(r=>{ r.alloc = remaining*r.allocRaw/rawSum; });
+    const over=uncapped.filter(r=>r.alloc > cap+1e-9);
+    if(!over.length) break;
+    over.forEach(r=>capped.add(r.theme.key));
+  }
+  capped.forEach(k=>{ const r=rows.find(x=>x.theme.key===k); if(r)r.alloc=cap; });
+}
+
+/* ======================================================================
+   Portfolio valuation
+   ====================================================================== */
+function holdings(){ return (state.portfolio&&state.portfolio.holdings)||{}; }
+function isInit(){ return !!(state.portfolio&&state.portfolio.holdings&&Object.keys(state.portfolio.holdings).length); }
+function curValueBySym(){ const h=holdings(),o={}; tradeUniverse().forEach(s=>{ const sh=h[s]?h[s].shares:0; const p=price(s); o[s]=isNum(p)&&isNum(sh)?sh*p:0; }); return o; }
+function curTotal(){ const cv=curValueBySym(); return tradeUniverse().reduce((a,s)=>a+(cv[s]||0),0); }
+function curValueByTheme(){ const cv=curValueBySym(),o={}; THEMES.forEach(t=>o[t.key]=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0)); return o; }
+function totalContributed(){ return state.portfolio&&isNum(state.portfolio.totalContributed)?state.portfolio.totalContributed:0; }
+function totalCostBasis(){ const h=holdings(); return Object.keys(h).reduce((a,s)=>a+((h[s]&&isNum(h[s].costBasis))?h[s].costBasis:0),0); }
+
+/* ---- version timeline: undo / redo / revert ----------------------------- */
+function deepCopy(x){ return x==null?x:JSON.parse(JSON.stringify(x)); }
+function versions(){ return (state.portfolio&&state.portfolio.versions)||[]; }
+function head(){ return (state.portfolio&&isNum(state.portfolio.head))?state.portfolio.head:-1; }
+function currentVersion(){ const h=head(); return h>=0?versions()[h]:null; }
+function canUndo(){ return head()>=0; }
+function canRedo(){ return head() < versions().length-1; }
+function versionLabel(v){ return v?("#"+v.id+" "+v.type+(v.cashIn?(" +"+money(v.cashIn,0)):"")):"—"; }
+function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" ${canUndo()?"":"disabled"}>↶ Undo</button>`+
+  `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
+function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
+  weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
+  themeTickers:deepCopy(state.themeTickers) }; }
+
+function pushVersion(txn){
+  const p=state.portfolio; p.versions=p.versions||[]; if(!isNum(p.head))p.head=p.versions.length-1;
+  if(p.head < p.versions.length-1) p.versions=p.versions.slice(0,p.head+1);   // apply from a reverted point -> fork (drop redo future)
+  txn.id=(p.versions.length?p.versions[p.versions.length-1].id:0)+1;
+  txn.snapshot=snapshotState();
+  p.versions.push(txn); p.head=p.versions.length-1;
+}
+
+function restoreVersion(i){
+  const p=state.portfolio; p.head=i;
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; rebuildThemeOf(); return; }   // before the initial build
+  const s=p.versions[i].snapshot||{};
+  p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
+  if(s.weights)state.weights=deepCopy(s.weights);
+  if(s.penalty)state.penalty=deepCopy(s.penalty);
+  if(s.overrides!=null)state.overrides=deepCopy(s.overrides);
+  state.themeTickers = s.themeTickers!=null ? deepCopy(s.themeTickers) : null;
+  rebuildThemeOf();
+}
+
+function migrateVersions(p){   // forward-compat for any legacy file that only had `transactions`
+  if(Array.isArray(p.versions)){ if(!isNum(p.head))p.head=p.versions.length-1; return; }
+  p.versions=[]; const txns=p.transactions||[]; let h={}, contrib=0;
+  txns.forEach(t=>{ (t.trades||[]).forEach(tr=>{ const c=h[tr.sym]||{shares:0,costBasis:0};
+      c.shares+=tr.shares||0; c.costBasis+=tr.amount||0; h[tr.sym]=c; });
+    contrib+=t.cashIn||0; const v=Object.assign({},t); v.id=p.versions.length+1;
+    v.snapshot={holdings:deepCopy(h),totalContributed:contrib,weights:t.weights||deepCopy(state.weights),penalty:deepCopy(state.penalty),overrides:{}};
+    p.versions.push(v); });
+  p.head=p.versions.length-1; delete p.transactions;
+}
+
+async function undo(){ if(!canUndo())return; const lbl=versionLabel(currentVersion()); restoreVersion(head()-1); await savePortfolio(); renderAll(); toast("Undid "+lbl+" · Redo available"); }
+async function redo(){ if(!canRedo())return; restoreVersion(head()+1); await savePortfolio(); renderAll(); toast("Redid "+versionLabel(currentVersion())); }
+async function revertTo(i){ const tgt=versions()[i]; if(!tgt)return;
+  if(!confirm("Revert to version #"+tgt.id+" ("+tgt.type+" · "+tgt.date+")?\n\nHoldings, total invested and settings will be set to that point. Newer versions stay redoable until you apply a new rebalance from here.")) return;
+  restoreVersion(i); await savePortfolio(); renderAll(); toast("Reverted to #"+tgt.id); }
+
+/* ======================================================================
+   Plan: given cash to add + mode, produce per-stock target $ and trade $
+   mode: "full"  -> rebalance fully to target (buys AND sells)
+         "cash"  -> deploy only the new cash into underweight names (no sells)
+   ====================================================================== */
+function planTrades(addCash, mode){
+  const alloc=computeAllocation();
+  const cv=curValueBySym();
+  const U=tradeUniverse();                 // themed names + any held-but-unthemed (to liquidate)
+  const M=membership();
+  const cur0=U.reduce((a,s)=>a+(cv[s]||0),0);
+  const newTotal=cur0+addCash;
+  const target={}, trade={}, sharesD={}, missing=[];
+  U.forEach(s=>{ target[s]=0; });          // default: not in any theme ⇒ target $0 (sell to zero)
+  THEMES.forEach(t=>tickersOf(t.key).forEach(s=>{ target[s]=alloc.byKey[t.key].alloc*newTotal/perTheme(t); }));
+  if(mode==="cash"){
+    const sf={}; let tot=0;
+    U.forEach(s=>{ const v=Math.max(0,(target[s]||0)-(cv[s]||0)); sf[s]=v; tot+=v; });
+    U.forEach(s=>{ trade[s]= tot>0 ? addCash*sf[s]/tot : (M.includes(s)?addCash/M.length:0); });
+  } else {
+    U.forEach(s=>{ trade[s]=(target[s]||0)-(cv[s]||0); });
+  }
+  U.forEach(s=>{ const p=price(s); if(isNum(p)&&p>0){ sharesD[s]=trade[s]/p; } else { sharesD[s]=null; if(Math.abs(trade[s]||0)>0.005) missing.push(s);} });
+  return {alloc, cv, cur0, addCash, newTotal, target, trade, sharesD, mode, missing, universe:U};
+}
+
+/* ======================================================================
+   Data layer — platform-agnostic.
+   WEB (and Windows dev): talk to the local Python server (server.py) —
+     GET /api/quotes, /api/fundamentals, GET/POST /api/portfolio.
+   iOS (Capacitor native): there is NO server. Hit Yahoo directly via
+     CapacitorHttp (no CORS) and persist the portfolio on-device (localStorage).
+   Everything above calls loadQuotes/loadFundamentals/loadPortfolio/savePortfolio
+   and never cares which platform it is.
+   ====================================================================== */
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+function capHttp(){ return window.CapacitorHttp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) || null; }
+async function api(path, opts){ const r=await fetch(path,opts); if(!r.ok)throw new Error(path+" "+r.status); return r.json(); }
+
+/* ---- web (server-backed) ---- */
+async function webQuotes(syms){ const d=await api("/api/quotes?symbols="+syms.join(",")); return {quotes:d.quotes, asOf:d.asOf}; }
+async function webFundamentals(syms,force){ const d=await api("/api/fundamentals?symbols="+syms.join(",")+(force?"&force=1":"")); return d.fundamentals; }
+async function webLoadPortfolio(){ const d=await api("/api/portfolio"); return d.portfolio; }
+async function webSavePortfolio(p){ await api("/api/portfolio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); }
+
+/* ---- native (Capacitor / on-device) ---- */
+const STORE_KEY="pb_portfolio_v1";
+function nativeLoadPortfolio(){ try{ const raw=localStorage.getItem(STORE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+function nativeSavePortfolio(p){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }catch(e){ console.error("save failed",e); } }
+
+/* iOS LAN sync: when serverUrl is set, the app reads/writes the SAME portfolio.json the web
+   version uses (via the home computer's server over Wi-Fi). Falls back to on-device storage. */
+const SRV_KEY="pb_server_url";
+function serverBase(){ return (state.serverUrl||"").trim().replace(/\/+$/,""); }
+function useRemote(){ return NATIVE && !!serverBase(); }
+async function remoteGetPortfolio(){ const Http=capHttp(); const r=await Http.request({url:serverBase()+"/api/portfolio", method:"GET"}); const d=jsonOf(r.data); return d?d.portfolio:null; }
+async function remotePutPortfolio(p){ const Http=capHttp(); await Http.request({url:serverBase()+"/api/portfolio", method:"POST", headers:{"Content-Type":"application/json"}, data:p}); }
+const YUA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+let _crumb=null;
+function jsonOf(d){ return typeof d==="string"?JSON.parse(d):d; }
+function rv(d,k){ const x=d&&d[k]; return (x&&typeof x==="object"&&("raw" in x))?x.raw:x; }
+async function yGet(url, params){
+  const Http=capHttp();
+  if(Http){ return Http.request({url, method:"GET", params:params||{}, headers:{"User-Agent":YUA, "Accept":"application/json,text/plain,*/*"}}); }
+  const qs=params?("?"+new URLSearchParams(params).toString()):""; const r=await fetch(url+qs); return {status:r.status, data:await r.text()};
+}
+async function yEnsureCrumb(force){
+  if(_crumb && !force) return _crumb;
+  try{ await yGet("https://fc.yahoo.com/"); }catch(e){}
+  try{ const r=await yGet("https://query2.finance.yahoo.com/v1/test/getcrumb");
+       const c=String(typeof r.data==="string"?r.data:"").trim(); _crumb=(c && c.indexOf("<")<0 && c.length<40)?c:null; }
+  catch(e){ _crumb=null; }
+  return _crumb;
+}
+function jsMomentum(price,ma50,ma200){ if(!(isNum(price)&&price>0))return null; const parts=[];
+  if(isNum(ma50)&&ma50>0)parts.push([0.6,price/ma50-1]); if(isNum(ma200)&&ma200>0)parts.push([0.4,price/ma200-1]);
+  if(!parts.length)return null; return parts.reduce((a,p)=>a+p[0]*p[1],0)/parts.reduce((a,p)=>a+p[0],0); }
+async function nativeQuotes(syms){
+  const crumb=await yEnsureCrumb(); const out={};
+  const fields="regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency,regularMarketTime";
+  for(let i=0;i<syms.length;i+=40){
+    const chunk=syms.slice(i,i+40);
+    try{
+      const r=await yGet("https://query1.finance.yahoo.com/v7/finance/quote",{symbols:chunk.join(","), fields, crumb:crumb||""});
+      const results=((jsonOf(r.data)||{}).quoteResponse||{}).result||[];
+      results.forEach(q=>{ const sym=q.symbol; if(!sym)return; out[sym]={price:rv(q,"regularMarketPrice"),change:rv(q,"regularMarketChange"),changePct:rv(q,"regularMarketChangePercent"),prevClose:rv(q,"regularMarketPreviousClose"),marketCap:rv(q,"marketCap"),name:q.shortName||q.longName||sym,marketState:q.marketState,currency:q.currency,time:rv(q,"regularMarketTime"),source:"live"}; });
+    }catch(e){ console.error("yahoo quotes",e); await yEnsureCrumb(true); }
+  }
+  return {quotes:out, asOf:Math.floor(Date.now()/1000)};
+}
+async function nativeFundamentals(syms){
+  const crumb=await yEnsureCrumb(); const out={};
+  await Promise.all(syms.map(async sym=>{
+    try{
+      const r=await yGet("https://query1.finance.yahoo.com/v10/finance/quoteSummary/"+encodeURIComponent(sym),{modules:"defaultKeyStatistics,price,financialData,summaryDetail", crumb:crumb||""});
+      const res=jsonOf(r.data).quoteSummary.result[0];
+      const ks=res.defaultKeyStatistics||{}, pr=res.price||{}, fd=res.financialData||{}, sd=res.summaryDetail||{};
+      let peg=rv(ks,"trailingPegRatio"); if(peg==null)peg=rv(ks,"pegRatio");
+      const mc=rv(pr,"marketCap"), price=rv(pr,"regularMarketPrice"), td=rv(fd,"totalDebt")||0, cash=rv(fd,"totalCash")||0;
+      const fcf=rv(fd,"freeCashflow"); let dfcf; if(fcf==null)dfcf=null; else if(fcf>0)dfcf=td/fcf; else dfcf=-1.0;
+      let pe=rv(sd,"trailingPE"), peCalc=false; if(pe==null){ const ni=rv(ks,"netIncomeToCommon"); if(mc&&isNum(ni)&&ni>0){pe=mc/ni;peCalc=true;} }
+      let ev=rv(ks,"enterpriseToEbitda"), evCalc=false; if(ev==null){ const ebitda=rv(fd,"ebitda"); if(mc&&isNum(ebitda)&&ebitda!==0){ev=(mc+td-cash)/ebitda;evCalc=true;} }
+      const mom=jsMomentum(price, rv(sd,"fiftyDayAverage"), rv(sd,"twoHundredDayAverage"));
+      out[sym]={peg, ev, evCalc, dfcf, pe, peCalc, mom, marketCap:mc, price, name:pr.shortName||pr.longName||sym, source:"live"};
+    }catch(e){ /* leave missing -> median/seed fallback handles it */ }
+  }));
+  return out;
+}
+
+/* ---- unified entry points used by the rest of the app ---- */
+async function dsQuotes(syms){ return NATIVE? nativeQuotes(syms) : webQuotes(syms); }
+async function dsFundamentals(syms,force){ return NATIVE? nativeFundamentals(syms) : webFundamentals(syms,force); }
+async function dsLoadUniverse(){ if(window.__UNIVERSE) return window.__UNIVERSE; const r=await fetch("data/universe.json"); return r.json(); }
+
+async function loadQuotes(){ const d=await dsQuotes(tradeUniverse()); state.quotes=Object.assign({}, state.quotes, d.quotes); state.asOf=d.asOf; }
+async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.fundamentals=Object.assign({}, state.fundamentals, f); }
+async function loadScreenerQuotes(){
+  if(!state.universe) return;
+  const syms=[...new Set(state.universe.themes.flatMap(t=>t.stocks.map(s=>s.ticker)))];
+  const out={};
+  for(let i=0;i<syms.length;i+=45){ const chunk=syms.slice(i,i+45); try{ const d=await dsQuotes(chunk); Object.assign(out, d.quotes); }catch(e){ console.error(e); } }
+  state.screenerQuotes=Object.assign({}, state.screenerQuotes, out);
+}
+async function loadPortfolio(){
+  let p=null;
+  if(useRemote()){
+    try{ p=await remoteGetPortfolio(); state.syncStatus="remote"; if(p) nativeSavePortfolio(p); }   // cache a local mirror of the shared book
+    catch(e){ console.error("remote load failed",e); state.syncStatus="remote-failed"; p=nativeLoadPortfolio(); }
+  } else if(NATIVE){ p=nativeLoadPortfolio(); state.syncStatus="local"; }
+  else { p=await webLoadPortfolio(); }
+  if(p){ state.portfolio=p; if(p.weights)state.weights=p.weights; if(p.overrides)state.overrides=p.overrides; if(p.penalty)state.penalty=p.penalty;
+    if(p.themeTickers)state.themeTickers=p.themeTickers;
+    if(!('mom' in state.weights)) state.weights={peg:0.20,ev:0.20,dfcf:0.20,pe:0.15,mcap:0.10,mom:0.15};   // upgrade older saves to the 6-metric default
+    if(!isNum(state.penalty.dfcf)) state.penalty.dfcf=50;
+    if(!isNum(state.penalty.pe)) state.penalty.pe=200;
+    if(isNum(p.cap)) state.cap=p.cap;
+    migrateVersions(p); }
+  rebuildThemeOf();
+}
+async function savePortfolio(){
+  if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
+  if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
+  if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
+  state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
+  state.portfolio.themeTickers=state.themeTickers;
+  if(useRemote()){
+    try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
+    catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }
+    nativeSavePortfolio(state.portfolio);   // always keep a local mirror so data survives going offline
+  } else if(NATIVE){ nativeSavePortfolio(state.portfolio); }
+  else { await webSavePortfolio(state.portfolio); }
+}
+
+/* ======================================================================
+   Render: header / status
+   ====================================================================== */
+function renderStatus(){
+  let st=null; for(const s of membership()){ if(state.quotes[s]&&state.quotes[s].marketState){ st=state.quotes[s].marketState; break; } }
+  const dot=$("#mktDot"), lab=$("#mktLabel");
+  const map={REGULAR:["open","Market open"],PRE:["pre","Pre-market"],PREPRE:["pre","Pre-market (early)"],
+    POST:["post","After hours"],POSTPOST:["post","After hours (late)"],CLOSED:["closed","Market closed"]};
+  const m=map[st]||["closed", st?("Market "+st.toLowerCase()):"Status unknown"];
+  dot.className="dot "+m[0]; lab.textContent=m[1];
+  const anySeed=membership().some(s=>state.quotes[s]&&state.quotes[s].source==="seed");
+  const t=state.asOf?new Date(state.asOf*1000):new Date();
+  $("#updated").textContent="Updated "+t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})+(anySeed?" · offline seed":"");
+}
+
+/* ======================================================================
+   Render: PRICES view
+   ====================================================================== */
+function renderPrices(){
+  const cvt=curValueByTheme(), total=curTotal(), init=isInit();
+  // summary band
+  const band=$("#priceBand");
+  const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s]; const q=state.quotes[s];
+    return a+((h&&q&&isNum(q.change))?h.shares*q.change:0); },0);
+  band.innerHTML=`
+    <div class="card stat"><div class="k">Portfolio value</div><div class="v num">${init?money(total,0):"—"}</div>
+      <div class="d muted">${init?("cost "+money(totalCostBasis(),0)):"not initialized"}</div></div>
+    <div class="card stat"><div class="k">Day P/L</div><div class="v num ${dayPL>=0?'up':'down'}">${init?signed(dayPL,0).replace(/^([+-])/,'$1$'):"—"}</div>
+      <div class="d muted">unrealized today</div></div>
+    <div class="card stat"><div class="k">Total invested</div><div class="v num">${init?money(totalContributed(),0):"—"}</div>
+      <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
+    <div class="card stat"><div class="k">Themes / tickers</div><div class="v num">${THEMES.length} / ${membership().length}</div>
+      <div class="d muted">equal-weight within theme</div></div>`;
+  // theme cards
+  const grid=$("#priceGrid"); grid.innerHTML="";
+  THEMES.forEach(t=>{
+    const rows=tickersOf(t.key).map(s=>{
+      const q=state.quotes[s]||{}, p=price(s), ch=q.change, cp=q.changePct;
+      const h=holdings()[s]; const val=(h&&isNum(p))?h.shares*p:null;
+      const cls=isNum(ch)?(ch>=0?"up":"down"):"";
+      const arrow=isNum(ch)?(ch>=0?"▲":"▼"):"";
+      return `<tr>
+        <td class="sym">${s}<span class="co">${nameOf(s)}</span></td>
+        <td class="num">${money(p,2)}</td>
+        <td class="num ${cls}">${isNum(cp)?arrow+" "+Math.abs(cp).toFixed(2)+"%":"—"}</td>
+        <td class="num">${init&&isNum(val)?money(val,0):"<span class='muted'>—</span>"}</td>
+      </tr>`;}).join("");
+    const w=total>0?cvt[t.key]/total:0;
+    grid.insertAdjacentHTML("beforeend",`
+      <div class="card theme">
+        <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
+          <h3>${t.name}</h3></div>
+          <span class="pill">${init?pct(w,1)+" of book":tickersOf(t.key).length+" names"}</span></div>
+        <table><thead><tr><th>Ticker</th><th>Price</th><th>Day</th><th>Value</th></tr></thead>
+        <tbody>${rows}</tbody>
+        ${init?`<tfoot><tr><td>Theme value</td><td></td><td></td><td class="num">${money(cvt[t.key],0)}</td></tr></tfoot>`:""}
+        </table>
+      </div>`);
+  });
+}
+
+/* ======================================================================
+   Render: FUNDAMENTALS view
+   ====================================================================== */
+function renderFundamentals(){
+  const setW=(id,v)=>{ const el=$(id); if(el&&document.activeElement!==el)el.value=v; };
+  const W=state.weights;
+  setW("#wPeg",Math.round((W.peg||0)*100));
+  setW("#wEv",Math.round((W.ev||0)*100));
+  setW("#wDfcf",Math.round((W.dfcf||0)*100));
+  setW("#wPe",Math.round((W.pe||0)*100));
+  setW("#wMcap",Math.round((W.mcap||0)*100));
+  setW("#wMom",Math.round((W.mom||0)*100));
+  const _ws=(W.peg||0)+(W.ev||0)+(W.dfcf||0)+(W.pe||0)+(W.mcap||0)+(W.mom||0)||1;
+  const _pp=v=>Math.round((v||0)/_ws*100);
+  if($("#wEffNote"))$("#wEffNote").textContent="→ "+_pp(W.peg)+"/"+_pp(W.ev)+"/"+_pp(W.dfcf)+"/"+_pp(W.pe)+"/"+_pp(W.mcap)+"/"+_pp(W.mom)+"%";
+  if($("#penEv"))$("#penEv").value=state.penalty.ev;
+  if($("#penPeg"))$("#penPeg").value=state.penalty.peg;
+  if($("#penDfcf"))$("#penDfcf").value=state.penalty.dfcf;
+  if($("#penPe"))$("#penPe").value=state.penalty.pe;
+  if($("#capPct"))$("#capPct").value=Math.round((state.cap||0)*100);
+  const A=computeAllocation();
+
+  // allocation bar + legend
+  const bar=$("#allocBar"); bar.innerHTML="";
+  A.rows.forEach(r=>{ const sp=document.createElement("span");
+    sp.style.width=(r.alloc*100)+"%"; sp.style.background=r.theme.color; sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
+  $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
+    return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
+    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
+
+  // drift table
+  const cvt=curValueByTheme(), total=curTotal();
+  $("#driftTable tbody").innerHTML=A.rows.map(r=>{
+    const cw=total>0?cvt[r.theme.key]/total:null;
+    const d=isNum(cw)?(cw-r.alloc):null;
+    const dcls=isNum(d)?(Math.abs(d)<0.01?"muted":(d>0?"down":"up")):"muted";
+    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${r.theme.name}</td>
+      <td class="num">${pct(r.alloc)}</td><td class="num">${isNum(cw)?pct(cw):"—"}</td>
+      <td class="num ${dcls}"><span class="drift">${isNum(d)?signed(d*100,1)+"pp":"—"}</span></td></tr>`;}).join("");
+
+  // notes
+  const exNotes=A.rows.filter(r=>r.peg.penalized.length||r.ev.penalized.length||r.dfcf.penalized.length||r.pe.penalized.length||r.ev.excluded.length||r.dfcf.excluded.length).map(r=>{
+    const bits=[];
+    if(r.ev.penalized.length)bits.push("EV/EBITDA penalized for "+r.ev.penalized.join(", ")+" ("+state.penalty.ev+"×)");
+    if(r.dfcf.penalized.length)bits.push("Debt/FCF penalized for "+r.dfcf.penalized.join(", ")+" ("+state.penalty.dfcf+"×)");
+    if(r.pe.penalized.length)bits.push("P/E penalized for "+r.pe.penalized.join(", ")+" ("+state.penalty.pe+"×)");
+    if(r.peg.penalized.length)bits.push("PEG penalized for "+r.peg.penalized.join(", ")+" ("+state.penalty.peg+"×)");
+    const exl=[...new Set([...r.ev.excluded,...r.dfcf.excluded])];
+    if(exl.length)bits.push("excluded as N/A: "+exl.join(", "));
+    return "<b>"+r.theme.name+":</b> "+bits.join("; ")+".";
+  });
+  const cappedThemes=A.rows.filter(r=>isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6);
+  const capNote=cappedThemes.length?(" Capped this run: "+cappedThemes.map(r=>r.theme.name+" "+pct(r.alloc)+" (from "+pct(r.allocRaw)+")").join(", ")+"."):"";
+  const carried=Object.keys(A.carry||{});
+  const carryNote=carried.length?("<b>Quality carry-over:</b> "+carried.map(s=>{const c=A.carry[s],p=[];if(isNum(c.ev))p.push("EV/EBITDA≈"+num(c.ev,1));if(isNum(c.dfcf))p.push("Debt/FCF≈"+num(c.dfcf,2));return "<b>"+s+"</b> "+p.join(", ");}).join("; ")+" — imputed from each name's standing on the factors it does report (banks don't publish these)."):"";
+  $("#allocNotes").innerHTML=`
+    <p>For each theme we take the <b>market-cap-weighted</b> PEG, EV/EBITDA, Debt/FCF and P/E across all 5 names. A name
+    with a <b>reported negative</b> ratio is replaced by a <b>penalty multiple</b> (EV/EBITDA <b>${state.penalty.ev}×</b>,
+    P/E <b>${state.penalty.pe}×</b>, Debt/FCF <b>${state.penalty.dfcf}×</b>, PEG <b>${state.penalty.peg}×</b>) so it drags
+    the theme's multiple up. A ratio that's <b>not applicable</b> (e.g. a bank reports no EV/EBITDA or FCF) is filled by
+    <b>quality carry-over</b> — it inherits the name's standing on the factors it <i>does</i> report, so a dominant, cheap
+    name (a big bank) lifts its sector instead of sitting out. A Debt/FCF of <b>0</b> = debt-free = best.</p>
+    <p>Each theme gets six scores, each normalized so the five themes sum to 100%: <b>PEG</b>, <b>EV/EBITDA</b>,
+    <b>Debt/FCF</b> and <b>P/E</b> use <code class="mono">1 ÷ ratio</code> (cheaper / more sustainable ⇒ higher);
+    <b>avg market cap</b> uses a <code class="mono">log scale</code> (bigger ⇒ higher); <b>momentum</b> blends price vs its
+    50- &amp; 200-day moving averages (higher ⇒ higher; a theme in a downtrend scores 0). Blended by your weights (PEG
+    ${Math.round(A.wPeg*100)} / EV·EBITDA ${Math.round(A.wEv*100)} / Debt·FCF ${Math.round(A.wDf*100)} / P·E
+    ${Math.round(A.wPe*100)} / mkt-cap ${Math.round(A.wMc*100)} / momentum ${Math.round(A.wMo*100)}%).</p>
+    <p>Finally, <b>no theme may exceed ${Math.round((state.cap||0)*100)}%</b> — excess from a leading theme is
+    spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
+    ${carryNote?("<p>"+carryNote+"</p>"):""}
+    ${exNotes.length?("<p>"+exNotes.join("<br>")+"</p>"):""}`;
+
+  // per-theme fundamentals tables
+  const grid=$("#fundGrid"); grid.innerHTML="";
+  A.rows.forEach(r=>{
+    const t=r.theme;
+    const body=tickersOf(t.key).map(s=>{
+      const f=state.fundamentals[s]||{}, o=state.overrides[s]||{};
+      const pegV=effPeg(s), evV=effEv(s), dfV=effDfcf(s), peV=effPe(s), mc=effMcap(s), mV=momOf(s);
+      const cy=(A.carry&&A.carry[s])||{};
+      const evCarry=!isNum(evV)&&isNum(cy.ev), dfCarry=!isNum(dfV)&&isNum(cy.dfcf);
+      const ovr='<span class="tag ovr">ovr</span>';
+      const pen=ti=>`<span class="tag pen" title="${ti}">prem</span>`;
+      const na =ti=>`<span class="tag na" title="${ti}">n/a</span>`;
+      const calc=ti=>`<span class="tag calc" title="${ti}">calc</span>`;
+      const qual=ti=>`<span class="tag qual" title="${ti}">qual</span>`;
+      const pegTag= isNum(o.peg)?ovr:(!(isNum(pegV)&&pegV>0)?pen(`No/negative PEG → ${state.penalty.peg}×`):'');
+      const peTag = isNum(o.pe) ?ovr:(!(isNum(peV)&&peV>0)?pen(`No/negative earnings → ${state.penalty.pe}×`):(f.peCalc?calc('P/E computed from TTM statements: market cap ÷ net income'):''));
+      const evTag = isNum(o.ev) ?ovr:(isNum(evV)&&evV<=0?pen(`Negative EV/EBITDA → ${state.penalty.ev}×`):(evCarry?qual('EV/EBITDA carried over from this name’s standing on the factors it does report (banks don’t report it)'):(!isNum(evV)?na('EV/EBITDA N/A → excluded'):(f.evCalc?calc('EV/EBITDA computed from TTM statements'):''))));
+      const dfTag = isNum(o.dfcf)?ovr:(isNum(dfV)&&dfV<0?pen(`Negative FCF → ${state.penalty.dfcf}×`):(dfCarry?qual('Debt/FCF carried over from this name’s standing on the factors it does report'):(!isNum(dfV)?na('Debt/FCF N/A → excluded'):'')));
+      const rst=(field,live)=>isNum(o[field])?`<span class="reset" data-reset="${field}" data-sym="${s}" title="Reset to live (${live})">↺</span>`:'';
+      const evShow= isNum(evV)?num(evV,1):(evCarry?num(cy.ev,1):'—');
+      const dfShow= isNum(dfV)?(dfV<0?'NM':num(dfV,2)):(dfCarry?num(cy.dfcf,2):'—');
+      const momCls= isNum(mV)?(mV>=0?'up':'down'):'';
+      return `<tr>
+        <td class="sym">${s}</td>
+        <td class="num">${bil(mc)}</td>
+        <td class="num"><span class="editable" data-edit="peg" data-sym="${s}" title="Click to type your own PEG">${num(pegV,2)}</span>${pegTag}${rst('peg',num(f.peg,2))}</td>
+        <td class="num"><span class="editable" data-edit="ev" data-sym="${s}" title="Click to type your own EV/EBITDA">${evShow}</span>${evTag}${rst('ev',isNum(f.ev)?num(f.ev,1):'NM')}</td>
+        <td class="num"><span class="editable" data-edit="dfcf" data-sym="${s}" title="Click to type your own Total Debt / FCF">${dfShow}</span>${dfTag}${rst('dfcf',isNum(f.dfcf)?(f.dfcf<0?'NM':num(f.dfcf,2)):'—')}</td>
+        <td class="num"><span class="editable" data-edit="pe" data-sym="${s}" title="Click to type your own P/E">${num(peV,1)}</span>${peTag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>
+        <td class="num ${momCls}">${isNum(mV)?signed(mV*100,1)+'%':'—'}</td>
+      </tr>`;}).join("");
+    const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
+                 : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
+    grid.insertAdjacentHTML("beforeend",`
+      <div class="card theme">
+        <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
+          <h3>${t.name}</h3>${srcTag}</div>
+          <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
+        <table><thead><tr><th>Ticker</th><th>Cap</th><th>PEG</th><th>EV/EB</th><th>D/FCF</th><th>P/E</th><th>Mom</th></tr></thead>
+        <tbody>${body}</tbody>
+        <tfoot><tr><td>Theme</td><td class="num" title="theme average market cap">${bil(r.mcap)}</td>
+          <td class="num">${num(r.peg.value,2)}</td><td class="num">${num(r.ev.value,1)}</td><td class="num">${isNum(r.dfcf.value)?num(r.dfcf.value,2):'—'}</td><td class="num">${num(r.pe.value,1)}</td><td class="num ${isNum(r.mom.value)?(r.mom.value>=0?'up':'down'):''}">${isNum(r.mom.value)?signed(r.mom.value*100,1)+'%':'—'}</td></tr></tfoot>
+        </table>
+      </div>`);
+  });
+  // wire inline editors
+  $$(".editable").forEach(el=>el.addEventListener("click",()=>startEdit(el)));
+  $$(".reset").forEach(el=>el.addEventListener("click",async e=>{
+    e.stopPropagation();
+    const sym=el.dataset.sym, field=el.dataset.reset, o=state.overrides[sym];
+    if(o){ delete o[field]; if(!Object.keys(o).length) delete state.overrides[sym]; }
+    await savePortfolio(); renderFundamentals(); renderCalc();
+  }));
+}
+
+function startEdit(el){
+  const sym=el.dataset.sym, field=el.dataset.edit;
+  const cur=field==="peg"?effPeg(sym):field==="ev"?effEv(sym):field==="pe"?effPe(sym):effDfcf(sym);
+  const inp=document.createElement("input"); inp.type="number"; inp.step="0.01"; inp.value=isNum(cur)?cur:"";
+  inp.style.width="70px"; el.replaceWith(inp); inp.focus(); inp.select();
+  const commit=async(save)=>{
+    if(save){ const v=parseFloat(inp.value);
+      state.overrides[sym]=state.overrides[sym]||{};
+      if(isNum(v)) state.overrides[sym][field]=v; else delete state.overrides[sym][field];
+      await savePortfolio(); }
+    renderFundamentals();
+  };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter")commit(true); if(e.key==="Escape")commit(false); });
+  inp.addEventListener("blur",()=>commit(true));
+}
+
+/* ======================================================================
+   Render: CALCULATOR view
+   ====================================================================== */
+function renderCalc(){
+  if(!isInit()){ renderCalcInit(); $("#calcMain").innerHTML=""; }
+  else { $("#calcUninit").innerHTML=""; renderCalcMain(); }
+}
+
+function renderCalcInit(){
+  const A=computeAllocation();
+  const preview=A.rows.map(r=>`<tr>
+      <td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${r.theme.name}</td>
+      <td class="num">${pct(r.alloc)}</td>
+      <td class="num">${money(r.alloc*80000,0)}</td>
+      <td class="num muted">${money(r.alloc*80000/perTheme(r.theme),0)} ea</td></tr>`).join("");
+  $("#calcUninit").innerHTML=`
+    ${(versions().length && canRedo())?`<div class="vbanner warn" style="margin-bottom:14px">
+      <div>You undid your portfolio build — <b>${versions().length-1-head()}</b> version(s) can be restored.</div>
+      <div class="row" style="gap:8px">${undoRedoButtons()}</div></div>`:''}
+    <div class="grid2">
+      <div class="card pad">
+        <h2 style="font-size:16px">Start your portfolio</h2>
+        <p class="small muted">Enter your starting capital. We'll split it across the 5 themes by the model
+          weights, then equal-weight the 5 names inside each theme, and convert to share counts at live prices.</p>
+        <div class="row" style="align-items:flex-end;margin-top:8px">
+          <div class="field"><label>Starting capital (USD)</label>
+            <input type="number" id="initCapital" value="80000" step="1000" style="width:160px"></div>
+          <button id="buildBtn" class="btn primary">Build initial portfolio →</button>
+        </div>
+        <p class="note">This writes <code class="mono">portfolio.json</code> on your machine and is remembered
+          for every future rebalance.</p>
+      </div>
+      <div class="card pad">
+        <h3 style="font-size:14px">Preview @ $80,000</h3>
+        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Theme</th><th>Weight</th><th>Capital</th><th>Per name</th></tr></thead>
+          <tbody>${preview}</tbody></table></div>
+      </div>
+    </div>`;
+  $("#buildBtn").addEventListener("click",doBuildInitial);
+}
+
+async function doBuildInitial(){
+  const cap=parseFloat($("#initCapital").value);
+  if(!isNum(cap)||cap<=0){ toast("Enter a positive amount"); return; }
+  if(membership().some(s=>!isNum(price(s)))){ toast("Waiting for prices… try Refresh"); return; }
+  const plan=planTrades(cap,"full"); // from zero -> all buys
+  const h={};
+  plan.universe.forEach(s=>{ h[s]={shares:plan.sharesD[s]||0, costBasis:plan.trade[s]||0}; });
+  if(!state.portfolio) state.portfolio={createdAt:todayISO(), versions:[], head:-1};
+  if(!state.portfolio.createdAt) state.portfolio.createdAt=todayISO();
+  state.portfolio.holdings=h;
+  state.portfolio.totalContributed=cap;
+  pushVersion(buildTxn("INITIAL","full",cap,0,plan));   // forks the timeline if you'd undone a prior build
+  await savePortfolio();
+  toast("Portfolio initialized with "+money(cap,0));
+  renderAll();
+  switchView("calc");
+}
+
+function buildTxn(type,mode,cashIn,valueBefore,plan){
+  const trades=plan.universe.filter(s=>Math.abs(plan.trade[s]||0)>=0.005).map(s=>({
+    sym:s, theme:themeOfSym(s).key, amount:plan.trade[s], shares:plan.sharesD[s], price:price(s),
+    before:plan.cv[s], after:plan.target[s] }));
+  const allocOut={}; plan.alloc.rows.forEach(r=>allocOut[r.theme.key]=r.alloc);
+  return {date:todayISO(), type, mode, cashIn, valueBefore, valueAfter:plan.newTotal,
+    weights:{peg:state.weights.peg, ev:state.weights.ev}, alloc:allocOut, trades};
+}
+
+function renderCalcMain(){
+  const total=curTotal(), A=computeAllocation();
+  $("#calcMain").innerHTML=`
+    <div class="band">
+      <div class="card stat"><div class="k">Current value</div><div class="v num">${money(total,0)}</div>
+        <div class="d muted">cost ${money(totalCostBasis(),0)}</div></div>
+      <div class="card stat"><div class="k">Unrealized gain</div><div class="v num ${total-totalCostBasis()>=0?'up':'down'}">${signed(total-totalCostBasis(),0).replace(/^([+-])/,'$1$')}</div>
+        <div class="d muted">${pct(totalCostBasis()>0?(total-totalCostBasis())/totalCostBasis():0)}</div></div>
+      <div class="card stat"><div class="k">Total invested</div><div class="v num">${money(totalContributed(),0)}</div>
+        <div class="d muted">${versions().length} version${versions().length===1?'':'s'}</div></div>
+      <div class="card stat"><div class="k">Started</div><div class="v num" style="font-size:18px">${state.portfolio.createdAt||"—"}</div>
+        <div class="d muted">themed PEG/EV model</div></div>
+    </div>
+
+    <div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:16px">
+      <div>Last saved: <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' · '+currentVersion().date):''}${canRedo()?(' &nbsp;·&nbsp; <b>'+(versions().length-1-head())+'</b> newer version(s) redoable'):''}</div>
+      <div class="row" style="gap:8px">${undoRedoButtons()}</div>
+    </div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="section-title"><h2>Rebalance</h2></div>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>Add capital (USD)</label>
+          <input type="number" id="addCash" value="4000" step="500"></div>
+        <div class="field"><label>Mode</label>
+          <select id="mode">
+            <option value="full">Full rebalance (buys &amp; sells)</option>
+            <option value="cash">Deploy new cash only (no sells)</option>
+          </select></div>
+        <button id="calcRebBtn" class="btn primary">Calculate →</button>
+        <button id="realignBtn" class="btn" title="Rebalance to today's target weights at the current value, adding no new capital">Realign only (no new $)</button>
+        <div class="spacer"></div>
+        <div class="small muted" style="max-width:340px">Full rebalance moves every position to its model target —
+          it will tell you what to <b>sell</b> as well as buy. Cash-only just steers the new $ into underweight names.</div>
+      </div>
+      <div id="rebOut"></div>
+    </div>
+
+    <div class="card pad">
+      <h2 style="font-size:16px">Current holdings</h2>
+      ${holdingsTable()}
+    </div>`;
+  $("#calcRebBtn").addEventListener("click",doCalcRebalance);
+  $("#realignBtn").addEventListener("click",()=>{ $("#addCash").value="0"; $("#mode").value="full"; doCalcRebalance(); });
+}
+
+function holdingsTable(){
+  const cv=curValueBySym(), total=curTotal(), h=holdings();
+  const rows=THEMES.map(t=>{
+    const tv=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0);
+    const inner=tickersOf(t.key).map(s=>{
+      const sh=h[s]?h[s].shares:0, p=price(s), v=cv[s], cb=h[s]?h[s].costBasis:0;
+      const gl=v-cb;
+      return `<tr><td class="sym">${s}</td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
+        <td class="num">${money(v,0)}</td><td class="num">${total>0?pct(v/total):"—"}</td>
+        <td class="num ${gl>=0?'up':'down'}">${signed(gl,0).replace(/^([+-])/,'$1$')}</td></tr>`;}).join("");
+    return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${t.name}</b></td>
+      <td class="num"><b>${money(tv,0)}</b></td><td class="num"><b>${total>0?pct(tv/total):"—"}</b></td><td></td></tr>${inner}`;
+  }).join("");
+  return `<div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Holding</th><th>Shares</th><th>Price</th><th>Value</th><th>Weight</th><th>Gain</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td>Total</td><td></td><td></td><td class="num">${money(total,0)}</td><td class="num">100%</td>
+      <td class="num ${total-totalCostBasis()>=0?'up':'down'}">${signed(total-totalCostBasis(),0).replace(/^([+-])/,'$1$')}</td></tr></tfoot></table></div>`;
+}
+
+let lastPlan=null;
+function doCalcRebalance(){
+  const add=parseFloat($("#addCash").value)||0;
+  const mode=$("#mode").value;
+  if(membership().some(s=>!isNum(price(s)))){ toast("Waiting for prices…"); return; }
+  const plan=planTrades(add,mode); lastPlan=plan;
+  renderRebalanceOutput(plan);
+}
+
+function renderRebalanceOutput(plan){
+  const out=$("#rebOut");
+  const buys=[], sells=[];
+  plan.universe.forEach(s=>{ const amt=plan.trade[s]||0; if(amt>0.005)buys.push(s); else if(amt<-0.005)sells.push(s); });
+  const sumBuy=buys.reduce((a,s)=>a+plan.trade[s],0);
+  const sumSell=sells.reduce((a,s)=>a+plan.trade[s],0);
+  // per theme breakdown
+  const themeRows=THEMES.map(t=>{
+    const before=tickersOf(t.key).reduce((a,s)=>a+(plan.cv[s]||0),0);
+    const after=tickersOf(t.key).reduce((a,s)=>a+(plan.target[s]||0),0);
+    const r=plan.alloc.byKey[t.key];
+    const wB=plan.cur0>0?before/plan.cur0:0, wA=after/plan.newTotal;
+    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${t.color}"></span> ${t.name}</td>
+      <td class="num">${pct(r.alloc)}</td>
+      <td class="num">${money(before,0)} <span class="muted xs">(${pct(wB,0)})</span></td>
+      <td class="num">${money(after,0)} <span class="muted xs">(${pct(wA,0)})</span></td>
+      <td class="num ${after-before>=0?'trade-buy':'trade-sell'}">${signed(after-before,0).replace(/^([+-])/,'$1$')}</td></tr>`;
+  }).join("");
+  // per stock actions
+  const stockRows=plan.universe.map(s=>{
+    const amt=plan.trade[s], sh=plan.sharesD[s];
+    const act= amt>0.005?"BUY": amt<-0.005?"SELL":"HOLD";
+    const badge= act==="BUY"?'<span class="badge-action badge-buy">BUY</span>'
+      : act==="SELL"?'<span class="badge-action badge-sell">SELL</span>'
+      : '<span class="badge-action badge-hold">—</span>';
+    const cls= act==="BUY"?"trade-buy":act==="SELL"?"trade-sell":"trade-hold";
+    return `<tr>
+      <td class="sym">${s}<span class="co">${themeOfSym(s).name}</span></td>
+      <td class="center">${badge}</td>
+      <td class="num ${cls}">${act==="HOLD"?"—":(amt>0?"+":"")+money(amt,0).replace(/^\$/,"$").replace(/^-\$/,"-$")}</td>
+      <td class="num ${cls}">${act==="HOLD"||!isNum(sh)?"—":signed(sh,3)}</td>
+      <td class="num">${money(price(s),2)}</td>
+      <td class="num muted">${money(plan.cv[s],0)} → ${money(plan.target[s],0)}</td>
+    </tr>`;}).join("");
+
+  out.innerHTML=`
+    <div class="hint" style="margin:14px 0">
+      Adding <b>${money(plan.addCash,0)}</b> → new book <b>${money(plan.newTotal,0)}</b>.
+      ${plan.mode==="full"
+        ? `Buy <b class="trade-buy">${money(sumBuy,0)}</b>, sell <b class="trade-sell">${money(-sumSell,0)}</b> (net ${money(plan.addCash,0)}).`
+        : `Deploy <b class="trade-buy">${money(sumBuy,0)}</b> of new cash into underweight names; no sells.`}
+      ${plan.missing.length?`<br><span class="down">No live price for ${plan.missing.join(", ")} — excluded.</span>`:""}
+    </div>
+    <div class="grid2">
+      <div>
+        <h3 style="font-size:13px;margin-bottom:6px">By theme</h3>
+        <div class="tscroll"><table><thead><tr><th>Theme</th><th>Target</th><th>Before</th><th>After</th><th>Δ$</th></tr></thead>
+          <tbody>${themeRows}</tbody></table></div>
+      </div>
+      <div>
+        <h3 style="font-size:13px;margin-bottom:6px">Actions this round</h3>
+        <div class="row small" style="gap:18px;margin-bottom:6px">
+          <span><b class="trade-buy">${buys.length}</b> buys</span>
+          <span><b class="trade-sell">${sells.length}</b> sells</span>
+        </div>
+      </div>
+    </div>
+    <h3 style="font-size:13px;margin:14px 0 6px">Per-stock instructions</h3>
+    <div class="tscroll"><table><thead><tr><th>Stock</th><th class="center">Action</th><th>Amount</th><th>Shares</th><th>Price</th><th>Value before → after</th></tr></thead>
+      <tbody>${stockRows}</tbody></table></div>
+    <div class="row" style="margin-top:14px;align-items:center">
+      <button id="applyBtn" class="btn primary">✓ Apply &amp; save this rebalance</button>
+      <span class="small muted">Updates your holdings, bumps total invested by ${money(plan.addCash,0)}, and logs it to History.</span>
+    </div>`;
+  $("#applyBtn").addEventListener("click",()=>applyRebalance(plan));
+}
+
+async function applyRebalance(plan){
+  const h=holdings();
+  plan.universe.forEach(s=>{
+    const cur=h[s]||{shares:0,costBasis:0};
+    const dShares=plan.sharesD[s]||0, dCash=plan.trade[s]||0;
+    cur.shares=(cur.shares||0)+dShares;
+    cur.costBasis=(cur.costBasis||0)+dCash; // net invested basis
+    if(cur.shares<1e-9)cur.shares=0;
+    h[s]=cur;
+  });
+  // drop fully-liquidated positions no longer in any theme (e.g. a swapped-out name)
+  Object.keys(h).forEach(s=>{ if((h[s].shares||0)<1e-9 && !membership().includes(s)) delete h[s]; });
+  state.portfolio.holdings=h;
+  state.portfolio.totalContributed=totalContributed()+plan.addCash;
+  pushVersion(buildTxn("REBALANCE",plan.mode,plan.addCash,plan.cur0,plan));
+  await savePortfolio();
+  lastPlan=null;
+  toast("Rebalance applied & saved");
+  renderAll();
+}
+
+/* ======================================================================
+   Render: HISTORY view
+   ====================================================================== */
+function renderHistory(){
+  const body=$("#historyBody");
+  const vs=versions(), h=head();
+  if(!vs.length){ body.innerHTML=syncCardHTML()+`<div class="empty">No versions yet. Build your portfolio in the Calculator tab — each build &amp; rebalance becomes a checkpoint you can undo or revert to.</div>`; return; }
+  const banner=`<div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:14px">
+      <div>Showing <b>version ${h+1} of ${vs.length}</b>${canRedo()?' · reverted — newer versions are redoable until you apply a new rebalance':''}</div>
+      <div class="row" style="gap:8px">${undoRedoButtons()}</div></div>`;
+  const cards=vs.map((_,i)=>i).reverse().map(i=>{
+    const tx=vs[i], isCur=(i===h), isFut=(i>h);
+    const trades=(tx.trades||[]).map(tr=>{ const act=tr.amount>0?"BUY":"SELL", cls=tr.amount>0?"trade-buy":"trade-sell";
+      return `<tr><td class="sym">${tr.sym}</td><td class="${cls}">${act}</td>
+        <td class="num ${cls}">${(tr.amount>0?"+":"")+money(tr.amount,0)}</td>
+        <td class="num ${cls}">${signed(tr.shares,3)}</td><td class="num">${money(tr.price,2)}</td></tr>`;}).join("");
+    const tag = isCur?'<span class="tag live">● current</span>':(isFut?'<span class="tag fut">redoable</span>':'');
+    const btn = isCur?'':`<button class="btn sm ghost" data-vaction="revert" data-idx="${i}">${isFut?'Redo to here':'Revert to here'}</button>`;
+    return `<div class="card pad vcard ${isCur?'cur':''} ${isFut?'fut':''}" style="margin-bottom:12px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><span class="tag ${tx.type==='INITIAL'?'ovr':'live'}">#${tx.id} ${tx.type}</span>
+          <b style="margin-left:8px">${tx.date}</b>
+          <span class="muted small"> · ${tx.mode==='full'?'full rebalance':'cash deploy'} · added ${money(tx.cashIn,0)}</span> ${tag}</div>
+        <div class="row" style="gap:10px;align-items:center"><span class="small muted">${money(tx.valueBefore,0)} → <b>${money(tx.valueAfter,0)}</b></span>${btn}</div>
+      </div>
+      <div class="kvs" style="margin-top:8px">
+        ${THEMES.map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
+      </div>
+      <details class="exp"><summary>${(tx.trades||[]).length} trades · weights PEG ${Math.round((tx.weights&&tx.weights.peg||.5)*100)}% / EV ${Math.round((tx.weights&&tx.weights.ev||.5)*100)}%</summary>
+        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
+          <tbody>${trades}</tbody></table></div></details>
+    </div>`;}).join("");
+  body.innerHTML=syncCardHTML()+banner+cards;
+}
+
+/* ======================================================================
+   Render: SCREENER  +  swap-into-portfolio
+   ====================================================================== */
+function screenerMcap(s){ const q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{}; return isNum(q.marketCap)?q.marketCap:(isNum(s.mcapB)?s.mcapB*1e9:null); }
+
+function renderScreener(){
+  const body=$("#screenerBody"); if(!body) return;
+  if(!state.universe){ body.innerHTML=`<div class="empty">Stock universe not loaded.</div>`; return; }
+  const held=new Set(holdingSyms());
+  body.innerHTML=state.universe.themes.map(t=>{
+    const theme=THEMES.find(x=>x.key===t.key)||{name:t.name,color:"#888"};
+    const rows=t.stocks.map(s=>({s, mc:screenerMcap(s)})).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,50);
+    const trs=rows.map((row,idx)=>{
+      const s=row.s, q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{};
+      const inBook=held.has(s.ticker), ch=q.changePct;
+      const cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
+      const action=inBook?'<span class="tag live">held</span>':'<span class="muted xs">tap to swap ›</span>';
+      return `<tr class="screener-row" data-sym="${s.ticker}" data-theme="${t.key}" data-held="${inBook?1:0}">
+        <td class="num muted xs">${idx+1}</td>
+        <td class="sym">${s.ticker}<span class="co">${s.name}</span></td>
+        <td class="num">${bil(row.mc)}</td>
+        <td class="num">${money(isNum(q.price)?q.price:null,2)}</td>
+        <td class="num ${cls}">${isNum(ch)?arrow+' '+Math.abs(ch).toFixed(2)+'%':'—'}</td>
+        <td class="center">${action}</td>
+      </tr>`;}).join("");
+    return `<div class="card theme" style="margin-bottom:14px">
+      <div class="head"><div class="lhs"><span class="swatch" style="background:${theme.color}"></span>
+        <h3>${t.name}</h3><span class="muted xs">top ${rows.length} by market cap</span></div></div>
+      <table><thead><tr><th>#</th><th>Stock</th><th>Mkt cap</th><th>Price</th><th>Day</th><th class="center">Action</th></tr></thead>
+      <tbody>${trs}</tbody></table></div>`;
+  }).join("");
+  $$(".screener-row").forEach(r=>r.addEventListener("click",()=>{
+    if(r.dataset.held==="1"){ toast(r.dataset.sym+" is already in your portfolio"); return; }
+    openSwap(r.dataset.sym, r.dataset.theme);
+  }));
+}
+
+async function ensureScreener(){
+  renderScreener();
+  if(state.screenerLoaded) return;
+  state.screenerLoaded=true;
+  const body=$("#screenerBody"); if(body) body.insertAdjacentHTML("afterbegin",`<div class="note" id="scLoading">Loading live market caps…</div>`);
+  try{ await loadScreenerQuotes(); }catch(e){ console.error(e); }
+  renderScreener();
+}
+
+function openSwap(newSym, themeKey){
+  const t=THEMES.find(x=>x.key===themeKey); if(!t) return;
+  if(!isInit()){ toast("Build your portfolio first (Calculator tab)"); return; }
+  const current=tickersOf(themeKey);
+  if(current.includes(newSym)){ toast(newSym+" is already in "+t.name); return; }
+  const cv=curValueBySym();
+  const opts=current.map(s=>`<label class="swap-opt"><input type="radio" name="swapTarget" value="${s}">
+      <span class="sym">${s}</span><span class="muted small">${nameOf(s)}</span>
+      <span class="spacer"></span><span class="num small">${money(cv[s]||0,0)}</span></label>`).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="swapModal"><div class="modal-card card pad">
+      <h2 style="font-size:16px">Swap into ${t.name}</h2>
+      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) and remove one current holding from <b>${t.name}</b>.
+        The book then rebalances to the model — selling the removed name to $0 and redeploying its cash.</p>
+      <div class="swap-list">${opts}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn" id="swapCancel">Cancel</button>
+        <button class="btn primary" id="swapConfirm">Replace &amp; preview rebalance →</button>
+      </div></div></div>`;
+  $("#swapCancel").addEventListener("click",closeModal);
+  $("#swapModal").addEventListener("click",e=>{ if(e.target.id==="swapModal")closeModal(); });
+  $("#swapConfirm").addEventListener("click",()=>{ const sel=$("input[name=swapTarget]:checked");
+    if(!sel){ toast("Pick a holding to replace"); return; } doSwap(themeKey, sel.value, newSym); });
+}
+function closeModal(){ const m=$("#modalRoot"); if(m)m.innerHTML=""; }
+
+async function doSwap(themeKey, oldSym, newSym){
+  const cur=tickersOf(themeKey).slice(); const i=cur.indexOf(oldSym);
+  if(i<0){ toast("Holding not found"); return; }
+  cur[i]=newSym;
+  // promote the dynamic membership map (seed every theme from current, then apply this swap)
+  const map={}; THEMES.forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); }); map[themeKey]=cur;
+  state.themeTickers=map; rebuildThemeOf();
+  closeModal();
+  toast("Fetching "+newSym+"…");
+  try{ const d=await dsQuotes([newSym]); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
+  try{ const f=await dsFundamentals([newSym],false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
+  switchView("calc"); renderCalc();
+  const plan=planTrades(0,"full"); lastPlan=plan;
+  if($("#addCash")) $("#addCash").value="0";
+  renderRebalanceOutput(plan);
+  const rebOut=$("#rebOut"); if(rebOut) rebOut.scrollIntoView({behavior:"smooth",block:"nearest"});
+  toast("Swapped "+oldSym+" → "+newSym+" · review the plan, then Apply");
+}
+
+/* ======================================================================
+   iOS LAN sync UI (native only) — connect the app to the home computer
+   so both read/write the same portfolio.json.
+   ====================================================================== */
+function syncCardHTML(){
+  if(!NATIVE) return "";
+  const connected=!!serverBase(), ok=state.syncStatus==="remote";
+  const dot = !connected? "#b6b6b6" : (ok? "#2bb673" : "var(--gold)");
+  const label = !connected? "On this iPhone only" : (ok? "Synced with your computer" : "Computer set — not reachable now");
+  return `<div class="card pad" style="margin-bottom:14px">
+    <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+      <div><div class="small" style="font-weight:650">Data sync</div>
+        <div class="small muted" style="margin-top:2px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:6px;vertical-align:middle"></span>${label}${connected?(" · "+serverBase().replace(/^https?:\/\//,"")):""}</div></div>
+      <button class="btn sm" data-vaction="sync">${connected?"Change":"Set up sync"}</button>
+    </div></div>`;
+}
+function openSyncSheet(){
+  const cur=serverBase();
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="syncModal"><div class="modal-card card pad">
+    <h2 style="font-size:16px">Sync with your computer</h2>
+    <p class="small muted">On the computer running Portfolio Builder, the server window shows an address like
+      <code class="mono">http://192.168.1.50:8765</code> (the “iPhone app sync” line). Enter it below. Your phone and
+      computer must be on the same Wi-Fi, with the app running on the computer. Connecting adopts your
+      computer's portfolio as the shared one.</p>
+    <div class="field" style="margin-top:10px"><label>Computer address</label>
+      <input type="url" id="syncUrl" placeholder="http://192.168.1.50:8765" value="${cur}" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url" style="width:100%"></div>
+    <div id="syncMsg" class="small" style="margin-top:8px;min-height:18px"></div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap">
+      ${cur?'<button class="btn" id="syncOff">Use this iPhone only</button>':""}
+      <button class="btn" id="syncCancel">Cancel</button>
+      <button class="btn primary" id="syncConnect">Connect →</button>
+    </div></div></div>`;
+  $("#syncCancel").addEventListener("click",closeModal);
+  $("#syncModal").addEventListener("click",e=>{ if(e.target.id==="syncModal")closeModal(); });
+  if($("#syncOff")) $("#syncOff").addEventListener("click",syncDisconnect);
+  $("#syncConnect").addEventListener("click",syncConnect);
+}
+async function syncConnect(){
+  let url=($("#syncUrl").value||"").trim().replace(/\/+$/,"");
+  if(!url){ $("#syncMsg").innerHTML='<span class="down">Enter your computer’s address.</span>'; return; }
+  if(!/^https?:\/\//i.test(url)) url="http://"+url;
+  $("#syncMsg").textContent="Connecting…";
+  try{
+    const Http=capHttp(); const r=await Http.request({url:url+"/api/portfolio", method:"GET"});
+    const d=jsonOf(r.data);
+    if(!d || !("portfolio" in d)) throw new Error("not the Portfolio Builder server");
+    state.serverUrl=url; try{ localStorage.setItem(SRV_KEY,url); }catch(e){}
+    closeModal();
+    await loadPortfolio(); await Promise.all([loadQuotes(), loadFundamentals(false)]);
+    state.screenerLoaded=false;
+    renderAll();
+    toast("Connected — now syncing with your computer");
+  }catch(e){ $("#syncMsg").innerHTML='<span class="down">Couldn’t reach that address. Check the Wi-Fi, the address, and that the app is running on the computer.</span>'; }
+}
+async function syncDisconnect(){
+  state.serverUrl=""; try{ localStorage.removeItem(SRV_KEY); }catch(e){}
+  state.syncStatus="local"; closeModal();
+  await loadPortfolio(); renderAll(); toast("Now using this iPhone only");
+}
+
+/* ======================================================================
+   Orchestration
+   ====================================================================== */
+function renderAll(){ renderStatus(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); }
+
+function switchView(v){
+  curView=v;
+  $$("#tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  $$(".view").forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
+  if(v==="screener") ensureScreener();
+}
+
+async function refreshPrices(showToast){
+  $("#refreshBtn").disabled=true;
+  try{ await loadQuotes(); renderStatus(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }
+  catch(e){ toast("Price refresh failed"); }
+  finally{ $("#refreshBtn").disabled=false; }
+}
+
+function setupAutoRefresh(){
+  const sel=$("#refreshSel");
+  function arm(){ if(timer){clearInterval(timer);timer=null;} const s=parseInt(sel.value,10); if(s>0)timer=setInterval(()=>refreshPrices(false),s*1000); }
+  sel.addEventListener("change",arm); arm();
+}
+
+function setupEvents(){
+  $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b)switchView(b.dataset.view); });
+  $("#refreshBtn").addEventListener("click",()=>refreshPrices(true));
+  $("#screenerRefresh").addEventListener("click",async()=>{ $("#screenerRefresh").disabled=true;
+    try{ await loadScreenerQuotes(); renderScreener(); toast("Screener updated"); }
+    catch(e){ toast("Screener refresh failed"); } finally{ $("#screenerRefresh").disabled=false; } });
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("[data-vaction]"); if(!b||b.disabled)return;
+    const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(parseInt(b.dataset.idx,10)); else if(a==="sync")openSyncSheet(); });
+  $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
+    try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
+    catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
+  function readWeights(){ const gp=id=>{ const v=parseFloat($(id).value); return isNum(v)&&v>=0?v/100:0; };
+    state.weights={peg:gp("#wPeg"), ev:gp("#wEv"), dfcf:gp("#wDfcf"), pe:gp("#wPe"), mcap:gp("#wMcap"), mom:gp("#wMom")}; }
+  ["#wPeg","#wEv","#wDfcf","#wPe","#wMcap","#wMom"].forEach(id=>{
+    $(id).addEventListener("input",()=>{ readWeights(); renderFundamentals(); });
+    $(id).addEventListener("change",async()=>{ readWeights(); renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
+  });
+  function onPenalty(){
+    const ev=parseFloat($("#penEv").value), pg=parseFloat($("#penPeg").value), df=parseFloat($("#penDfcf").value), pe=parseFloat($("#penPe").value);
+    if(isNum(ev)&&ev>=0)state.penalty.ev=ev;
+    if(isNum(pg)&&pg>=0)state.penalty.peg=pg;
+    if(isNum(df)&&df>=0)state.penalty.dfcf=df;
+    if(isNum(pe)&&pe>=0)state.penalty.pe=pe;
+    renderFundamentals(); renderCalc();
+  }
+  ["#penEv","#penPeg","#penDfcf","#penPe"].forEach(id=>$(id).addEventListener("change",async()=>{ onPenalty(); if(state.portfolio)await savePortfolio(); }));
+  $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
+  $("#resetBtn").addEventListener("click",async()=>{
+    if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
+    state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
+      weights:state.weights,overrides:state.overrides,penalty:state.penalty};
+    await savePortfolio(); toast("Portfolio reset"); renderAll(); switchView("calc");
+  });
+}
+
+async function init(){
+  if(NATIVE){ try{ document.documentElement.classList.add('native'); }catch(e){} try{ state.serverUrl=localStorage.getItem(SRV_KEY)||""; }catch(e){} }
+  setupEvents();
+  try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
+  try{ await loadPortfolio(); }catch(e){ console.error(e); }
+  rebuildThemeOf();
+  try{ await Promise.all([loadQuotes(), loadFundamentals(false)]); }
+  catch(e){ console.error(e); toast("Some data failed to load — using fallback"); }
+  renderAll();
+  setupAutoRefresh();
+}
+init();
+</script>
+</body>
+</html>

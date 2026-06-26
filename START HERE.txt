@@ -1,0 +1,71 @@
+============================================================
+  PORTFOLIO BUILDER  -  how to run it
+============================================================
+
+TO START:
+  1. Windows: double-click  "Start Portfolio Builder.bat"
+     Mac:     double-click  "Start Portfolio Builder.command"
+              (first time: right-click -> Open)
+  2. A small window opens, then your web browser opens the
+     tool automatically. The first load takes about 10
+     seconds while it fetches live prices.
+  3. Use it. Everything you do saves automatically.
+
+  (Want it on your iPhone? See docs/IOS_BUILD.md.
+   The app itself now lives in the  www  folder.)
+
+TO STOP:
+  Close the black window (or click it and press Ctrl+C).
+  Your portfolio is saved either way.
+
+That's it. It is free, runs only on your own PC, and needs
+no account or login. You do need internet for live prices.
+
+------------------------------------------------------------
+ONE-CLICK SHORTCUT (optional, nice to have)
+  Right-click  "Start Portfolio Builder.bat"
+     -> Show more options -> Send to -> Desktop (create shortcut)
+  Now you can launch it straight from your desktop.
+
+------------------------------------------------------------
+THE TABS
+  Prices .......... live prices grouped by theme
+  Fundamentals .... PEG / EV-EBITDA / market-cap weights and
+                    the resulting target % for each theme
+  Calculator ...... build your $80k start, then each month
+                    type the cash you are adding and rebalance
+                    (it tells you exactly what to buy and sell)
+  Screener ........ top ~50 stocks by market cap in each theme;
+                    tap one to SWAP it in for a same-theme
+                    holding, then rebalance automatically
+  History ......... undo / redo / revert to any past point
+
+------------------------------------------------------------
+YOUR DATA
+  Everything lives in ONE file:   portfolio.json
+  Back it up by copying that file somewhere safe.
+  To start over: delete it, or use "Reset portfolio..."
+  on the History tab.
+
+------------------------------------------------------------
+IF SOMETHING DOES NOT WORK
+
+  * The black window flashes and vanishes, or it says
+    "Python was not found":
+       Install Python (free) from
+       https://www.python.org/downloads/
+       On the FIRST setup screen, TICK "Add Python to PATH".
+       Finish, then double-click the .bat again.
+
+  * The browser did not open by itself:
+       Look at the black window. It prints a line like
+            Open:  http://127.0.0.1:8765/
+       Type that address into any web browser.
+       (If 8765 was busy it may say 8766 - use whatever it
+        prints.)
+
+  * Prices show a "seed" / "offline" tag:
+       It could not reach the internet (or the data site was
+       briefly busy). Click "Refresh" - it goes live once you
+       are connected.
+============================================================

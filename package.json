@@ -1,0 +1,19 @@
+{
+  "name": "portfolio-builder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Themed PEG / EV-EBITDA portfolio builder — one web codebase (www/) that runs in the browser (via server.py) and as a native iOS app (via Capacitor).",
+  "scripts": {
+    "serve": "python3 server.py",
+    "ios:add": "cap add ios",
+    "ios:sync": "cap sync ios",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}
