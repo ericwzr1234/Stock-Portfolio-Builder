@@ -44,7 +44,9 @@
     border-radius:9px;padding:9px 11px;box-shadow:var(--shadow)}
   .card .id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted);font-weight:600}
   .card .title{font-weight:650;font-size:12.5px;margin:2px 0 4px}
-  .card .notes{color:var(--muted);font-size:11px;line-height:1.4}
+  .card .notes{color:var(--muted);font-size:11px;line-height:1.45}
+  ul.notes{margin:4px 0 0;padding-left:15px}
+  ul.notes li{margin:0 0 3px}
   .card .meta{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
   .epchip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:650;color:#fff;
     border-radius:5px;padding:1px 7px}
@@ -76,6 +78,9 @@
   if(!B){ board.innerHTML = '<div class="empty" style="padding:22px">Could not load docs/board.js — run <code>tools/render_dashboard.py</code>.</div>'; return; }
   const epics = {}; B.epics.forEach(e=>epics[e.key]=e);
   const esc = s => String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const renderNotes = n => !n ? '' : (Array.isArray(n)
+    ? '<ul class="notes">'+n.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>'
+    : `<div class="notes">${esc(n)}</div>`);
 
   document.getElementById('sub').innerHTML =
     `Updated ${esc(B.updated||'')} · monitor here or in <a href="docs/DASHBOARD.md">DASHBOARD.md</a> on GitHub. Edit <code>docs/board.json</code> to manage.`;
@@ -101,7 +106,7 @@
       return `<div class="card" style="border-left-color:${ep.color}">
         <div class="id">${esc(it.id)}</div>
         <div class="title">${esc(it.title)}</div>
-        ${it.notes?`<div class="notes">${esc(it.notes)}</div>`:''}
+        ${renderNotes(it.notes)}
         <div class="meta"><span class="epchip" style="background:${ep.color}">${esc(ep.name.split('·').pop().trim())}</span>${tags.join('')}${spec}</div>
       </div>`;
     }).join('') : '<div class="empty">— empty —</div>';

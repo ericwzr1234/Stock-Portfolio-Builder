@@ -70,8 +70,12 @@ def main():
                     spec = f" · [spec]({rel})"
                 L.append(f"- **{it['id']}** · _{ep.get('name', it.get('epic', ''))}_ — "
                          f"**{it['title']}**{tagstr}{spec}")
-                if it.get("notes"):
-                    L.append(f"  <br>{it['notes']}")
+                notes = it.get("notes")
+                if isinstance(notes, list):
+                    for n in notes:
+                        L.append(f"  - {n}")
+                elif notes:
+                    L.append(f"  <br>{notes}")
         L.append("")
     with open(MD, "w", encoding="utf-8") as f:
         f.write("\n".join(L))
