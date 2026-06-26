@@ -58,13 +58,13 @@ _Being built on the dev branch._
 _Built; waiting for you to try it._
 
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
-  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — and add it directly to a theme from the Fundamentals tab ('＋ name') or the Screener.
+  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.
   - Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).
   - Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).
-  - Refinement 1: an 'Other (decide later)' bucket — park a found name without picking a theme, then move it into a theme from the Other panel. Excluded from the allocation until moved.
+  - Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.
   - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
   - Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).
-  - Built & verified on dev (TSM now first) — awaiting your retest.
+  - Built & verified on dev (TSM found; watchlist staging works) — awaiting your retest.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
