@@ -166,6 +166,9 @@
   .ts-row .sym{ font-weight:600 }
   .ts-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
   .ts-row .ts-ex{ flex:0 0 auto }
+  .other-row{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #EDE8DB; font-size:13px }
+  .other-row .sym{ font-weight:600 }
+  .other-move{ padding:4px 6px; border:1px solid #DDD6C6; border-radius:6px; font-size:12px }
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
   .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
@@ -346,8 +349,9 @@
         <div class="legend" id="allocLegend"></div>
         <div class="row" style="margin-top:12px;align-items:center;gap:8px">
           <button class="btn sm" id="newThemeBtn">➕ New theme</button>
-          <span class="muted xs">add a theme (e.g. Semiconductors), then fill it from the Screener</span>
+          <span class="muted xs">add a theme (e.g. Semiconductors), then fill it with ＋ name (search any ticker)</span>
         </div>
+        <div id="otherList"></div>
         <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
           <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
         </details>
@@ -442,6 +446,7 @@ const state = {
   overrides:{},                   // sym -> {peg?,ev?,marketCap?}
   asOf:null,
   themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
+  otherList:[],                   // [syms] parked/unassigned names (E1.3); held aside, not allocated until moved to a theme
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
   universe:null,                  // screener universe (window.__UNIVERSE / data/universe.json)
   screenerQuotes:{},              // sym -> quote for screener stocks (lazy-loaded, chunked)
@@ -654,7 +659,7 @@ function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" $
   `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
 function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
   weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
-  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes) }; }
+  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes), otherList:deepCopy(state.otherList) }; }
 
 function pushVersion(txn){
   const p=state.portfolio; p.versions=p.versions||[]; if(!isNum(p.head))p.head=p.versions.length-1;
@@ -666,7 +671,7 @@ function pushVersion(txn){
 
 function restoreVersion(i){
   const p=state.portfolio; p.head=i;
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; rebuildThemeOf(); return; }   // before the initial build
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.otherList=[]; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
@@ -674,6 +679,7 @@ function restoreVersion(i){
   if(s.overrides!=null)state.overrides=deepCopy(s.overrides);
   state.themeTickers = s.themeTickers!=null ? deepCopy(s.themeTickers) : null;
   state.themes = s.themes!=null ? deepCopy(s.themes) : null;
+  state.otherList = Array.isArray(s.otherList) ? deepCopy(s.otherList) : [];
   rebuildThemeOf();
 }
 
@@ -837,6 +843,7 @@ async function loadPortfolio(){
   if(p){ state.portfolio=p; if(p.weights)state.weights=p.weights; if(p.overrides)state.overrides=p.overrides; if(p.penalty)state.penalty=p.penalty;
     if(p.themeTickers)state.themeTickers=p.themeTickers;
     if(p.themes)state.themes=p.themes;
+    if(Array.isArray(p.otherList))state.otherList=p.otherList;
     if(!('mom' in state.weights)) state.weights={peg:0.20,ev:0.20,dfcf:0.20,pe:0.15,mcap:0.10,mom:0.15};   // upgrade older saves to the 6-metric default
     if(!isNum(state.penalty.dfcf)) state.penalty.dfcf=50;
     if(!isNum(state.penalty.pe)) state.penalty.pe=200;
@@ -849,7 +856,7 @@ async function savePortfolio(){
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
-  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes;
+  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.otherList=state.otherList;
   if(useRemote()){
     try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
     catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }
@@ -949,6 +956,7 @@ function renderFundamentals(){
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
     ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}
     <button class="addname-btn" data-addto="${r.theme.key}" title="Search & add a name to ${r.theme.name}">＋ name</button></div>`;}).join("");
+  renderOtherList();
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
@@ -1507,9 +1515,8 @@ let _tsTimer=null;
 function openTickerSearch(themeKey){
   const scoped=!!(themeKey && themeByKey(themeKey));
   const title=scoped?("Add a name to "+themeByKey(themeKey).name):"Search & add a ticker";
-  const picker=scoped?`<input type="hidden" id="tsTheme" value="${themeKey}">`
-    :`<label class="small" style="display:block;margin:10px 0 4px">Add to theme</label>
-      <select id="tsTheme" style="width:100%;padding:8px;border:1px solid #DDD6C6;border-radius:8px">${themes().map(t=>`<option value="${t.key}">${t.name}</option>`).join("")}</select>`;
+  const picker=`<label class="small" style="display:block;margin:10px 0 4px">Add to</label>
+      <select id="tsTheme" style="width:100%;padding:8px;border:1px solid #DDD6C6;border-radius:8px">${themes().map(t=>`<option value="${t.key}"${t.key===themeKey?" selected":""}>${t.name}</option>`).join("")}<option value="_other">— Other (decide later) —</option></select>`;
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="tsModal"><div class="modal-card card pad">
       <h2 style="font-size:16px">${title}</h2>
       <p class="small muted">Search any symbol or company — including names outside the Screener (e.g. AMD, TSM).
@@ -1535,10 +1542,45 @@ function openTickerSearch(themeKey){
       res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${r.symbol}">
         <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
         <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join("");
-      $$(".ts-row").forEach(b=>b.addEventListener("click",()=>{ const tk=($("#tsTheme")||{}).value; if(tk) addTicker(tk, b.dataset.sym); }));
+      $$(".ts-row").forEach(b=>b.addEventListener("click",()=>{ const tk=($("#tsTheme")||{}).value, sym=b.dataset.sym; if(tk==="_other") addToOther(sym); else if(tk) addTicker(tk, sym); }));
     },250);
   });
   q.focus();
+}
+
+/* ---- "Other" (unassigned) list (E1.3): park a searched name, assign it to a theme later ---------- */
+async function addToOther(sym){
+  if(themeOf[sym]){ toast(sym+" is already in "+themeOf[sym].name); closeModal(); return; }
+  if(!Array.isArray(state.otherList)) state.otherList=[];
+  if(state.otherList.includes(sym)){ toast(sym+" is already in Other"); closeModal(); return; }
+  state.otherList.push(sym);
+  closeModal();
+  toast("Fetching "+sym+"…");
+  try{ const d=await dsQuotes([sym]); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
+  try{ const f=await dsFundamentals([sym],false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
+  await savePortfolio();
+  renderAll();
+  toast("Added "+sym+" to Other — assign it to a theme anytime");
+}
+async function moveFromOther(sym, themeKey){
+  if(!themeKey) return;
+  state.otherList=(state.otherList||[]).filter(x=>x!==sym);
+  await addTicker(themeKey, sym);   // previews the realign; Apply persists the move (otherList + membership)
+}
+function renderOtherList(){
+  const el=$("#otherList"); if(!el) return;
+  const list=(state.otherList||[]).filter(s=>!themeOf[s]);   // hide any that already ended up in a theme
+  state.otherList=list;                                       // self-heal stale entries
+  if(!list.length){ el.innerHTML=""; return; }
+  const opts=themes().map(t=>`<option value="${t.key}">${t.name}</option>`).join("");
+  el.innerHTML=`<div class="card pad" style="margin-top:12px">
+    <h3 style="font-size:13px;margin:0 0 4px">Other — unassigned (${list.length})</h3>
+    <p class="small muted" style="margin:0 0 8px">Names you've parked. They aren't in the model yet — assign each to a theme to include it.</p>
+    ${list.map(s=>`<div class="other-row"><span class="sym">${s}</span><span class="muted small ts-nm">${nameOf(s)}</span>
+      <span style="flex:1"></span>
+      <select class="other-move" data-sym="${s}"><option value="">Move to…</option>${opts}</select>
+      <button class="rmv-tkr other-del" data-othersym="${s}" title="Remove ${s} from Other">✕</button></div>`).join("")}
+  </div>`;
 }
 
 /* ======================================================================
@@ -1639,6 +1681,9 @@ function setupEvents(){
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
   if($("#screenerSearch")) $("#screenerSearch").addEventListener("click",()=>openTickerSearch());   // E1.3: search (Screener)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addto]"); if(b) openTickerSearch(b.dataset.addto); });   // E1.3: '＋ name' in the Fundamentals legend
+  $("main").addEventListener("change",e=>{ const sel=e.target.closest("select.other-move"); if(sel&&sel.value) moveFromOther(sel.dataset.sym, sel.value); });   // E1.3: move from Other -> theme
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-othersym]"); if(!b)return;   // E1.3: drop from Other
+    state.otherList=(state.otherList||[]).filter(x=>x!==b.dataset.othersym); savePortfolio(); renderAll(); });
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });

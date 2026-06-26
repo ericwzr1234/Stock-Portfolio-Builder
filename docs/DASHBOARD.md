@@ -58,11 +58,12 @@ _Being built on the dev branch._
 _Built; waiting for you to try it._
 
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
-  - Search any symbol or company — including names outside the curated screener (e.g. AMD, TSM, AVGO) — via Yahoo's search.
-  - Add it directly to a theme from the Fundamentals tab ('＋ name' per theme) — no Screener detour — and from the Screener too (with a theme picker).
-  - New plumbing: /api/search proxy in server.py + a platform-agnostic dsSearch (web → server, iOS → Yahoo on-device); the add reuses the E1.2 rail.
-  - Thin-data names use the existing penalty/compute path (no special code).
-  - Built on dev & verified live (search, add, real position) — awaiting your click-through. NOTE: this card touches server.py + the iOS data layer, so the Mac syncs both.
+  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — and add it directly to a theme from the Fundamentals tab ('＋ name') or the Screener.
+  - Refinement 1: search now matches a CACHED local directory of all US-listed tickers (NASDAQ symbol files, ~11k names, refreshed daily, warmed on startup) — instant & reliable, not a live call. Falls back to Yahoo live search only if the cache can't load.
+  - Refinement 1: an 'Other (decide later)' bucket — park a found name without picking a theme, then move it into a theme from the Other panel. It's excluded from the allocation until moved.
+  - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
+  - Touches server.py (cache + /api/search) and the iOS data layer — the Mac syncs both. NOTE: a running server must be RESTARTED to pick up server.py changes (likely cause of the earlier 'no matches').
+  - Built & verified on dev — awaiting your retest.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

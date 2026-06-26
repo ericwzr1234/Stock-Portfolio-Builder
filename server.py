@@ -174,6 +174,91 @@ def search_yahoo(query):
     return out
 
 
+# --- Ticker directory cache (E1.3): a daily-refreshed local index of all US-listed symbols + names
+#     (NASDAQ Trader's public symbol files), so ticker search is instant and reliable — independent of
+#     Yahoo's live search endpoint. Cached to disk so it survives restarts; refreshed when >24h old. ---
+DIR_PATH = os.path.join(BASE_DIR, "ticker_directory.json")
+DIR_TTL = 24 * 3600
+_dir_cache = {"ts": 0, "data": []}
+_dir_lock = threading.Lock()
+
+
+def _parse_symdir(text):
+    out = []
+    for line in text.splitlines()[1:]:
+        if not line or line.startswith("File Creation Time"):
+            continue
+        parts = line.split("|")
+        if len(parts) < 2:
+            continue
+        sym, name = parts[0].strip(), parts[1].strip()
+        if not sym or " " in sym or sym in ("Symbol", "ACT Symbol"):
+            continue
+        out.append({"symbol": sym, "name": name})
+    return out
+
+
+def load_ticker_directory(force=False):
+    """Return [{'symbol','name'}] for every US-listed name. Memory -> disk -> live refresh."""
+    global _dir_cache
+    with _dir_lock:
+        if _dir_cache["data"] and not force and (time.time() - _dir_cache["ts"] < DIR_TTL):
+            return _dir_cache["data"]
+        if not _dir_cache["data"] and not force and os.path.exists(DIR_PATH):
+            try:
+                with open(DIR_PATH, encoding="utf-8") as f:
+                    j = json.load(f)
+                _dir_cache = {"ts": j.get("ts", 0), "data": j.get("data", [])}
+                if _dir_cache["data"] and (time.time() - _dir_cache["ts"] < DIR_TTL):
+                    return _dir_cache["data"]
+            except Exception:
+                pass
+        data = []
+        for url in ("https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt",
+                    "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"):
+            try:
+                ensure_session()
+                data += _parse_symdir(_http_get(url, timeout=25))
+            except Exception as e:
+                sys.stderr.write(f"[ticker-dir] {url} failed: {e}\n")
+        if data:
+            _dir_cache = {"ts": int(time.time()), "data": data}
+            try:
+                with open(DIR_PATH, "w", encoding="utf-8") as f:
+                    json.dump(_dir_cache, f)
+            except Exception:
+                pass
+        return _dir_cache["data"]
+
+
+def search_directory(q):
+    """Match a query against the cached directory (symbol exact > prefix > contains > name). Live fallback."""
+    q = (q or "").strip()
+    if not q:
+        return []
+    data = load_ticker_directory()
+    if not data:
+        return search_yahoo(q)  # if the directory couldn't load, fall back to Yahoo live search
+    qu = q.upper()
+    scored = []
+    for it in data:
+        sym = it["symbol"].upper()
+        if sym == qu:
+            rank = 0
+        elif sym.startswith(qu):
+            rank = 1
+        elif qu in sym:
+            rank = 2
+        elif qu in it["name"].upper():
+            rank = 3
+        else:
+            continue
+        scored.append((rank, len(it["symbol"]), it))
+    scored.sort(key=lambda x: (x[0], x[1]))
+    return [{"symbol": it["symbol"], "name": it["name"], "exchange": "", "type": "EQUITY"}
+            for _, _, it in scored[:12]]
+
+
 def _rv(d, k):
     """Pull a Yahoo numeric field that may be {'raw': x} or a bare number."""
     x = d.get(k)
@@ -434,7 +519,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"fundamentals": get_fundamentals(self._symbols(qs), force=force),
                                  "asOf": int(time.time())})
             elif path == "/api/search":
-                self._send(200, {"results": search_yahoo(qs.get("q", [""])[0])})
+                self._send(200, {"results": search_directory(qs.get("q", [""])[0])})
             elif path == "/api/portfolio":
                 self._send(200, {"portfolio": read_db()})
             elif not path.startswith("/api/"):
@@ -509,6 +594,7 @@ def main():
     # warm caches in the background so the first page load is instant
     threading.Thread(target=lambda: (get_quotes(ALL_TICKERS), get_fundamentals(ALL_TICKERS)),
                      daemon=True).start()
+    threading.Thread(target=load_ticker_directory, daemon=True).start()   # warm the ticker search index
     if not os.environ.get("PB_NO_BROWSER"):
         try:
             webbrowser.open(url)

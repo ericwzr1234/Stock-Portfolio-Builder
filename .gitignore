@@ -27,5 +27,8 @@ portfolio.*.json
 # keeps its own .claude/launch.json. See docs/DEV_WORKFLOW.md to recreate it.
 .claude/
 
+# ── Generated cache (E1.3 ticker search) — refreshed daily from the public symbol directory ──
+ticker_directory.json
+
 # ── misc local ──
 *.local
