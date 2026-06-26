@@ -27,8 +27,8 @@ _A half-baked idea; can be pushed further down once fleshed out._
 ## Design  (5)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a single ticker in a theme** _(depends E1.1, web)_
-  <br>Generalize Swap into independent add & remove primitives + minimal UI.
+- **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a single ticker in a theme** _(depends E1.1, web)_ · [spec](features/E1.2_add-remove-ticker.md)
+  <br>Generalize Swap into independent Add & Remove primitives on the same preview→Apply→version rail; minimal UI (Add button in the swap modal, ✕ remove in the holdings table). Spec written, awaiting sign-off.
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_
   <br>Search any symbol (even outside the curated universe) → validate via Yahoo → preview → add to a chosen theme.
 - **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_
