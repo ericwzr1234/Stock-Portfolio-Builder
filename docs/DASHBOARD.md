@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 4 |
+| Design | 3 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 12 |
@@ -32,19 +32,13 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.
   - Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec.
 
-## Design  (4)
+## Design  (3)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_
   - Search for any symbol — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).
   - Validate it live via Yahoo, preview its data, then add it to a chosen theme.
   - This is what lets a custom theme hold names the screener doesn't already list.
-- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
-  - Create a brand-new theme with a name and a colour (e.g. 'Semiconductors').
-  - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
-  - Model rule (verified needed): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
-  - Funded themes still sum to 100%; with the default 5 (all funded) behaviour is unchanged.
-  - Spec written, awaiting design sign-off.
 - **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_
   - Edit an existing theme's display name and colour.
   - Updates consistently everywhere — Prices, allocation legend, screener swatch, and history.
@@ -58,10 +52,15 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
+  - Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.
+  - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
+  - Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
+  - Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).
+  - Built on dev — awaiting your click-through before merge.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

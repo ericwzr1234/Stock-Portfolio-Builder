@@ -155,6 +155,9 @@
   .screener-row td{vertical-align:middle}
   .rmv-tkr{ border:1px solid #DDD6C6; background:transparent; color:#9AA3A1; border-radius:999px; width:19px; height:19px; line-height:1; font-size:11px; cursor:pointer; padding:0; margin-left:6px; vertical-align:middle; }
   .rmv-tkr:hover{ border-color:#B0894F; color:#B0894F; }
+  .ct-swatches{display:flex;flex-wrap:wrap;gap:7px}
+  .ct-sw{width:26px;height:26px;border-radius:7px;border:2px solid transparent;cursor:pointer;padding:0}
+  .ct-sw.sel{outline:2px solid #1E2A2A;outline-offset:1px}
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
   .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
@@ -333,6 +336,10 @@
         </div>
         <div class="allocbar" id="allocBar" style="margin-top:14px"></div>
         <div class="legend" id="allocLegend"></div>
+        <div class="row" style="margin-top:12px;align-items:center;gap:8px">
+          <button class="btn sm" id="newThemeBtn">➕ New theme</button>
+          <span class="muted xs">add a theme (e.g. Semiconductors), then fill it from the Screener</span>
+        </div>
         <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
           <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
         </details>
@@ -399,6 +406,7 @@ const DEFAULT_THEME_TICKERS = {}; THEMES.forEach(t=>DEFAULT_THEME_TICKERS[t.key]
    inside a theme) stays dynamic via state.themeTickers / tickersOf(). */
 function themes(){ const t=state.themes; return (Array.isArray(t)&&t.length)?t:THEMES; }
 function themeByKey(k){ return themes().find(x=>x.key===k); }
+const THEME_PALETTE=["#13605C","#3A6EA5","#7E9C84","#5B6B8C","#B0894F","#8C5B6B","#4F8CB0","#A4683C","#6B8C5B","#5B8C87","#7A5B8C","#9C7E84"];
 
 /* Theme membership is DYNAMIC — the Screener "swap" feature replaces a name within a theme.
    It lives in state.themeTickers (persisted in the portfolio + every version snapshot).
@@ -545,13 +553,19 @@ function computeAllocation(){
   const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
   const evGet=s=>{ const v=effEv(s);   return isNum(v)?v:((carry[s]&&isNum(carry[s].ev))  ?carry[s].ev  :null); };
   const dfGet=s=>{ const v=effDfcf(s); return isNum(v)?v:((carry[s]&&isNum(carry[s].dfcf))?carry[s].dfcf:null); };
-  const rows=themes().map(t=>({theme:t,
+  const allRows=themes().map(t=>({theme:t,
     peg :themeMetric(tickersOf(t.key),effPeg ,P.peg ,false,false),   // null PEG -> penalize
     ev  :themeMetric(tickersOf(t.key),evGet  ,P.ev  ,false,true),    // negative -> penalize; N/A -> carry-over value (else exclude)
     dfcf:themeMetric(tickersOf(t.key),dfGet  ,P.dfcf,true ,true),    // 0 = best; negative FCF -> penalize; N/A -> carry-over value
     pe  :themeMetric(tickersOf(t.key),effPe  ,P.pe  ,false,false),   // null/negative P/E (losses) -> penalize
     mom :themeMomentum(tickersOf(t.key)) }));
-  rows.forEach(r=>{ r.mcap=themeAvgMcap(tickersOf(r.theme.key)); });   // avg market cap per theme
+  allRows.forEach(r=>{ r.mcap=themeAvgMcap(tickersOf(r.theme.key)); });   // avg market cap per theme
+  // E1.4: a theme with no names is "empty" — it scores 0% and is excluded from the model until it has
+  // names, so the funded themes still sum to 100% and the book fully deploys. No-op when all themes are filled.
+  allRows.forEach(r=>{ if(tickersOf(r.theme.key).length===0){ r.empty=true; r.alloc=0; r.allocRaw=0; } });
+  const rows = allRows.filter(r=>!r.empty);   // funded themes only — scored, normalized, capped below
+  if(!rows.length){ const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);   // all themes empty: nothing to allocate yet
+    return {rows:allRows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:(state.cap!=null?state.cap:0.3), carry}; }
   const medPeg=median(rows.map(r=>r.peg.value)), medEv=median(rows.map(r=>r.ev.value)),
         medDf=median(rows.map(r=>r.dfcf.value)), medPe=median(rows.map(r=>r.pe.value)), medMc=median(rows.map(r=>r.mcap));
   rows.forEach(r=>{
@@ -582,8 +596,8 @@ function computeAllocation(){
   rows.forEach(r=>r.alloc/=tot);
   const capEff = state.cap!=null ? state.cap : clamp(1.5/rows.length, 1/rows.length+1e-9, 1);  // E1.1: N-adaptive default (1.5/N => 0.30 at N=5), kept above the 1/N equal-weight floor
   applyThemeCap(rows, capEff);   // no theme over the cap; excess spills to the rest, iteratively
-  const byKey={}; rows.forEach(r=>byKey[r.theme.key]=r);
-  return {rows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:capEff, carry};
+  const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);
+  return {rows:allRows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:capEff, carry};
 }
 
 // Iterative weight cap: no theme may exceed `cap`. Excess from over-cap themes is redistributed to the
@@ -878,7 +892,7 @@ function renderPrices(){
           <h3>${t.name}</h3></div>
           <span class="pill">${init?pct(w,1)+" of book":tickersOf(t.key).length+" names"}</span></div>
         <table><thead><tr><th>Ticker</th><th>Price</th><th>Day</th><th>Value</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${rows||`<tr><td colspan="4" class="muted xs" style="padding:10px">No names yet — add from the Screener.</td></tr>`}</tbody>
         ${init?`<tfoot><tr><td>Theme value</td><td></td><td></td><td class="num">${money(cvt[t.key],0)}</td></tr></tfoot>`:""}
         </table>
       </div>`);
@@ -1419,6 +1433,53 @@ async function doSwap(themeKey, oldSym, newSym){
   await setMembership(themeKey, cur, [newSym], "Swapped "+oldSym+" → "+newSym);
 }
 
+/* ---- create a theme (E1.4) -------------------------------------------------------------------
+   Materialize the live list (defaults -> concrete on first create) and append {key,name,color}.
+   The new theme starts empty -> 0% of the allocation until names are added (see computeAllocation). */
+function slugifyThemeKey(name){
+  let base=String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24) || "theme";
+  const used=new Set(themes().map(t=>t.key)); let key=base, n=2;
+  while(used.has(key)){ key=base+"-"+n; n++; }
+  return key;
+}
+async function createTheme(name, color){
+  name=String(name||"").trim();
+  if(!name){ toast("Give the theme a name"); return false; }
+  if(themes().length>=12){ toast("Maximum 12 themes — delete one first"); return false; }
+  const list=themes().map(t=>({key:t.key,name:t.name,color:t.color}));   // null/defaults -> concrete list
+  list.push({key:slugifyThemeKey(name), name, color:color||THEME_PALETTE[list.length%THEME_PALETTE.length]});
+  state.themes=list; rebuildThemeOf();
+  closeModal();
+  await savePortfolio();
+  renderAll();
+  toast("Created “"+name+"” — add names from the Screener");
+  return true;
+}
+function openCreateTheme(){
+  const swatches=THEME_PALETTE.map((c,i)=>`<button type="button" class="ct-sw${i===0?' sel':''}" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="ctModal"><div class="modal-card card pad">
+      <h2 style="font-size:16px">New theme</h2>
+      <p class="small muted">Create a theme, then fill it from the Screener (tap a stock → Add). It starts
+        empty — 0% of the book until it has names.</p>
+      <label class="small" style="display:block;margin:10px 0 4px">Name</label>
+      <input type="text" id="ctName" placeholder="e.g. Semiconductors" autocomplete="off"
+        style="width:100%;padding:9px;border:1px solid #DDD6C6;border-radius:8px;font-size:14px">
+      <label class="small" style="display:block;margin:14px 0 6px">Colour</label>
+      <div class="ct-swatches">${swatches}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn" id="ctCancel">Cancel</button>
+        <button class="btn primary" id="ctCreate">Create theme</button>
+      </div></div></div>`;
+  let color=THEME_PALETTE[0];
+  $$(".ct-sw").forEach(b=>b.addEventListener("click",()=>{ color=b.dataset.color;
+    $$(".ct-sw").forEach(x=>x.classList.remove("sel")); b.classList.add("sel"); }));
+  $("#ctCancel").addEventListener("click",closeModal);
+  $("#ctModal").addEventListener("click",e=>{ if(e.target.id==="ctModal")closeModal(); });
+  $("#ctName").addEventListener("keydown",e=>{ if(e.key==="Enter")createTheme($("#ctName").value,color); });
+  $("#ctCreate").addEventListener("click",()=>createTheme($("#ctName").value,color));
+  const n=$("#ctName"); if(n)n.focus();
+}
+
 /* ======================================================================
    iOS LAN sync UI (native only) — connect the app to the home computer
    so both read/write the same portfolio.json.
@@ -1514,6 +1575,7 @@ function setupEvents(){
     const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(parseInt(b.dataset.idx,10)); else if(a==="sync")openSyncSheet(); });
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-rmvtkr]"); if(!b)return;
     e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
+  if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
