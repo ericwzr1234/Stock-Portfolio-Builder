@@ -87,19 +87,20 @@
       "Changing a theme's names re-ranks the whole portfolio (the theme's blended fundamentals shift) and re-sizes every position automatically — not just the added name.",
       "Integrated to main 2026-06-26." ] },
 
-    { "id": "E1.3", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.2",
+    { "id": "E1.3", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.2", "spec": "docs/features/E1.3_ticker-search.md",
       "title": "Ticker search & validate", "notes": [
-      "Search for any symbol — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).",
-      "Validate it live via Yahoo, preview its data, then add it to a chosen theme.",
+      "Search for any symbol or company — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).",
+      "Validate it live via Yahoo, preview its data, then add it directly to a theme.",
+      "Add straight from the Fundamentals tab (per theme) — no detour to the Screener — and from the Screener too.",
       "This is what lets a custom theme hold names the screener doesn't already list." ] },
 
-    { "id": "E1.4", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.4_create-theme.md",
+    { "id": "E1.4", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.4_create-theme.md",
       "title": "Create a new theme", "notes": [
       "Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.",
       "It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).",
       "Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.",
       "Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).",
-      "Built on dev — awaiting your click-through before merge." ] },
+      "Integrated to main 2026-06-26." ] },
 
     { "id": "E1.5", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
       "title": "Rename / recolour a theme", "notes": [
@@ -117,6 +118,14 @@
       "For any theme — especially custom ones — recommend names similar to its current picks.",
       "Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.",
       "Works free on both web and on-device iOS; the exact method is finalized at design." ] },
+
+    { "id": "E1.8", "epic": "E1", "stage": "ideation", "platform": "web", "depends": "E1.4",
+      "title": "Seed recommendations from a new theme's name", "notes": [
+      "When a user creates a theme, use the theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.",
+      "Feeds the Screener so a brand-new theme isn't empty: keyword / sector match → candidate names to add with one tap.",
+      "Complements E1.7 (which recommends from a theme's existing PICKS); this one bootstraps from the name alone.",
+      "Method TBD at design — e.g. map keywords to a sector/industry, or run a Yahoo search on the name.",
+      "Brand-new idea, captured as ideation (per user request)." ] },
 
     { "id": "E2.1", "epic": "E2", "stage": "ideation", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
       "title": "User-selectable scoring metrics", "notes": [

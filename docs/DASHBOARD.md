@@ -8,23 +8,29 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 2 |
+| Ideation | 3 |
 | Design | 3 |
 | Implementation | 0 |
-| Testing | 1 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 12 |
+| Done | 13 |
 
 ---
 
-## Ideation  (2)
+## Ideation  (3)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations** _(depends E1.3, web)_
   - For any theme — especially custom ones — recommend names similar to its current picks.
   - Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.
   - Works free on both web and on-device iOS; the exact method is finalized at design.
+- **E1.8** · _E1 · User-Defined Themes_ — **Seed recommendations from a new theme's name** _(depends E1.4, web)_
+  - When a user creates a theme, use the theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.
+  - Feeds the Screener so a brand-new theme isn't empty: keyword / sector match → candidate names to add with one tap.
+  - Complements E1.7 (which recommends from a theme's existing PICKS); this one bootstraps from the name alone.
+  - Method TBD at design — e.g. map keywords to a sector/industry, or run a Yahoo search on the name.
+  - Brand-new idea, captured as ideation (per user request).
 - **E2.1** · _E2 · User-Defined Metrics_ — **User-selectable scoring metrics** _(web)_ · [spec](features/E2_user-defined-metrics.md)
   - Today the 6 scoring factors (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) are hardcoded; only their weights are adjustable.
   - Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.
@@ -35,9 +41,10 @@ _A half-baked idea; can be pushed further down once fleshed out._
 ## Design  (3)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_
-  - Search for any symbol — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).
-  - Validate it live via Yahoo, preview its data, then add it to a chosen theme.
+- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
+  - Search for any symbol or company — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).
+  - Validate it live via Yahoo, preview its data, then add it directly to a theme.
+  - Add straight from the Fundamentals tab (per theme) — no detour to the Screener — and from the Screener too.
   - This is what lets a custom theme hold names the screener doesn't already list.
 - **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_
   - Edit an existing theme's display name and colour.
@@ -52,15 +59,10 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (1)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
-  - Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.
-  - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
-  - Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
-  - Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).
-  - Built on dev — awaiting your click-through before merge.
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -72,7 +74,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (12)
+## Done  (13)
 _Integrated into the product (on main)._
 
 - **C1** · _Core tool (shipped)_ — **Themed 6-factor allocation model**
@@ -130,4 +132,10 @@ _Integrated into the product (on main)._
   - Both reuse the existing preview → Apply & save → version rail, so every change is one undoable checkpoint.
   - One theme per ticker: adding a stock that already sits in another theme moves it out of the old one.
   - Changing a theme's names re-ranks the whole portfolio (the theme's blended fundamentals shift) and re-sizes every position automatically — not just the added name.
+  - Integrated to main 2026-06-26.
+- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
+  - Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.
+  - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
+  - Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
+  - Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).
   - Integrated to main 2026-06-26.
