@@ -33,10 +33,12 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Search for any symbol — including names outside the curated screener universe (e.g. AMD, TSM, AVGO).
   - Validate it live via Yahoo, preview its data, then add it to a chosen theme.
   - This is what lets a custom theme hold names the screener doesn't already list.
-- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_
+- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
   - Create a brand-new theme with a name and a colour (e.g. 'Semiconductors').
   - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
-  - The cap and equal-weight base auto-adapt to the new theme count (from E1.1).
+  - Model rule (verified needed): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
+  - Funded themes still sum to 100%; with the default 5 (all funded) behaviour is unchanged.
+  - Spec written, awaiting design sign-off.
 - **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_
   - Edit an existing theme's display name and colour.
   - Updates consistently everywhere — Prices, allocation legend, screener swatch, and history.

@@ -92,11 +92,13 @@
       "Validate it live via Yahoo, preview its data, then add it to a chosen theme.",
       "This is what lets a custom theme hold names the screener doesn't already list." ] },
 
-    { "id": "E1.4", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1",
+    { "id": "E1.4", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.4_create-theme.md",
       "title": "Create a new theme", "notes": [
       "Create a brand-new theme with a name and a colour (e.g. 'Semiconductors').",
       "It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).",
-      "The cap and equal-weight base auto-adapt to the new theme count (from E1.1)." ] },
+      "Model rule (verified needed): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.",
+      "Funded themes still sum to 100%; with the default 5 (all funded) behaviour is unchanged.",
+      "Spec written, awaiting design sign-off." ] },
 
     { "id": "E1.5", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
       "title": "Rename / recolour a theme", "notes": [
