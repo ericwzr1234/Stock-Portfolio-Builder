@@ -8,29 +8,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 3 |
+| Ideation | 1 |
 | Design | 2 |
 | Implementation | 0 |
-| Testing | 2 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 13 |
+| Done | 17 |
 
 ---
 
-## Ideation  (3)
+## Ideation  (1)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations** _(depends E1.3, web)_
-  - For any theme — especially custom ones — recommend names similar to its current picks.
-  - Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.
-  - Works free on both web and on-device iOS; the exact method is finalized at design.
-- **E1.8** · _E1 · User-Defined Themes_ — **Seed recommendations from a new theme's name** _(depends E1.4, web)_
-  - When a user creates a theme, use the theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.
-  - Feeds the Screener so a brand-new theme isn't empty: keyword / sector match → candidate names to add with one tap.
-  - Complements E1.7 (which recommends from a theme's existing PICKS); this one bootstraps from the name alone.
-  - Method TBD at design — e.g. map keywords to a sector/industry, or run a Yahoo search on the name.
-  - Brand-new idea, captured as ideation (per user request).
 - **E2.1** · _E2 · User-Defined Metrics_ — **User-selectable scoring metrics** _(web)_ · [spec](features/E2_user-defined-metrics.md)
   - Today the 6 scoring factors (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) are hardcoded; only their weights are adjustable.
   - Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.
@@ -54,23 +44,10 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (2)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
-  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.
-  - Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).
-  - Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).
-  - Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.
-  - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
-  - Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).
-  - Built & verified on dev (TSM found; watchlist staging works) — awaiting your retest.
-- **E1.9** · _E1 · User-Defined Themes_ — **Flat Screener: pooled recommendations + actions** _(depends E1.3, web)_ · [spec](features/E1.9_flat-screener-recommendations.md)
-  - Replaces the 5 per-theme Screener tables with ONE running list: ~15 recommendations per theme (ungrouped) + ALL your holdings, sorted by market cap.
-  - Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.
-  - Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.
-  - Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.
-  - New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Built & verified on dev (83-row flat list, custom-theme recs) — awaiting your retest.
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -82,7 +59,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (13)
+## Done  (17)
 _Integrated into the product (on main)._
 
 - **C1** · _Core tool (shipped)_ — **Themed 6-factor allocation model**
@@ -141,9 +118,31 @@ _Integrated into the product (on main)._
   - One theme per ticker: adding a stock that already sits in another theme moves it out of the old one.
   - Changing a theme's names re-ranks the whole portfolio (the theme's blended fundamentals shift) and re-sizes every position automatically — not just the added name.
   - Integrated to main 2026-06-26.
+- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
+  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.
+  - Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).
+  - Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).
+  - Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.
+  - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
+  - Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).
+  - Integrated to main 2026-06-26 (search + watchlist; TSM fix; opt-in SEC cache).
 - **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
   - Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.
   - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
   - Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
   - Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).
   - Integrated to main 2026-06-26.
+- **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations (peers of picks)** _(depends E1.3, web)_
+  - Recommend names similar to a theme's current picks — live sector/industry peers via Yahoo.
+  - Realized by E1.9: dsPeers (Yahoo recommendationsbysymbol) feeds the flat Screener's custom-theme recommendations (e.g. TSM → AVGO/MU/ASML).
+  - Integrated to main 2026-06-26.
+- **E1.8** · _E1 · User-Defined Themes_ — **Seed recommendations from a new theme's name** _(depends E1.4, web)_
+  - Use a theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.
+  - Realized by E1.9: the flat Screener keyword-searches the theme name (+ de-pluralized words) to seed a brand-new theme's recommendations (e.g. Semiconductors → NXPI/ON/TSM/LSCC).
+  - Integrated to main 2026-06-26.
+- **E1.9** · _E1 · User-Defined Themes_ — **Flat Screener: pooled recommendations + actions** _(depends E1.3, web)_ · [spec](features/E1.9_flat-screener-recommendations.md)
+  - Replaces the 5 per-theme Screener tables with ONE running list: ~15 recommendations per theme (ungrouped) + ALL your holdings, sorted by market cap.
+  - Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.
+  - Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.
+  - Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.
+  - New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet).

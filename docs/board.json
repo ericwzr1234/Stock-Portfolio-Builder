@@ -87,7 +87,7 @@
       "Changing a theme's names re-ranks the whole portfolio (the theme's blended fundamentals shift) and re-sizes every position automatically — not just the added name.",
       "Integrated to main 2026-06-26." ] },
 
-    { "id": "E1.3", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.2", "spec": "docs/features/E1.3_ticker-search.md",
+    { "id": "E1.3", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.2", "spec": "docs/features/E1.3_ticker-search.md",
       "title": "Ticker search & validate", "notes": [
       "Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.",
       "Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).",
@@ -95,7 +95,7 @@
       "Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.",
       "On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).",
       "Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).",
-      "Built & verified on dev (TSM found; watchlist staging works) — awaiting your retest." ] },
+      "Integrated to main 2026-06-26 (search + watchlist; TSM fix; opt-in SEC cache)." ] },
 
     { "id": "E1.4", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.4_create-theme.md",
       "title": "Create a new theme", "notes": [
@@ -116,27 +116,25 @@
       "Removing a theme turns its held names into exiting positions (sold on the next realign).",
       "Surfaces a clear warning in the rebalance preview before any liquidation." ] },
 
-    { "id": "E1.7", "epic": "E1", "stage": "ideation", "platform": "web", "depends": "E1.3",
-      "title": "Similar-stock recommendations", "notes": [
-      "For any theme — especially custom ones — recommend names similar to its current picks.",
-      "Likely approach: expand to live sector / industry peers via Yahoo, then rank them by the same 6-factor model.",
-      "Works free on both web and on-device iOS; the exact method is finalized at design." ] },
+    { "id": "E1.7", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.3",
+      "title": "Similar-stock recommendations (peers of picks)", "notes": [
+      "Recommend names similar to a theme's current picks — live sector/industry peers via Yahoo.",
+      "Realized by E1.9: dsPeers (Yahoo recommendationsbysymbol) feeds the flat Screener's custom-theme recommendations (e.g. TSM → AVGO/MU/ASML).",
+      "Integrated to main 2026-06-26." ] },
 
-    { "id": "E1.8", "epic": "E1", "stage": "ideation", "platform": "web", "depends": "E1.4",
+    { "id": "E1.8", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.4",
       "title": "Seed recommendations from a new theme's name", "notes": [
-      "When a user creates a theme, use the theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.",
-      "Feeds the Screener so a brand-new theme isn't empty: keyword / sector match → candidate names to add with one tap.",
-      "Complements E1.7 (which recommends from a theme's existing PICKS); this one bootstraps from the name alone.",
-      "Method TBD at design — e.g. map keywords to a sector/industry, or run a Yahoo search on the name.",
-      "Brand-new idea, captured as ideation (per user request)." ] },
+      "Use a theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.",
+      "Realized by E1.9: the flat Screener keyword-searches the theme name (+ de-pluralized words) to seed a brand-new theme's recommendations (e.g. Semiconductors → NXPI/ON/TSM/LSCC).",
+      "Integrated to main 2026-06-26." ] },
 
-    { "id": "E1.9", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.3", "spec": "docs/features/E1.9_flat-screener-recommendations.md",
+    { "id": "E1.9", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.3", "spec": "docs/features/E1.9_flat-screener-recommendations.md",
       "title": "Flat Screener: pooled recommendations + actions", "notes": [
       "Replaces the 5 per-theme Screener tables with ONE running list: ~15 recommendations per theme (ungrouped) + ALL your holdings, sorted by market cap.",
       "Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.",
       "Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.",
       "Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.",
-      "New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Built & verified on dev (83-row flat list, custom-theme recs) — awaiting your retest." ] },
+      "New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet)." ] },
 
     { "id": "E2.1", "epic": "E2", "stage": "ideation", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
       "title": "User-selectable scoring metrics", "notes": [
