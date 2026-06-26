@@ -90,11 +90,12 @@
     { "id": "E1.3", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.2", "spec": "docs/features/E1.3_ticker-search.md",
       "title": "Ticker search & validate", "notes": [
       "Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — and add it directly to a theme from the Fundamentals tab ('＋ name') or the Screener.",
-      "Refinement 1: search now matches a CACHED local directory of all US-listed tickers (NASDAQ symbol files, ~11k names, refreshed daily, warmed on startup) — instant & reliable, not a live call. Falls back to Yahoo live search only if the cache can't load.",
-      "Refinement 1: an 'Other (decide later)' bucket — park a found name without picking a theme, then move it into a theme from the Other panel. It's excluded from the allocation until moved.",
+      "Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).",
+      "Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).",
+      "Refinement 1: an 'Other (decide later)' bucket — park a found name without picking a theme, then move it into a theme from the Other panel. Excluded from the allocation until moved.",
       "On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).",
-      "Touches server.py (cache + /api/search) and the iOS data layer — the Mac syncs both. NOTE: a running server must be RESTARTED to pick up server.py changes (likely cause of the earlier 'no matches').",
-      "Built & verified on dev — awaiting your retest." ] },
+      "Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).",
+      "Built & verified on dev (TSM now first) — awaiting your retest." ] },
 
     { "id": "E1.4", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.1", "spec": "docs/features/E1.4_create-theme.md",
       "title": "Create a new theme", "notes": [

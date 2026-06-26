@@ -174,32 +174,36 @@ def search_yahoo(query):
     return out
 
 
-# --- Ticker directory cache (E1.3): a daily-refreshed local index of all US-listed symbols + names
-#     (NASDAQ Trader's public symbol files), so ticker search is instant and reliable — independent of
-#     Yahoo's live search endpoint. Cached to disk so it survives restarts; refreshed when >24h old. ---
+# --- Ticker search (E1.3). DEFAULT: Yahoo's live search (reliable, no setup, returns NASDAQ + NYSE +
+#     ADRs like TSM). OPTIONAL instant local cache: set env PB_SEC_CONTACT=you@email to download the
+#     SEC's company_tickers.json once a day to disk and search that offline. SEC requires a contact email
+#     in the User-Agent, so we keep it out of committed code (env-only) to keep the repo shareable.
+#     (nasdaqtrader's symbol files are behind an Incapsula bot wall, so they're not usable here.) ---
+SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+SEC_CONTACT = os.environ.get("PB_SEC_CONTACT", "").strip()
+SEC_UA = "PortfolioBuilder/1.0 ({})".format(SEC_CONTACT) if SEC_CONTACT else ""
 DIR_PATH = os.path.join(BASE_DIR, "ticker_directory.json")
 DIR_TTL = 24 * 3600
 _dir_cache = {"ts": 0, "data": []}
 _dir_lock = threading.Lock()
 
 
-def _parse_symdir(text):
+def _fetch_sec_tickers():
+    """Download the SEC's company_tickers.json -> [{'symbol','name'}]. Needs a descriptive User-Agent."""
+    req = urllib.request.Request(SEC_TICKERS_URL, headers={"User-Agent": SEC_UA, "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        d = json.loads(resp.read().decode("utf-8", "replace"))
     out = []
-    for line in text.splitlines()[1:]:
-        if not line or line.startswith("File Creation Time"):
+    for row in d.values():
+        sym = str(row.get("ticker", "")).strip()
+        if not sym or " " in sym:
             continue
-        parts = line.split("|")
-        if len(parts) < 2:
-            continue
-        sym, name = parts[0].strip(), parts[1].strip()
-        if not sym or " " in sym or sym in ("Symbol", "ACT Symbol"):
-            continue
-        out.append({"symbol": sym, "name": name})
+        out.append({"symbol": sym, "name": str(row.get("title", "")).strip()})
     return out
 
 
 def load_ticker_directory(force=False):
-    """Return [{'symbol','name'}] for every US-listed name. Memory -> disk -> live refresh."""
+    """Return [{'symbol','name'}] for every US-listed name. Memory -> disk -> SEC refresh."""
     global _dir_cache
     with _dir_lock:
         if _dir_cache["data"] and not force and (time.time() - _dir_cache["ts"] < DIR_TTL):
@@ -213,15 +217,14 @@ def load_ticker_directory(force=False):
                     return _dir_cache["data"]
             except Exception:
                 pass
-        data = []
-        for url in ("https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt",
-                    "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"):
-            try:
-                ensure_session()
-                data += _parse_symdir(_http_get(url, timeout=25))
-            except Exception as e:
-                sys.stderr.write(f"[ticker-dir] {url} failed: {e}\n")
-        if data:
+        if not SEC_CONTACT:
+            return _dir_cache["data"]   # no contact configured -> skip SEC; search_directory falls back to Yahoo live search
+        try:
+            data = _fetch_sec_tickers()
+        except Exception as e:
+            sys.stderr.write(f"[ticker-dir] SEC fetch failed: {e}\n")
+            data = []
+        if len(data) > 1000:   # only persist a healthy full directory — never a partial/empty one
             _dir_cache = {"ts": int(time.time()), "data": data}
             try:
                 with open(DIR_PATH, "w", encoding="utf-8") as f:
