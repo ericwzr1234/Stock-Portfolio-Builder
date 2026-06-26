@@ -11,7 +11,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 3 |
 | Design | 2 |
 | Implementation | 0 |
-| Testing | 1 |
+| Testing | 2 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 13 |
@@ -54,7 +54,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (1)
+## Testing  (2)
 _Built; waiting for you to try it._
 
 - **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
@@ -65,6 +65,12 @@ _Built; waiting for you to try it._
   - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
   - Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).
   - Built & verified on dev (TSM found; watchlist staging works) — awaiting your retest.
+- **E1.9** · _E1 · User-Defined Themes_ — **Flat Screener: pooled recommendations + actions** _(depends E1.3, web)_ · [spec](features/E1.9_flat-screener-recommendations.md)
+  - Replaces the 5 per-theme Screener tables with ONE running list: ~15 recommendations per theme (ungrouped) + ALL your holdings, sorted by market cap.
+  - Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.
+  - Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.
+  - Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.
+  - New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Built & verified on dev (83-row flat list, custom-theme recs) — awaiting your retest.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

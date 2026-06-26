@@ -168,6 +168,7 @@
   .ts-row .ts-ex{ flex:0 0 auto }
   .wl-row td{ padding:7px 6px; border-bottom:1px solid #EDE8DB; vertical-align:middle }
   .wl-add{ padding:4px 6px; border:1px solid #DDD6C6; border-radius:6px; font-size:12px }
+  .th-chip{ display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid; background:#fff; white-space:nowrap }
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
   .swap-list{margin-top:10px;display:flex;flex-direction:column;gap:4px}
@@ -389,7 +390,7 @@
       <span style="display:flex;gap:8px">
         <button id="screenerSearch" class="btn sm">🔍 Search any ticker</button>
         <button id="screenerRefresh" class="btn sm">↻ Refresh live caps</button></span></div>
-    <p class="small muted" style="margin-top:-6px">The 50 largest companies by <b>live market cap</b> in each of your five themes, mutually exclusive (a name shown under one theme never appears under another). <b>Tap any stock</b> to swap it into your portfolio in place of a current holding in the same theme — the book then rebalances with the usual model.</p>
+    <p class="small muted" style="margin-top:-6px">One running list of <b>recommendations</b> (≈15 per theme — curated for the original themes, keyword + peer-based for custom ones) plus <b>your current holdings</b>, sorted by market cap. <b>Tap any row</b> to add it to a theme, swap it in for a holding, or remove a held name. Use <b>🔍 Search</b> above to find any other ticker.</p>
     <div id="watchlist"></div>
     <div id="screenerBody"></div>
     <p class="note">Universe is a curated seed (largest, most clearly-relevant names per theme); order is re-sorted on each refresh by live market cap. Stocks already in your portfolio are tagged <span class="tag live">held</span>.</p>
@@ -446,6 +447,7 @@ const state = {
   asOf:null,
   themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
+  themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
   universe:null,                  // screener universe (window.__UNIVERSE / data/universe.json)
   screenerQuotes:{},              // sym -> quote for screener stocks (lazy-loaded, chunked)
@@ -822,6 +824,11 @@ async function nativeSearch(q){
   }catch(e){ console.error("native search",e); return []; }
 }
 async function dsSearch(q){ q=(q||"").trim(); if(!q) return []; return NATIVE? nativeSearch(q) : webSearch(q); }
+async function dsPeers(sym){
+  if(!sym) return [];
+  if(NATIVE){ try{ const r=await yGet("https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/"+encodeURIComponent(sym),{}); const res=(((jsonOf(r.data)||{}).finance||{}).result)||[]; return ((res[0]||{}).recommendedSymbols||[]).map(x=>x.symbol).filter(Boolean); }catch(e){ return []; } }
+  try{ const r=await api("/api/peers?symbol="+encodeURIComponent(sym)); return r.peers||[]; }catch(e){ return []; }
+}
 
 async function loadQuotes(){ const d=await dsQuotes(tradeUniverse()); state.quotes=Object.assign({}, state.quotes, d.quotes); state.asOf=d.asOf; }
 async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.fundamentals=Object.assign({}, state.fundamentals, f); }
@@ -1341,41 +1348,106 @@ function renderHistory(){
    ====================================================================== */
 function screenerMcap(s){ const q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{}; return isNum(q.marketCap)?q.marketCap:(isNum(s.mcapB)?s.mcapB*1e9:null); }
 
+/* ---- recommendations for the flat Screener (E1.9): curated universe for the original themes; live
+        keyword (theme name) + peers (of the theme's current picks) for custom themes. ---- */
+function isCuratedTheme(key){ return !!((state.universe&&state.universe.themes||[]).some(u=>u.key===key)); }
+async function buildThemeRecos(theme){
+  const exclude=new Set([...tickersOf(theme.key), ...holdingSyms()]);
+  const cands=[];
+  // keyword queries from the theme name: the whole name, its words, and de-pluralized forms (Yahoo search is picky)
+  const words=(theme.name||"").split(/[^A-Za-z]+/).filter(w=>w.length>=3);
+  const qset=new Set([theme.name, ...words]);
+  words.forEach(w=>{ if(w.length>4 && /s$/i.test(w)) qset.add(w.replace(/s$/i,"")); });
+  for(const qy of [...qset].slice(0,4)){ try{ (await dsSearch(qy)).forEach(x=>cands.push(x.symbol)); }catch(e){} }
+  for(const m of tickersOf(theme.key)){ try{ (await dsPeers(m)).forEach(s=>cands.push(s)); }catch(e){} }   // peers of its picks
+  const seen=new Set(), out=[];
+  for(const s of cands){ if(!s||seen.has(s)||exclude.has(s))continue; seen.add(s); out.push(s); if(out.length>=15)break; }
+  return out;
+}
+async function loadThemeRecos(){
+  if(!state.themeRecos)state.themeRecos={};
+  let changed=false;
+  for(const t of themes()){
+    if(isCuratedTheme(t.key)) continue;
+    const sig=tickersOf(t.key).join(",")+"|"+t.name;
+    if((state.themeRecos[t.key]||{}).sig===sig) continue;                                  // cached for this membership + name
+    const syms=await buildThemeRecos(t);
+    state.themeRecos[t.key]={syms, sig};
+    if(syms.length){ try{ const d=await dsQuotes(syms); state.screenerQuotes=Object.assign({},state.screenerQuotes,d.quotes); }catch(e){} }
+    changed=true;
+  }
+  if(changed) renderScreener();
+}
+
 function renderScreener(){
   renderWatchlist();
   const body=$("#screenerBody"); if(!body) return;
-  if(!state.universe){ body.innerHTML=`<div class="empty">Stock universe not loaded.</div>`; return; }
   const held=new Set(holdingSyms());
-  body.innerHTML=state.universe.themes.map(t=>{
-    const theme=themeByKey(t.key)||{name:t.name,color:"#888"};
-    const rows=t.stocks.map(s=>({s, mc:screenerMcap(s)})).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,50);
-    const trs=rows.map((row,idx)=>{
-      const s=row.s, q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{};
-      const inBook=held.has(s.ticker), ch=q.changePct;
-      const cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
-      const action=inBook?'<span class="tag live">held</span>':'<span class="muted xs">tap to swap ›</span>';
-      return `<tr class="screener-row" data-sym="${s.ticker}" data-theme="${t.key}" data-held="${inBook?1:0}">
-        <td class="num muted xs">${idx+1}</td>
-        <td class="sym">${s.ticker}<span class="co">${s.name}</span></td>
-        <td class="num">${bil(row.mc)}</td>
-        <td class="num">${money(isNum(q.price)?q.price:null,2)}</td>
+  // 1. up to 15 candidates per theme — curated top-15 by mcap, or cached keyword+peer recos for custom themes
+  const recoTheme={}, cand=[];
+  themes().forEach(t=>{
+    let syms=[];
+    if(isCuratedTheme(t.key)){
+      const uni=state.universe.themes.find(u=>u.key===t.key);
+      syms=(uni.stocks||[]).map(x=>({tk:x.ticker, mc:screenerMcap(x)})).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,15).map(x=>x.tk);
+    } else { syms=((state.themeRecos[t.key]||{}).syms)||[]; }
+    syms.forEach(s=>{ if(!recoTheme[s]) recoTheme[s]=t.key; cand.push(s); });
+  });
+  // 2. always include every holding; 3. one flat, deduped, market-cap-sorted list (no theme grouping)
+  const all=[...new Set([...cand, ...holdingSyms()])];
+  const rows=all.map(s=>{
+    const q=state.screenerQuotes[s]||state.quotes[s]||{}, inBook=held.has(s);
+    const th=inBook? themeOfSym(s) : themeByKey(recoTheme[s]);
+    return {s, q, inBook, th, mc:isNum(q.marketCap)?q.marketCap:null};
+  }).filter(r=>r.th).sort((a,b)=>(b.mc||0)-(a.mc||0));
+  const loading=themes().some(t=>!isCuratedTheme(t.key) && !state.themeRecos[t.key]);
+  body.innerHTML=`<div class="card pad">
+    <div class="muted small" style="margin-bottom:8px">${rows.length} names · ${held.size} held · 15 recommendations per theme${loading?' · finding custom-theme picks…':''}. Tap any row to add it to a theme, swap it in, or remove a held name.</div>
+    <div class="tscroll"><table><thead><tr><th>Stock</th><th>Theme</th><th class="num">Mkt cap</th><th class="num">Price</th><th class="num">Day</th><th class="center">Action</th></tr></thead>
+    <tbody>${rows.map(r=>{ const ch=r.q.changePct, cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
+      const action=r.inBook?'<span class="tag live">held</span>':'<span class="muted xs">tap ›</span>';
+      return `<tr class="screener-row" data-sym="${r.s}" data-theme="${r.th.key}">
+        <td class="sym">${r.s}<span class="co">${nameOf(r.s)}</span></td>
+        <td><span class="th-chip" style="border-color:${r.th.color};color:${r.th.color}">${r.th.name}</span></td>
+        <td class="num">${bil(r.mc)}</td>
+        <td class="num">${money(isNum(r.q.price)?r.q.price:price(r.s),2)}</td>
         <td class="num ${cls}">${isNum(ch)?arrow+' '+Math.abs(ch).toFixed(2)+'%':'—'}</td>
-        <td class="center">${action}</td>
-      </tr>`;}).join("");
-    return `<div class="card theme" style="margin-bottom:14px">
-      <div class="head"><div class="lhs"><span class="swatch" style="background:${theme.color}"></span>
-        <h3>${t.name}</h3><span class="muted xs">top ${rows.length} by market cap</span></div></div>
-      <table><thead><tr><th>#</th><th>Stock</th><th>Mkt cap</th><th>Price</th><th>Day</th><th class="center">Action</th></tr></thead>
-      <tbody>${trs}</tbody></table></div>`;
-  }).join("");
-  $$(".screener-row").forEach(r=>r.addEventListener("click",()=>{
-    if(r.dataset.held==="1"){ toast(r.dataset.sym+" is already in your portfolio"); return; }
-    openSwap(r.dataset.sym, r.dataset.theme);
-  }));
+        <td class="center">${action}</td></tr>`;}).join("")}</tbody></table></div></div>`;
+  $$(".screener-row").forEach(r=>r.addEventListener("click",()=>openStockActions(r.dataset.sym, r.dataset.theme)));
+}
+
+/* ---- per-stock action sheet from the flat Screener (E1.9): add / swap / remove / watchlist ---- */
+function openStockActions(sym, themeKey){
+  const heldT=themeOf[sym];                                  // theme object if it's currently in a theme
+  const sel=(heldT&&heldT.key) || themeKey || (themes()[0]&&themes()[0].key);
+  const opts=themes().map(t=>`<option value="${t.key}"${t.key===sel?" selected":""}>${t.name}</option>`).join("");
+  const removeRow=heldT?`<button class="btn" id="saRemove" style="width:100%;margin:2px 0 10px">✕ Remove ${sym} from ${heldT.name}</button>
+      <div class="small muted" style="text-align:center;margin:0 0 8px">— or move / swap it —</div>`:"";
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="saModal"><div class="modal-card card pad">
+      <h2 style="font-size:16px">${sym} <span class="muted small">${nameOf(sym)}</span></h2>
+      <p class="small muted">${heldT?("In <b>"+heldT.name+"</b> now."):"Not in your portfolio yet."} Add it to a theme (the book rebalances to the model), swap it for a holding, or just watchlist it.</p>
+      ${removeRow}
+      <label class="small" style="display:block;margin:2px 0 4px">Theme</label>
+      <select id="saTheme" style="width:100%;padding:8px;border:1px solid #DDD6C6;border-radius:8px">${opts}</select>
+      <div class="row" style="gap:8px;margin-top:12px">
+        <button class="btn primary" id="saAdd" style="flex:1">➕ Add to theme</button>
+        <button class="btn" id="saSwap" style="flex:1">⇄ Swap in…</button>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:12px">
+        <button class="btn ghost" id="saWatch">☆ Watchlist</button>
+        <button class="btn" id="saCancel">Close</button>
+      </div></div></div>`;
+  $("#saCancel").addEventListener("click",closeModal);
+  $("#saModal").addEventListener("click",e=>{ if(e.target.id==="saModal")closeModal(); });
+  if(heldT)$("#saRemove").addEventListener("click",()=>{ closeModal(); removeTicker(heldT.key, sym); });
+  $("#saAdd").addEventListener("click",()=>{ const tk=$("#saTheme").value; closeModal(); addTicker(tk, sym); });
+  $("#saSwap").addEventListener("click",()=>{ const tk=$("#saTheme").value; closeModal(); openSwap(sym, tk); });
+  $("#saWatch").addEventListener("click",()=>addToWatchlist(sym, $("#saTheme").value));
 }
 
 async function ensureScreener(){
   renderScreener();
+  loadThemeRecos();                                  // E1.9: keyword+peer recos for custom themes (async; re-renders when ready)
   if(state.screenerLoaded) return;
   state.screenerLoaded=true;
   const body=$("#screenerBody"); if(body) body.insertAdjacentHTML("afterbegin",`<div class="note" id="scLoading">Loading live market caps…</div>`);

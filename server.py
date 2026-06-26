@@ -234,6 +234,21 @@ def load_ticker_directory(force=False):
         return _dir_cache["data"]
 
 
+def peers_yahoo(symbol):
+    """Yahoo 'recommendations by symbol' -> related/peer tickers (no crumb needed). [] on failure."""
+    sym = (symbol or "").strip().upper()
+    if not sym:
+        return []
+    ensure_session()
+    try:
+        raw = _http_get(f"https://query2.finance.yahoo.com/v6/finance/recommendationsbysymbol/{urllib.parse.quote(sym)}", timeout=12)
+        res = (json.loads(raw).get("finance", {}).get("result") or [{}])[0]
+        return [x.get("symbol") for x in (res.get("recommendedSymbols") or []) if x.get("symbol")]
+    except Exception as e:
+        sys.stderr.write(f"[peers {sym}] {e}\n")
+        return []
+
+
 def search_directory(q):
     """Match a query against the cached directory (symbol exact > prefix > contains > name). Live fallback."""
     q = (q or "").strip()
@@ -523,6 +538,8 @@ class Handler(BaseHTTPRequestHandler):
                                  "asOf": int(time.time())})
             elif path == "/api/search":
                 self._send(200, {"results": search_directory(qs.get("q", [""])[0])})
+            elif path == "/api/peers":
+                self._send(200, {"peers": peers_yahoo(qs.get("symbol", [""])[0])})
             elif path == "/api/portfolio":
                 self._send(200, {"portfolio": read_db()})
             elif not path.startswith("/api/"):
