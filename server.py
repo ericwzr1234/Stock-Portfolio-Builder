@@ -385,6 +385,15 @@ def _fetch_one_fundamental(sym):
                 ev, ev_calc = (mc + td - cash) / ebitda, True
 
         mom = _momentum(price, _rv(sd, "fiftyDayAverage"), _rv(sd, "twoHundredDayAverage"))
+        _fwdpe = _rv(sd, "forwardPE")
+        if _fwdpe is None:
+            _fwdpe = _rv(ks, "forwardPE")
+        _div = _rv(sd, "dividendYield")
+        if _div is None:
+            _div = _rv(sd, "trailingAnnualDividendYield")
+        _beta = _rv(sd, "beta")
+        if _beta is None:
+            _beta = _rv(ks, "beta")
         return sym, {
             "peg": peg,
             "ev": ev, "evCalc": ev_calc,
@@ -395,6 +404,30 @@ def _fetch_one_fundamental(sym):
             "price": price,
             "name": pr.get("shortName") or pr.get("longName") or sym,
             "source": "live",
+            # ---- E2.2 extended catalog fields (all null-safe via _rv; missing => None, never fabricated) ----
+            "forwardPE": _fwdpe,
+            "evRev": _rv(ks, "enterpriseToRevenue"),
+            "ps": _rv(sd, "priceToSalesTrailing12Months"),
+            "pb": _rv(ks, "priceToBook"),
+            "grossMargin": _rv(fd, "grossMargins"),
+            "opMargin": _rv(fd, "operatingMargins"),
+            "netMargin": _rv(fd, "profitMargins"),
+            "roe": _rv(fd, "returnOnEquity"),
+            "roa": _rv(fd, "returnOnAssets"),
+            "debtToEquity": _rv(fd, "debtToEquity"),   # Yahoo returns a PERCENT (152.3 = 1.523x); JS getter divides /100
+            "currentRatio": _rv(fd, "currentRatio"),
+            "quickRatio": _rv(fd, "quickRatio"),
+            "revGrowth": _rv(fd, "revenueGrowth"),
+            "earnGrowth": _rv(fd, "earningsGrowth"),
+            "divYield": _div,
+            "payout": _rv(sd, "payoutRatio"),
+            "beta": _beta,
+            # raw TTM operands for JS-derived metrics (pfcf, ebitdaMargin, fcfMargin, netCashPct) — RAW (not the `or 0` locals)
+            "fcf": fcf,
+            "ebitda": _rv(fd, "ebitda"),
+            "revenue": _rv(fd, "totalRevenue"),
+            "cash": _rv(fd, "totalCash"),
+            "debt": _rv(fd, "totalDebt"),
         }
     except Exception as e:
         sys.stderr.write(f"[yahoo] fundamentals {sym}: {e}\n")
@@ -463,6 +496,15 @@ def get_fundamentals(symbols, force=False):
                 "pe": sd.get("pe"), "mom": sd.get("mom"),
                 "marketCap": sd.get("mcap"), "price": sd.get("price"),
                 "name": sd.get("name", s), "source": "seed",
+                # E2.2 extended catalog fields — None when the SEED row omits them (getter returns null => metric excludes; never fabricated)
+                "forwardPE": sd.get("forwardPE"), "evRev": sd.get("evRev"), "ps": sd.get("ps"), "pb": sd.get("pb"),
+                "grossMargin": sd.get("grossMargin"), "opMargin": sd.get("opMargin"), "netMargin": sd.get("netMargin"),
+                "roe": sd.get("roe"), "roa": sd.get("roa"), "debtToEquity": sd.get("debtToEquity"),
+                "currentRatio": sd.get("currentRatio"), "quickRatio": sd.get("quickRatio"),
+                "revGrowth": sd.get("revGrowth"), "earnGrowth": sd.get("earnGrowth"),
+                "divYield": sd.get("divYield"), "payout": sd.get("payout"), "beta": sd.get("beta"),
+                "fcf": sd.get("fcf"), "ebitda": sd.get("ebitda"), "revenue": sd.get("revenue"),
+                "cash": sd.get("cash"), "debt": sd.get("debt"),
             }
     return result
 

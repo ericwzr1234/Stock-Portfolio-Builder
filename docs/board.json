@@ -151,29 +151,30 @@
       "ENGINE-ONLY foundation (the weight/penalty inputs, notes, and fundamentals table stay hardcoded until E2.2).",
       "BUILT + self-verified on dev 2026-07-01: byte-identity maxDiff=0 across 968 comparisons x 8 scenarios (on frozen inputs); generality proof (drop/reorder/single/revert); validateMetrics dedupe+drop-unknown; persistence round-trip; no console errors. Awaiting user click-through + merge to main." ] },
 
-    { "id": "E2.2", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.1", "spec": "docs/features/E2_user-defined-metrics.md",
+    { "id": "E2.2", "epic": "E2", "stage": "testing", "platform": "web", "depends": "E2.1", "spec": "docs/features/E2.2_metric-catalog.md",
       "title": "Metric catalog + compute layer", "notes": [
-      "A catalog of common metrics grouped by category (valuation, profitability, financial-health, growth, dividend, size, momentum, operational) — the starter list is in the spec.",
-      "Only metrics AVAILABLE or COMPUTABLE from the data source are offered.",
-      "A per-metric getter/formula yields a per-stock value with its direction (cheaper / higher / lower-is-better). Source is Yahoo fields today; E3 later switches the SOURCE to computed-from-statements.",
-      "Lets the engine score ANY catalog metric, not just the original 6." ] },
+      "METRIC_CATALOG: the 6 defaults VERBATIM + 21 inactive catalog metrics (built via catMetric()); DEFAULT_METRICS = filter(defaultActive).",
+      "Compute layer: dirScore(m,x) (higher => max(0,x); lower => 1/max(x,scoreFloor)); scoreOf dispatches per descriptor. themeMetric gained a null-penalty exclude guard.",
+      "server.py forwards ~21 null-safe Yahoo fields (roe/roa/ps/pb/margins/debtToEquity[%]/current+quick ratio/growth/divYield/payout/beta/forwardPE/evRev + raw fcf/ebitda/revenue/cash/debt). Restart done.",
+      "BUILT + verified on dev: default-6 byte-identical; catalog metrics score finite; derived getters null-safe (D/E /100); divYield zero-policy. Awaiting click-through + merge." ] },
 
-    { "id": "E2.3", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2_user-defined-metrics.md",
+    { "id": "E2.3", "epic": "E2", "stage": "testing", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2.3_metric-picker.md",
       "title": "Choose your metrics (picker UI)", "notes": [
-      "Add or remove which catalog metrics are active in the model, from the Fundamentals tab.",
-      "The weights panel generalizes from the fixed 6 sliders to N chosen metrics (weights re-normalize live).",
-      "Flag metrics that are missing data for the current book so the user knows what actually drives the score." ] },
+      "✎ Choose metrics picker: catalog grouped by category, checkboxes, per-book data-coverage badges, >=1 enforced, exactly-default-6 normalizes to state.metrics=null.",
+      "Generalized the weights panel (#wInputs, signature-rebuild + focus-guarded), the per-theme table (Cap special always-2nd column; other cols loop metrics()), and the notes — all from metrics().",
+      "BUILT + verified on dev: default-6 DOM byte-identical (weight boxes, wEffNote, per-theme tables incl tags/editables); activate/deactivate shifts blend + persists. Awaiting click-through + merge." ] },
 
-    { "id": "E2.4", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2_user-defined-metrics.md",
+    { "id": "E2.4", "epic": "E2", "stage": "testing", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2.4_metric-direction-baddata.md",
       "title": "Per-metric direction & bad-data handling", "notes": [
-      "For each active metric: its direction (cheaper-is-better / higher-is-better / lower-is-better) and how bad/missing values are handled — penalty, quality carry-over, or compute-from-statements.",
-      "Generalizes the existing C2 data-quality handling (prem / calc / qual / ovr) from the fixed 6 to any chosen metric." ] },
+      "Group ② -> one row per active metric: direction (read-only badge for the 6, editable toggle for catalog), policy select (penalize/carry/exclude/[compute=E3]/zero), conditional penalty input.",
+      "state.metricCfg {key:{penalty?,badData?,direction?}} pruned-on-default (null => baked-in defaults). Penalty routes by penaltyKey -> state.penalty else metricCfg. computeCarryover impute list derived.",
+      "BUILT + verified on dev: default-6 engine + penalized/excluded lists byte-identical; edit/toggle rescore + prune-to-null; metricCfg round-trips save/load/undo. Awaiting click-through + merge." ] },
 
-    { "id": "E2.5", "epic": "E2", "stage": "ideation", "platform": "web", "depends": "E2.3", "spec": "docs/features/E2_user-defined-metrics.md",
+    { "id": "E2.5", "epic": "E2", "stage": "testing", "platform": "web", "depends": "E2.3", "spec": "docs/features/E2.5_presets-reset.md",
       "title": "Metric presets / reset to default 6", "notes": [
-      "Reset the metric set + weights back to the default 6 in one click.",
-      "Optionally save named metric presets (e.g. 'Deep value', 'Quality growth') to switch strategies.",
-      "Quality-of-life; sequenced last." ] },
+      "↺ Reset to default 6 (metrics+weights+exception handling; cap NOT reset) + named preset library (save/load/delete) via a select under the theme buttons.",
+      "applyConfig replaces weights/penalty/metricCfg wholesale; presets persisted but EXCLUDED from version snapshots (undo/redo never touches presets); sanitizePreset drops malformed.",
+      "BUILT + verified on dev: save/reset/load round-trip; presets survive reload + are untouched by undo/redo. Awaiting click-through + merge." ] },
 
     { "id": "E3.1", "epic": "E3", "stage": "ideation", "platform": "web", "spec": "docs/features/E3_statement-driven-data.md",
       "title": "Statement-driven data: load TTM statements, compute metrics, stock detail page", "notes": [

@@ -8,23 +8,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 2 |
-| Design | 3 |
+| Ideation | 1 |
+| Design | 0 |
 | Implementation | 0 |
-| Testing | 1 |
+| Testing | 5 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 23 |
 
 ---
 
-## Ideation  (2)
+## Ideation  (1)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E2.5** · _E2 · User-Defined Metrics_ — **Metric presets / reset to default 6** _(depends E2.3, web)_ · [spec](features/E2_user-defined-metrics.md)
-  - Reset the metric set + weights back to the default 6 in one click.
-  - Optionally save named metric presets (e.g. 'Deep value', 'Quality growth') to switch strategies.
-  - Quality-of-life; sequenced last.
 - **E3.1** · _E3 · Statement-Driven Data_ — **Statement-driven data: load TTM statements, compute metrics, stock detail page** _(web)_ · [spec](features/E3_statement-driven-data.md)
   - Fundamentally change the data source: instead of pulling Yahoo's pre-calculated metrics, LOAD the 3 financial statements (income, balance sheet, cash flow) over the last 4 quarters (TTM) for portfolio + screener names.
   - A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.
@@ -32,28 +28,17 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.
   - Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown.
 
-## Design  (3)
+## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E2.2** · _E2 · User-Defined Metrics_ — **Metric catalog + compute layer** _(depends E2.1, web)_ · [spec](features/E2_user-defined-metrics.md)
-  - A catalog of common metrics grouped by category (valuation, profitability, financial-health, growth, dividend, size, momentum, operational) — the starter list is in the spec.
-  - Only metrics AVAILABLE or COMPUTABLE from the data source are offered.
-  - A per-metric getter/formula yields a per-stock value with its direction (cheaper / higher / lower-is-better). Source is Yahoo fields today; E3 later switches the SOURCE to computed-from-statements.
-  - Lets the engine score ANY catalog metric, not just the original 6.
-- **E2.3** · _E2 · User-Defined Metrics_ — **Choose your metrics (picker UI)** _(depends E2.2, web)_ · [spec](features/E2_user-defined-metrics.md)
-  - Add or remove which catalog metrics are active in the model, from the Fundamentals tab.
-  - The weights panel generalizes from the fixed 6 sliders to N chosen metrics (weights re-normalize live).
-  - Flag metrics that are missing data for the current book so the user knows what actually drives the score.
-- **E2.4** · _E2 · User-Defined Metrics_ — **Per-metric direction & bad-data handling** _(depends E2.2, web)_ · [spec](features/E2_user-defined-metrics.md)
-  - For each active metric: its direction (cheaper-is-better / higher-is-better / lower-is-better) and how bad/missing values are handled — penalty, quality carry-over, or compute-from-statements.
-  - Generalizes the existing C2 data-quality handling (prem / calc / qual / ovr) from the fixed 6 to any chosen metric.
+- _(none)_
 
 ## Implementation  (0)
 _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (1)
+## Testing  (5)
 _Built; waiting for you to try it._
 
 - **E2.1** · _E2 · User-Defined Metrics_ — **Data-driven metric list (foundation)** _(web)_ · [spec](features/E2.1_data-driven-metrics.md)
@@ -62,6 +47,23 @@ _Built; waiting for you to try it._
   - Weights/penalties stay in state.weights/state.penalty (untouched); state.metrics only governs which keys exist + their order. Persisted as [{key}] + version-snapshotted; old portfolios migrate to the default 6.
   - ENGINE-ONLY foundation (the weight/penalty inputs, notes, and fundamentals table stay hardcoded until E2.2).
   - BUILT + self-verified on dev 2026-07-01: byte-identity maxDiff=0 across 968 comparisons x 8 scenarios (on frozen inputs); generality proof (drop/reorder/single/revert); validateMetrics dedupe+drop-unknown; persistence round-trip; no console errors. Awaiting user click-through + merge to main.
+- **E2.2** · _E2 · User-Defined Metrics_ — **Metric catalog + compute layer** _(depends E2.1, web)_ · [spec](features/E2.2_metric-catalog.md)
+  - METRIC_CATALOG: the 6 defaults VERBATIM + 21 inactive catalog metrics (built via catMetric()); DEFAULT_METRICS = filter(defaultActive).
+  - Compute layer: dirScore(m,x) (higher => max(0,x); lower => 1/max(x,scoreFloor)); scoreOf dispatches per descriptor. themeMetric gained a null-penalty exclude guard.
+  - server.py forwards ~21 null-safe Yahoo fields (roe/roa/ps/pb/margins/debtToEquity[%]/current+quick ratio/growth/divYield/payout/beta/forwardPE/evRev + raw fcf/ebitda/revenue/cash/debt). Restart done.
+  - BUILT + verified on dev: default-6 byte-identical; catalog metrics score finite; derived getters null-safe (D/E /100); divYield zero-policy. Awaiting click-through + merge.
+- **E2.3** · _E2 · User-Defined Metrics_ — **Choose your metrics (picker UI)** _(depends E2.2, web)_ · [spec](features/E2.3_metric-picker.md)
+  - ✎ Choose metrics picker: catalog grouped by category, checkboxes, per-book data-coverage badges, >=1 enforced, exactly-default-6 normalizes to state.metrics=null.
+  - Generalized the weights panel (#wInputs, signature-rebuild + focus-guarded), the per-theme table (Cap special always-2nd column; other cols loop metrics()), and the notes — all from metrics().
+  - BUILT + verified on dev: default-6 DOM byte-identical (weight boxes, wEffNote, per-theme tables incl tags/editables); activate/deactivate shifts blend + persists. Awaiting click-through + merge.
+- **E2.4** · _E2 · User-Defined Metrics_ — **Per-metric direction & bad-data handling** _(depends E2.2, web)_ · [spec](features/E2.4_metric-direction-baddata.md)
+  - Group ② -> one row per active metric: direction (read-only badge for the 6, editable toggle for catalog), policy select (penalize/carry/exclude/[compute=E3]/zero), conditional penalty input.
+  - state.metricCfg {key:{penalty?,badData?,direction?}} pruned-on-default (null => baked-in defaults). Penalty routes by penaltyKey -> state.penalty else metricCfg. computeCarryover impute list derived.
+  - BUILT + verified on dev: default-6 engine + penalized/excluded lists byte-identical; edit/toggle rescore + prune-to-null; metricCfg round-trips save/load/undo. Awaiting click-through + merge.
+- **E2.5** · _E2 · User-Defined Metrics_ — **Metric presets / reset to default 6** _(depends E2.3, web)_ · [spec](features/E2.5_presets-reset.md)
+  - ↺ Reset to default 6 (metrics+weights+exception handling; cap NOT reset) + named preset library (save/load/delete) via a select under the theme buttons.
+  - applyConfig replaces weights/penalty/metricCfg wholesale; presets persisted but EXCLUDED from version snapshots (undo/redo never touches presets); sanitizePreset drops malformed.
+  - BUILT + verified on dev: save/reset/load round-trip; presets survive reload + are untouched by undo/redo. Awaiting click-through + merge.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

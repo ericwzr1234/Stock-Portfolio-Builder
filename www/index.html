@@ -318,22 +318,15 @@
       <div class="card pad">
         <div class="section-title"><h2>Theme allocation model</h2>
           <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
-        <div class="row small" style="gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <div class="row small" id="wGroup" style="gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap">
           <span class="muted"><b>① Metrics</b> — assign weights →</span>
-          <label>PEG <span class="muted xs">(P/E ÷ Growth%)</span>&nbsp;<input type="number" id="wPeg" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>EV/EBITDA <span class="muted xs">(Enterprise Value ÷ EBITDA)</span>&nbsp;<input type="number" id="wEv" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>Debt/FCF <span class="muted xs">(Total Debt ÷ Free Cash Flow)</span>&nbsp;<input type="number" id="wDfcf" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>P/E <span class="muted xs">(Price ÷ Earnings)</span>&nbsp;<input type="number" id="wPe" value="15" min="0" step="5" style="width:48px"> %</label>
-          <label>Average market cap&nbsp;<input type="number" id="wMcap" value="10" min="0" step="5" style="width:48px"> %</label>
-          <label>Price momentum&nbsp;<input type="number" id="wMom" value="15" min="0" step="5" style="width:48px"> %</label>
+          <span id="wInputs" style="display:contents"></span>
+          <button id="chooseMetricsBtn" class="btn sm" title="Add or remove scoring metrics from the catalog">✎ Choose metrics</button>
           <span class="muted xs" id="wEffNote"></span>
         </div>
-        <div class="row small" style="gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
-          <span class="muted"><b>② Exception handling</b> — value to use when a metric is negative or not found →</span>
-          <label>EV/EBITDA&nbsp;<input type="number" id="penEv" value="1000" min="0" step="100" style="width:72px"></label>
-          <label>PEG&nbsp;<input type="number" id="penPeg" value="10" min="0" step="1" style="width:52px"></label>
-          <label>Debt/FCF&nbsp;<input type="number" id="penDfcf" value="50" min="0" step="10" style="width:58px"></label>
-          <label>P/E&nbsp;<input type="number" id="penPe" value="200" min="0" step="25" style="width:58px"></label>
+        <div class="small" id="metricCfgWrap" style="margin-top:12px">
+          <span class="muted"><b>② Exception handling</b> — how to treat each metric when a value is negative or missing:</span>
+          <div id="metricCfgRows" style="margin-top:6px"></div>
         </div>
         <div class="row small" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap">
           <span class="muted"><b>③ Maximum weight per theme</b> →</span>
@@ -344,6 +337,12 @@
         <div class="row" style="margin-top:12px;align-items:center;gap:8px">
           <button class="btn sm" id="newThemeBtn">➕ New theme</button>
           <button class="btn sm" id="restoreThemesBtn">↺ Restore default 5</button>
+        </div>
+        <div class="row small" id="presetRow" style="margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="btn sm" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 — theme cap is left unchanged">↺ Reset to default 6</button>
+          <button class="btn sm" id="savePresetBtn" title="Save the current metric model as a reusable preset">💾 Save preset</button>
+          <label class="muted xs">Preset&nbsp;<select id="presetSelect" style="max-width:170px"><option value="">—</option></select></label>
+          <button class="btn sm" id="delPresetBtn" title="Delete the selected preset">✕</button>
         </div>
         <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
           <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
@@ -434,6 +433,8 @@ const state = {
   asOf:null,
   themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
   metrics:null,                   // ordered scoring-metric list (E2.1); null => DEFAULT_METRICS. Persisted as [{key}]; weights/penalty stay in state.weights/state.penalty
+  metricCfg:null,                 // {key:{penalty?,badData?,direction?}} per-metric overrides (E2.4); null/absent => baked-in descriptor defaults. Pruned on default.
+  presets:[],                     // [{name,config,savedAt}] saved metric+weight models (E2.5); a user library, NOT versioned (excluded from snapshots)
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
   themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
@@ -485,21 +486,73 @@ function nameOf(s){ return (state.quotes[s]&&state.quotes[s].name)||(state.funda
    Debt/FCF stays 1/max(x,0.1), and the ev/dfcf carry-over still fires. (The weight/penalty INPUTS + notes +
    fundamentals table are still hardcoded to the 6; generating those from metrics() is E2.2.)
    ====================================================================== */
-const DEFAULT_METRICS = [
-  { key:'peg',  weightKey:'peg',  weightInputId:'#wPeg',  defaultWeight:0.20, getter:effPeg,  valueKind:'themeMetric', penaltyKey:'peg',  allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.peg.value,  useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'peg',       label:'PEG',                header:'PEG' },
-  { key:'ev',   weightKey:'ev',   weightInputId:'#wEv',   defaultWeight:0.20, getter:effEv,   valueKind:'themeMetric', penaltyKey:'ev',   allowZero:false, nullExcludes:true,  carryKey:'ev',   readValue:r=>r.ev.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'ev',        label:'EV/EBITDA',          header:'EV/EB' },
-  { key:'dfcf', weightKey:'dfcf', weightInputId:'#wDfcf', defaultWeight:0.20, getter:effDfcf, valueKind:'themeMetric', penaltyKey:'dfcf', allowZero:true,  nullExcludes:true,  carryKey:'dfcf', readValue:r=>r.dfcf.value, useMedian:true,  score:x=>(isNum(x)&&x>=0)?1/Math.max(x,0.1):0,           overridable:true,  overrideKey:'dfcf',      label:'Debt/FCF',           header:'D/FCF' },
-  { key:'pe',   weightKey:'pe',   weightInputId:'#wPe',   defaultWeight:0.15, getter:effPe,   valueKind:'themeMetric', penaltyKey:'pe',   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.pe.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'pe',        label:'P/E',                header:'P/E' },
-  { key:'mcap', weightKey:'mcap', weightInputId:'#wMcap', defaultWeight:0.10, getter:effMcap, valueKind:'avgMcap',     penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mcap,       useMedian:true,  score:x=>(isNum(x)&&x>0)?Math.max(0,Math.log(x/1e9)):0,  overridable:true,  overrideKey:'marketCap', label:'Average market cap', header:'Cap' },
-  { key:'mom',  weightKey:'mom',  weightInputId:'#wMom',  defaultWeight:0.15, getter:momOf,   valueKind:'momentum',    penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mom.value,  useMedian:false, score:x=>isNum(x)?Math.max(0,x):0,                       overridable:false, overrideKey:null,        label:'Price momentum',     header:'Mom' },
+// Builder for the extended catalog (E2.2): inactive-by-default metrics that score via dirScore (by direction).
+// Each getter reads a plain field off state.fundamentals[s] (server-forwarded) unless a custom getter is given.
+function catMetric(o){
+  return Object.assign({
+    defaultActive:false, weightKey:o.key, weightInputId:null, defaultWeight:0.10,
+    valueKind:'themeMetric', penaltyKey:null, carryKey:null,
+    allowZero:(o.direction==='higher'), nullExcludes:true, useMedian:true,
+    overridable:false, overrideKey:null, scoreFromDir:true, computeCapable:false,
+    badData:'exclude', source:{kind:'field',key:o.key}, formulaHint:'',
+    readValue:function(r){ const v=r[o.key]; return v?v.value:null; },
+    getter:function(s){ const f=state.fundamentals[s]; const v=f&&f[o.key]; return isNum(v)?v:null; }
+  }, o);
+}
+// METRIC_CATALOG (E2.2): the 6 default metrics VERBATIM (getter/score closures unchanged -> byte-identical at the
+// default set) plus additive metadata, followed by the extended catalog. DEFAULT_METRICS = the active-by-default 6.
+const METRIC_CATALOG = [
+  { key:'peg',  defaultActive:true, group:'value', direction:'lower', source:{kind:'field',key:'peg'}, badData:'penalize', fmt:{kind:'ratio',dp:2}, scoreFromDir:false, weightKey:'peg',  weightInputId:'#wPeg',  defaultWeight:0.20, getter:effPeg,  valueKind:'themeMetric', penaltyKey:'peg',  allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.peg.value,  useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'peg',       label:'PEG',                header:'PEG',   formulaHint:'P/E ÷ Growth%' },
+  { key:'ev',   defaultActive:true, group:'value', direction:'lower', source:{kind:'field',key:'ev'}, badData:'carry', fmt:{kind:'x',dp:1}, scoreFromDir:false, weightKey:'ev',   weightInputId:'#wEv',   defaultWeight:0.20, getter:effEv,   valueKind:'themeMetric', penaltyKey:'ev',   allowZero:false, nullExcludes:true,  carryKey:'ev',   readValue:r=>r.ev.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'ev',        label:'EV/EBITDA',          header:'EV/EB', formulaHint:'Enterprise Value ÷ EBITDA', calcFlag:'evCalc' },
+  { key:'dfcf', defaultActive:true, group:'risk', direction:'lower', source:{kind:'field',key:'dfcf'}, badData:'carry', fmt:{kind:'ratio',dp:2}, scoreFromDir:false, weightKey:'dfcf', weightInputId:'#wDfcf', defaultWeight:0.20, getter:effDfcf, valueKind:'themeMetric', penaltyKey:'dfcf', allowZero:true,  nullExcludes:true,  carryKey:'dfcf', readValue:r=>r.dfcf.value, useMedian:true,  score:x=>(isNum(x)&&x>=0)?1/Math.max(x,0.1):0,           overridable:true,  overrideKey:'dfcf',      label:'Debt/FCF',           header:'D/FCF', formulaHint:'Total Debt ÷ Free Cash Flow', nmNegative:true },
+  { key:'pe',   defaultActive:true, group:'value', direction:'lower', source:{kind:'field',key:'pe'}, badData:'penalize', fmt:{kind:'x',dp:1}, scoreFromDir:false, weightKey:'pe',   weightInputId:'#wPe',   defaultWeight:0.15, getter:effPe,   valueKind:'themeMetric', penaltyKey:'pe',   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.pe.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'pe',        label:'P/E',                header:'P/E',   formulaHint:'Price ÷ Earnings', calcFlag:'peCalc' },
+  { key:'mcap', defaultActive:true, group:'size', direction:'higher', source:{kind:'derived'}, badData:'exclude', fmt:{kind:'money'}, scoreFromDir:false, weightKey:'mcap', weightInputId:'#wMcap', defaultWeight:0.10, getter:effMcap, valueKind:'avgMcap',     penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mcap,       useMedian:true,  score:x=>(isNum(x)&&x>0)?Math.max(0,Math.log(x/1e9)):0,  overridable:true,  overrideKey:'marketCap', label:'Average market cap', header:'Cap',   formulaHint:'' },
+  { key:'mom',  defaultActive:true, group:'momentum', direction:'higher', source:{kind:'derived'}, badData:'exclude', fmt:{kind:'pct',dp:1}, scoreFromDir:false, weightKey:'mom',  weightInputId:'#wMom',  defaultWeight:0.15, getter:momOf,   valueKind:'momentum',    penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mom.value,  useMedian:false, score:x=>isNum(x)?Math.max(0,x):0,                       overridable:false, overrideKey:null,        label:'Price momentum',     header:'Mom',   formulaHint:'' },
+  // ---- extended catalog (inactive until the user activates them; E2.2). LOWER-better (cheaper/safer wins): ----
+  catMetric({key:'forwardPE',    group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.5,  label:'Forward P/E',      header:'Fwd P/E', formulaHint:'Price ÷ next-yr EPS'}),
+  catMetric({key:'evRev',        group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'EV/Revenue',       header:'EV/Rev'}),
+  catMetric({key:'ps',           group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'P/S',              header:'P/S'}),
+  catMetric({key:'pb',           group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'P/B',              header:'P/B'}),
+  catMetric({key:'pfcf',         group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.5,  label:'P/FCF',            header:'P/FCF', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s), fcf=f.fcf; return (isNum(mc)&&isNum(fcf)&&fcf>0)?mc/fcf:null;}}),
+  catMetric({key:'debtToEquity', group:'risk',    direction:'lower',  fmt:{kind:'x',dp:2},     scoreFloor:0.05, allowZero:true, label:'Debt/Equity', header:'D/E', getter:s=>{const f=state.fundamentals[s]; const v=f&&f.debtToEquity; return isNum(v)?v/100:null;}}),   // Yahoo returns a PERCENT; 0 = debt-free = best
+  catMetric({key:'payout',       group:'income',  direction:'lower',  fmt:{kind:'pct',dp:0},   scoreFloor:0.02, allowZero:true, label:'Payout ratio', header:'Payout'}),   // 0% payout = retains all earnings = best
+  catMetric({key:'beta',         group:'risk',    direction:'lower',  fmt:{kind:'ratio',dp:2}, scoreFloor:0.1,  label:'Beta',             header:'Beta'}),
+  // ---- HIGHER-better (more profitable/healthier/faster wins): ----
+  catMetric({key:'grossMargin',  group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'Gross margin',     header:'GM'}),
+  catMetric({key:'opMargin',     group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'Operating margin', header:'OpM'}),
+  catMetric({key:'netMargin',    group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'Net margin',       header:'NM'}),
+  catMetric({key:'roe',          group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'ROE',              header:'ROE'}),
+  catMetric({key:'roa',          group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'ROA',              header:'ROA'}),
+  catMetric({key:'ebitdaMargin', group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'EBITDA margin',    header:'EBITDA%', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; return (isNum(f.ebitda)&&isNum(f.revenue)&&f.revenue>0)?f.ebitda/f.revenue:null;}}),
+  catMetric({key:'fcfMargin',    group:'quality', direction:'higher', fmt:{kind:'pct',dp:1}, label:'FCF margin',       header:'FCF%', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; return (isNum(f.fcf)&&isNum(f.revenue)&&f.revenue>0)?f.fcf/f.revenue:null;}}),
+  catMetric({key:'currentRatio', group:'risk',    direction:'higher', fmt:{kind:'ratio',dp:2}, label:'Current ratio',  header:'Curr'}),
+  catMetric({key:'quickRatio',   group:'risk',    direction:'higher', fmt:{kind:'ratio',dp:2}, label:'Quick ratio',    header:'Quick'}),
+  catMetric({key:'revGrowth',    group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Revenue growth',   header:'Rev g'}),
+  catMetric({key:'earnGrowth',   group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Earnings growth',  header:'Earn g'}),
+  catMetric({key:'netCashPct',   group:'risk',    direction:'higher', fmt:{kind:'pct',dp:1}, label:'Net cash / mcap',  header:'NetCash', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s); return (isNum(f.cash)&&isNum(f.debt)&&isNum(mc)&&mc>0)?(f.cash-f.debt)/mc:null;}}),
+  catMetric({key:'divYield',     group:'income',  direction:'higher', badData:'zero', fmt:{kind:'pct',dp:2}, label:'Dividend yield', header:'Yield', getter:s=>{const f=state.fundamentals[s]; const v=f&&f.divYield; return isNum(v)?v:0;}}),   // non-payers => 0, not excluded
 ];
+const DEFAULT_METRICS = METRIC_CATALOG.filter(m=>m.defaultActive);
 function metrics(){ const m=state.metrics; return (Array.isArray(m)&&m.length)?m:DEFAULT_METRICS; }
 function metricByKey(k){ return metrics().find(m=>m.key===k); }
-function validateMetrics(list){   // reattach real descriptors by key; dedupe; drop unknown; [] => null (defaults)
+function catalogByKey(k){ return METRIC_CATALOG.find(m=>m.key===k); }
+function validateMetrics(list){   // reattach real descriptors by key from the CATALOG; dedupe; drop unknown; [] => null (defaults)
   const seen=new Set(), out=[];
-  (list||[]).forEach(x=>{ const k=x&&x.key, d=DEFAULT_METRICS.find(m=>m.key===k); if(d&&!seen.has(k)){ seen.add(k); out.push(d); } });
+  (list||[]).forEach(x=>{ const k=x&&x.key, d=METRIC_CATALOG.find(m=>m.key===k); if(d&&!seen.has(k)){ seen.add(k); out.push(d); } });
   return out.length?out:null;
 }
+// E2.4 per-metric config resolvers. state.metricCfg (null => baked-in descriptor defaults for every metric).
+function cfgOf(k){ return (state.metricCfg&&state.metricCfg[k])||{}; }
+function effBadData(m){ return cfgOf(m.key).badData||m.badData; }
+function effDirection(m){ return cfgOf(m.key).direction||m.direction; }
+function effPenalty(m){ return m.penaltyKey ? state.penalty[m.penaltyKey]
+  : (cfgOf(m.key).penalty!=null ? cfgOf(m.key).penalty : (m.defaultPenalty!=null ? m.defaultPenalty : null)); }
+// E2.2 scoring: the 6 keep their own score() closures (scoreFromDir:false); catalog metrics score by direction.
+function dirScore(m,x){ if(!isNum(x))return 0; return effDirection(m)==='higher' ? Math.max(0,x) : (x>=0?1/Math.max(x,m.scoreFloor||0.1):0); }   // lower-better: 0 = best (floored); negatives score 0
+function scoreOf(m,x){ return m.scoreFromDir ? dirScore(m,x) : m.score(x); }
+// module-load integrity (E2.2): the default set must be the 6 in order, reference-identical to the catalog entries.
+console.assert(DEFAULT_METRICS.map(m=>m.key).join(',')==='peg,ev,dfcf,pe,mcap,mom','E2 catalog: default set drift');
+console.assert(DEFAULT_METRICS.every(m=>METRIC_CATALOG.includes(m)),'E2 catalog: default not reference-identical');
 
 /* ======================================================================
    Strategy: theme cap-weighted metrics -> target weights
@@ -515,9 +568,10 @@ function themeMetric(tickers, getter, penaltyVal, allowZero, nullExcludes){
     let v=getter(s); const mc=effMcap(s);
     if(!(isNum(mc)&&mc>0)) continue;                 // no market-cap data -> cannot weight (rare)
     if(!isNum(v)){
-      if(nullExcludes){ excluded.push(s); continue; }
+      if(nullExcludes || !isNum(penaltyVal)){ excluded.push(s); continue; }   // E2.2 guard: no numeric penalty => exclude (catalog metric)
       v=penaltyVal; penalized.push(s);
     } else if(!(allowZero ? v>=0 : v>0)){
+      if(!isNum(penaltyVal)){ excluded.push(s); continue; }                   // E2.2 guard: non-positive but no penalty => exclude
       v=penaltyVal; penalized.push(s);
     }
     num+=v*mc; den+=mc;
@@ -563,7 +617,7 @@ function computeCarryover(){
     const ranks=[]; Object.keys(F).forEach(k=>{ const g=F[k](s); if(isNum(g))ranks.push(rank(dist[k],g)); });
     if(!ranks.length) continue;
     const qp=ranks.reduce((a,b)=>a+b,0)/ranks.length;            // composite quality percentile (0..1)
-    ['ev','dfcf'].forEach(k=>{
+    metrics().filter(m=>m.carryKey&&effBadData(m)==='carry').map(m=>m.carryKey).forEach(k=>{   // E2.4: only carry-policy metrics imputed (default = ev,dfcf)
       if(F[k](s)===null){                                        // genuinely N/A -> impute at this percentile
         const g=quant(dist[k],qp);
         if(isNum(g)&&g>0){ carry[s]=carry[s]||{}; carry[s][k]= k==='dfcf'?Math.max(0,1/g):1/g; }
@@ -576,14 +630,15 @@ function computeCarryover(){
 function aliasWeights(wN){ return {wPeg:wN.peg||0, wEv:wN.ev||0, wDf:wN.dfcf||0, wPe:wN.pe||0, wMc:wN.mcap||0, wMo:wN.mom||0}; }  // E2.1: keep flat aliases so existing readers work
 function computeAllocation(){
   const M=metrics();                                                               // E2.1: the active metric descriptors (default = the 6, fixed order)
-  const wsum = M.reduce((a,m)=>a+(state.weights[m.weightKey]||0),0)||1;
-  const wN={}; M.forEach(m=>{ wN[m.key]=(state.weights[m.weightKey]||0)/wsum; });   // normalized weight per metric key
+  const wOf=m=>{ const w=state.weights[m.weightKey]; return isNum(w)?w:(m.defaultWeight||0); };   // E2.3: activated catalog metric w/o a weight entry falls back to its defaultWeight
+  const wsum = M.reduce((a,m)=>a+wOf(m),0);
+  const wN={}; M.forEach(m=>{ wN[m.key]= wsum>0 ? wOf(m)/wsum : 1/M.length; });   // all-zero weights => equal blend (never a 0-sum model that liquidates the book)
   const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
-  const getFor=m=> m.carryKey ? (s=>{ const v=m.getter(s); return isNum(v)?v:((carry[s]&&isNum(carry[s][m.carryKey]))?carry[s][m.carryKey]:null); }) : m.getter;
+  const getFor=m=> (m.carryKey && effBadData(m)==='carry') ? (s=>{ const v=m.getter(s); return isNum(v)?v:((carry[s]&&isNum(carry[s][m.carryKey]))?carry[s][m.carryKey]:null); }) : m.getter;
   const allRows=themes().map(t=>{ const tk=tickersOf(t.key), row={theme:t};
     M.forEach(m=>{ row[m.key] = m.valueKind==='avgMcap'  ? themeAvgMcap(tk)
                              : m.valueKind==='momentum' ? themeMomentum(tk)
-                             : themeMetric(tk, getFor(m), state.penalty[m.penaltyKey], m.allowZero, m.nullExcludes); });
+                             : themeMetric(tk, getFor(m), (effDirection(m)==='higher'?0:effPenalty(m)), m.allowZero, (effBadData(m)==='penalize')?false:true); });   // higher-better penalty = 0 (worst), never a rewarding positive
     return row; });
   // E1.4: a theme with no names is "empty" — it scores 0% and is excluded from the model until it has names.
   allRows.forEach(r=>{ if(tickersOf(r.theme.key).length===0){ r.empty=true; r.alloc=0; r.allocRaw=0; } });
@@ -592,7 +647,7 @@ function computeAllocation(){
     return Object.assign({rows:allRows, byKey, cap:(state.cap!=null?state.cap:0.3), carry, wByKey:wN}, aliasWeights(wN)); }
   const med={}; M.forEach(m=>{ if(m.useMedian) med[m.key]=median(rows.map(r=>m.readValue(r))); });   // theme-level median fill (per metric; not momentum)
   rows.forEach(r=>M.forEach(m=>{ const raw=m.readValue(r); const used=m.useMedian?(isNum(raw)?raw:med[m.key]):raw;
-    if(m.useMedian) r[m.key+'Used']=used; r[m.key+'Score']=m.score(used); }));                       // each metric keeps its own score formula
+    if(m.useMedian) r[m.key+'Used']=used; r[m.key+'Score']=scoreOf(m,used); }));                      // 6 keep score() closure; catalog metrics score by direction
   const S={}; M.forEach(m=>{ S[m.key]=rows.reduce((a,r)=>a+r[m.key+'Score'],0); });
   rows.forEach(r=>{ M.forEach(m=>{ r[m.key+'N']= S[m.key]>0 ? r[m.key+'Score']/S[m.key] : 1/rows.length; });
     r.alloc = M.reduce((a,m)=>a+wN[m.key]*r[m.key+'N'],0); });                                        // blend in fixed metric order == the old wPeg*pegN + … sum
@@ -649,7 +704,8 @@ function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" $
 function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
   weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
   themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes), watchlist:deepCopy(state.watchlist),
-  metrics:(state.metrics?state.metrics.map(m=>({key:m.key})):null) }; }
+  metrics:(state.metrics?state.metrics.map(m=>({key:m.key})):null),
+  metricCfg:(state.metricCfg?deepCopy(state.metricCfg):null) }; }   // E2.4 versioned; presets are NOT snapshotted (user library)
 
 function pushVersion(txn){
   const p=state.portfolio; p.versions=p.versions||[]; if(!isNum(p.head))p.head=p.versions.length-1;
@@ -661,7 +717,7 @@ function pushVersion(txn){
 
 function restoreVersion(i){
   const p=state.portfolio; p.head=i;
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.watchlist=[]; state.metrics=null; rebuildThemeOf(); return; }   // before the initial build
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.watchlist=[]; state.metrics=null; state.metricCfg=null; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
@@ -671,6 +727,7 @@ function restoreVersion(i){
   state.themes = s.themes!=null ? deepCopy(s.themes) : null;
   state.watchlist = Array.isArray(s.watchlist) ? deepCopy(s.watchlist) : (Array.isArray(s.otherList) ? s.otherList.map(x=>({sym:x,theme:null})) : []);
   state.metrics = (Array.isArray(s.metrics)&&s.metrics.length) ? validateMetrics(s.metrics) : null;   // E2.1: reattach by key; null => defaults
+  state.metricCfg = (s.metricCfg&&typeof s.metricCfg==='object'&&!Array.isArray(s.metricCfg)) ? deepCopy(s.metricCfg) : null;   // E2.4
   rebuildThemeOf();
 }
 
@@ -680,7 +737,7 @@ function migrateVersions(p){   // forward-compat for any legacy file that only h
   txns.forEach(t=>{ (t.trades||[]).forEach(tr=>{ const c=h[tr.sym]||{shares:0,costBasis:0};
       c.shares+=tr.shares||0; c.costBasis+=tr.amount||0; h[tr.sym]=c; });
     contrib+=t.cashIn||0; const v=Object.assign({},t); v.id=p.versions.length+1;
-    v.snapshot={holdings:deepCopy(h),totalContributed:contrib,weights:t.weights||deepCopy(state.weights),penalty:deepCopy(state.penalty),overrides:{},metrics:null};
+    v.snapshot={holdings:deepCopy(h),totalContributed:contrib,weights:t.weights||deepCopy(state.weights),penalty:deepCopy(state.penalty),overrides:{},metrics:null,metricCfg:null};
     p.versions.push(v); });
   p.head=p.versions.length-1; delete p.transactions;
 }
@@ -842,9 +899,11 @@ async function loadPortfolio(){
     if(Array.isArray(p.watchlist))state.watchlist=p.watchlist.map(w=>(typeof w==="string"?{sym:w,theme:null}:w));
     else if(Array.isArray(p.otherList))state.watchlist=p.otherList.map(s=>({sym:s,theme:null}));   // migrate old 'Other' list
     state.metrics = (Array.isArray(p.metrics)&&p.metrics.length) ? validateMetrics(p.metrics) : null;   // E2.1: reattach descriptors by key; null/absent => defaults
-    if(!('mom' in state.weights)) state.weights={peg:0.20,ev:0.20,dfcf:0.20,pe:0.15,mcap:0.10,mom:0.15};   // upgrade older saves to the 6-metric default
-    if(!isNum(state.penalty.dfcf)) state.penalty.dfcf=50;
-    if(!isNum(state.penalty.pe)) state.penalty.pe=200;
+    state.metricCfg = (p.metricCfg&&typeof p.metricCfg==='object'&&!Array.isArray(p.metricCfg)) ? p.metricCfg : null;   // E2.4: per-metric overrides; null/absent => defaults
+    if(state.metricCfg){ Object.keys(state.metricCfg).forEach(k=>{ if(!catalogByKey(k)) delete state.metricCfg[k]; }); if(!Object.keys(state.metricCfg).length) state.metricCfg=null; }   // drop entries for keys no longer in the catalog
+    state.presets = Array.isArray(p.presets) ? p.presets.map(sanitizePreset).filter(Boolean) : [];   // E2.5: preset library (not versioned)
+    ['peg','ev','dfcf','pe','mcap','mom'].forEach(k=>{ if(!(k in state.weights)) state.weights[k]=DEFAULT_CONFIG.weights[k]; });   // E2.3: backfill missing default weights WITHOUT nuking activated catalog metrics
+    backfillPenalty();   // restore any missing default-metric penalty (peg/ev/dfcf/pe) — no-op when complete
     if(isNum(p.cap)) state.cap=p.cap;
     migrateVersions(p); }
   rebuildThemeOf();
@@ -856,6 +915,8 @@ async function savePortfolio(){
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
   state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
   state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
+  state.portfolio.metricCfg = state.metricCfg || null;   // E2.4: per-metric config (null when all-default)
+  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];   // E2.5: preset library
   if(useRemote()){
     try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
     catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }
@@ -928,23 +989,61 @@ function renderPrices(){
 /* ======================================================================
    Render: FUNDAMENTALS view
    ====================================================================== */
+// E2.3 catalog-cell formatter (used for the extended metrics; the 6 keep their bespoke rendering below).
+function fmtVal(m,v){
+  if(!isNum(v)) return '—';
+  const k=m.fmt&&m.fmt.kind, dp=(m.fmt&&m.fmt.dp!=null)?m.fmt.dp:1;
+  if(k==='money') return bil(v);
+  if(k==='pct') return num(v*100,dp)+'%';
+  return num(v,dp);
+}
+// E2.4 group-② per-metric exception-handling row.
+function policyOptions(m){
+  const cur=effBadData(m), opts=[];
+  if(m.penaltyKey) opts.push(['penalize','Penalize (use a number)']);   // 'penalize' needs a penalty slot + natural unit -> only the built-in ratios (peg/ev/dfcf/pe)
+  if(m.carryKey) opts.push(['carry','Carry over (impute)']);
+  opts.push(['exclude','Exclude the name']);
+  if(m.badData==='zero') opts.push(['zero','Treat missing as 0']);
+  if(m.computeCapable) opts.push(['compute','Compute from statements']);
+  return opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join("");
+}
+function metricCfgRowHTML(m){
+  const dir=effDirection(m)==='higher'?'↑ higher better':'↓ lower better';
+  const dirCtl=m.scoreFromDir
+    ? `<button class="btn xs" data-mdir="${m.key}" title="Toggle scoring direction">${dir}</button>`
+    : `<span class="muted xs" title="Fixed scoring direction for this metric">${dir}</span>`;
+  if(m.valueKind!=='themeMetric')   // avgMcap / momentum ignore bad-data policy in the engine — expose no inert controls
+    return `<div class="row small" data-mrow="${m.key}" style="gap:8px;align-items:center;margin:2px 0">
+      <span style="min-width:150px">${m.label}</span>${dirCtl}<span class="muted xs">missing names excluded</span></div>`;
+  const showPen = !!m.penaltyKey;   // penalty value only meaningful for the built-in ratios (used for a negative reading)
+  const penVal = isNum(effPenalty(m))?effPenalty(m):'';
+  const penCtl = showPen
+    ? `<label class="muted xs" title="Value substituted when this metric is reported negative">neg→&nbsp;<input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px"></label>`
+    : '';
+  return `<div class="row small" data-mrow="${m.key}" style="gap:8px;align-items:center;margin:2px 0">
+    <span style="min-width:150px">${m.label}</span>${dirCtl}
+    <select data-mpolicy="${m.key}" style="max-width:190px">${policyOptions(m)}</select>${penCtl}</div>`;
+}
 function renderFundamentals(){
-  const setW=(id,v)=>{ const el=$(id); if(el&&document.activeElement!==el)el.value=v; };
-  const W=state.weights;
-  setW("#wPeg",Math.round((W.peg||0)*100));
-  setW("#wEv",Math.round((W.ev||0)*100));
-  setW("#wDfcf",Math.round((W.dfcf||0)*100));
-  setW("#wPe",Math.round((W.pe||0)*100));
-  setW("#wMcap",Math.round((W.mcap||0)*100));
-  setW("#wMom",Math.round((W.mom||0)*100));
-  const _ws=(W.peg||0)+(W.ev||0)+(W.dfcf||0)+(W.pe||0)+(W.mcap||0)+(W.mom||0)||1;
-  const _pp=v=>Math.round((v||0)/_ws*100);
-  if($("#wEffNote"))$("#wEffNote").textContent="→ "+_pp(W.peg)+"/"+_pp(W.ev)+"/"+_pp(W.dfcf)+"/"+_pp(W.pe)+"/"+_pp(W.mcap)+"/"+_pp(W.mom)+"%";
-  if($("#penEv"))$("#penEv").value=state.penalty.ev;
-  if($("#penPeg"))$("#penPeg").value=state.penalty.peg;
-  if($("#penDfcf"))$("#penDfcf").value=state.penalty.dfcf;
-  if($("#penPe"))$("#penPe").value=state.penalty.pe;
-  if($("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
+  const W=state.weights, MM=metrics();
+  const wVal=m=>Math.round((isNum(W[m.weightKey])?W[m.weightKey]:m.defaultWeight)*100);
+  // ① weight inputs — rebuild only when the active set changes; else value-only refresh (focus-guarded)
+  const wIn=$("#wInputs");
+  if(wIn){ const sig=MM.map(m=>m.key).join(',');
+    if(wIn.dataset.sig!==sig){
+      wIn.innerHTML=MM.map(m=>{ const hint=m.formulaHint?` <span class="muted xs">(${m.formulaHint})</span>`:'';
+        return `<label data-mkey="${m.key}">${m.label}${hint}&nbsp;<input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5" style="width:48px"> %</label>`; }).join("");
+      wIn.dataset.sig=sig;
+    } else MM.forEach(m=>{ const inp=wIn.querySelector('input[data-wkey="'+m.key+'"]'); if(inp&&document.activeElement!==inp)inp.value=wVal(m); });
+  }
+  const _ws=MM.reduce((a,m)=>a+(isNum(W[m.weightKey])?W[m.weightKey]:0),0)||1;
+  const _pp=m=>Math.round((isNum(W[m.weightKey])?W[m.weightKey]:0)/_ws*100);
+  if($("#wEffNote"))$("#wEffNote").textContent="→ "+MM.map(_pp).join("/")+"%";
+  // ② per-metric exception-handling rows (rebuilt unless a penalty input is being typed into — a focused <select> still rebuilds)
+  const cfgRows=$("#metricCfgRows"), _ae=document.activeElement;
+  if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]'))) cfgRows.innerHTML=MM.map(metricCfgRowHTML).join("");
+  if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
+  if(typeof renderPresetSelect==='function') renderPresetSelect();
   const A=computeAllocation();
 
   // allocation bar + legend
@@ -965,76 +1064,80 @@ function renderFundamentals(){
       <td class="num">${pct(r.alloc)}</td><td class="num">${isNum(cw)?pct(cw):"—"}</td>
       <td class="num ${dcls}"><span class="drift">${isNum(d)?signed(d*100,1)+"pp":"—"}</span></td></tr>`;}).join("");
 
-  // notes
-  const exNotes=A.rows.filter(r=>r.peg.penalized.length||r.ev.penalized.length||r.dfcf.penalized.length||r.pe.penalized.length||r.ev.excluded.length||r.dfcf.excluded.length).map(r=>{
-    const bits=[];
-    if(r.ev.penalized.length)bits.push("EV/EBITDA penalized for "+r.ev.penalized.join(", ")+" ("+state.penalty.ev+"×)");
-    if(r.dfcf.penalized.length)bits.push("Debt/FCF penalized for "+r.dfcf.penalized.join(", ")+" ("+state.penalty.dfcf+"×)");
-    if(r.pe.penalized.length)bits.push("P/E penalized for "+r.pe.penalized.join(", ")+" ("+state.penalty.pe+"×)");
-    if(r.peg.penalized.length)bits.push("PEG penalized for "+r.peg.penalized.join(", ")+" ("+state.penalty.peg+"×)");
-    const exl=[...new Set([...r.ev.excluded,...r.dfcf.excluded])];
-    if(exl.length)bits.push("excluded as N/A: "+exl.join(", "));
+  // notes (E2.3: driven by metrics(); muted copy inside the collapsed <details>)
+  const exM=metrics().filter(m=>m.valueKind==='themeMetric');
+  const exNotes=A.rows.filter(r=>exM.some(m=>r[m.key]&&(((r[m.key].penalized||[]).length)||((r[m.key].excluded||[]).length)))).map(r=>{
+    const bits=[], exl=new Set();
+    exM.forEach(m=>{ const c=r[m.key]; if(!c)return;
+      if((c.penalized||[]).length)bits.push(m.label+" penalized for "+c.penalized.join(", ")+" ("+effPenalty(m)+"×)");
+      (c.excluded||[]).forEach(s=>exl.add(s)); });
+    if(exl.size)bits.push("excluded as N/A: "+[...exl].join(", "));
     return "<b>"+r.theme.name+":</b> "+bits.join("; ")+".";
   });
   const cappedThemes=A.rows.filter(r=>isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6);
   const capNote=cappedThemes.length?(" Capped this run: "+cappedThemes.map(r=>r.theme.name+" "+pct(r.alloc)+" (from "+pct(r.allocRaw)+")").join(", ")+"."):"";
   const carried=Object.keys(A.carry||{});
   const carryNote=carried.length?("<b>Quality carry-over:</b> "+carried.map(s=>{const c=A.carry[s],p=[];if(isNum(c.ev))p.push("EV/EBITDA≈"+num(c.ev,1));if(isNum(c.dfcf))p.push("Debt/FCF≈"+num(c.dfcf,2));return "<b>"+s+"</b> "+p.join(", ");}).join("; ")+" — imputed from each name's standing on the factors it does report (banks don't publish these)."):"";
+  const dirWord=m=>effDirection(m)==='higher'?'higher ⇒ better':'cheaper / lower ⇒ better';
   $("#allocNotes").innerHTML=`
-    <p>For each theme we take the <b>market-cap-weighted</b> PEG, EV/EBITDA, Debt/FCF and P/E across all 5 names. A name
-    with a <b>reported negative</b> ratio is replaced by a <b>penalty multiple</b> (EV/EBITDA <b>${state.penalty.ev}×</b>,
-    P/E <b>${state.penalty.pe}×</b>, Debt/FCF <b>${state.penalty.dfcf}×</b>, PEG <b>${state.penalty.peg}×</b>) so it drags
-    the theme's multiple up. A ratio that's <b>not applicable</b> (e.g. a bank reports no EV/EBITDA or FCF) is filled by
-    <b>quality carry-over</b> — it inherits the name's standing on the factors it <i>does</i> report, so a dominant, cheap
-    name (a big bank) lifts its sector instead of sitting out. A Debt/FCF of <b>0</b> = debt-free = best.</p>
-    <p>Each theme gets six scores, each normalized so the five themes sum to 100%: <b>PEG</b>, <b>EV/EBITDA</b>,
-    <b>Debt/FCF</b> and <b>P/E</b> use <code class="mono">1 ÷ ratio</code> (cheaper / more sustainable ⇒ higher);
-    <b>avg market cap</b> uses a <code class="mono">log scale</code> (bigger ⇒ higher); <b>momentum</b> blends price vs its
-    50- &amp; 200-day moving averages (higher ⇒ higher; a theme in a downtrend scores 0). Blended by your weights (PEG
-    ${Math.round(A.wPeg*100)} / EV·EBITDA ${Math.round(A.wEv*100)} / Debt·FCF ${Math.round(A.wDf*100)} / P·E
-    ${Math.round(A.wPe*100)} / mkt-cap ${Math.round(A.wMc*100)} / momentum ${Math.round(A.wMo*100)}%).</p>
-    <p>Finally, <b>no theme may exceed ${Math.round((state.cap||0)*100)}%</b> — excess from a leading theme is
-    spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
-    <p><b>Per-theme tables (below):</b> each theme's names with their metrics. <b>Click any PEG or EV/EBITDA value</b>
+    <p>For each theme we take a <b>market-cap-weighted</b> value of every active metric across the theme's names. On a
+    <i>penalize</i> metric a name with a <b>reported negative</b> value is replaced by a <b>penalty multiple</b> so it drags
+    the theme the wrong way; a value that's <b>not applicable</b> (e.g. a bank reports no EV/EBITDA or FCF) is either filled
+    by <b>quality carry-over</b> — inheriting the name's standing on the factors it <i>does</i> report — or <b>excluded</b>.
+    A Debt/FCF of <b>0</b> = debt-free = best.</p>
+    <p>Each theme gets <b>${metrics().length}</b> scores, each normalized so the themes sum to 100%:
+    ${metrics().map(m=>"<b>"+m.label+"</b> ("+dirWord(m)+")").join(", ")}. Blended by your weights
+    (${metrics().map(m=>m.label+" "+Math.round((A.wByKey[m.key]||0)*100)).join(" / ")}%).</p>
+    <p>Finally, <b>no theme may exceed ${Math.round((state.cap!=null?state.cap:1.5/themes().length)*100)}%</b> — excess from a
+    leading theme is spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
+    <p><b>Per-theme tables (below):</b> each theme's names with their metrics. <b>Click any editable value</b>
     (blue dashed underline) to type your own number — saved, flagged <span class="tag ovr">ovr</span>, and used
-    everywhere; click <b>↺</b> to revert. Overriding a negative name replaces its penalty with your figure. PEG uses
-    Yahoo's trailing PEG when published, else standard PEG; EV/EBITDA is TTM.</p>
+    everywhere; click <b>↺</b> to revert. Use <b>✎ Choose metrics</b> to add or remove metrics from the model.</p>
     ${carryNote?("<p>"+carryNote+"</p>"):""}
     ${exNotes.length?("<p>"+exNotes.join("<br>")+"</p>"):""}`;
 
-  // per-theme fundamentals tables
+  // per-theme fundamentals tables (E2.3: columns driven by metrics(); Cap is a special always-second column)
   const grid=$("#fundGrid"); grid.innerHTML="";
+  const mcapOn=!!metricByKey('mcap'), cols=metrics().filter(m=>m.key!=='mcap');
+  const OVR='<span class="tag ovr">ovr</span>';
+  const pen=ti=>`<span class="tag pen" title="${ti}">prem</span>`, na=ti=>`<span class="tag na" title="${ti}">n/a</span>`,
+        calc=ti=>`<span class="tag calc" title="${ti}">calc</span>`, qual=ti=>`<span class="tag qual" title="${ti}">qual</span>`;
+  const bodyCell=(m,s,f,o,cy)=>{
+    const rst=(field,live)=>isNum(o[field])?`<span class="reset" data-reset="${field}" data-sym="${s}" title="Reset to live (${live})">↺</span>`:'';
+    if(m.key==='peg'){ const v=effPeg(s), tag=isNum(o.peg)?OVR:(!(isNum(v)&&v>0)?pen(`No/negative PEG → ${effPenalty(m)}×`):'');
+      return `<td class="num"><span class="editable" data-edit="peg" data-sym="${s}" title="Click to type your own PEG">${num(v,2)}</span>${tag}${rst('peg',num(f.peg,2))}</td>`; }
+    if(m.key==='ev'){ const v=effEv(s), evCarry=!isNum(v)&&isNum(cy.ev),
+      tag=isNum(o.ev)?OVR:(isNum(v)&&v<=0?pen(`Negative EV/EBITDA → ${effPenalty(m)}×`):(evCarry?qual('EV/EBITDA carried over from this name’s standing on the factors it does report (banks don’t report it)'):(!isNum(v)?na('EV/EBITDA N/A → excluded'):(f.evCalc?calc('EV/EBITDA computed from TTM statements'):'')))),
+      show=isNum(v)?num(v,1):(evCarry?num(cy.ev,1):'—');
+      return `<td class="num"><span class="editable" data-edit="ev" data-sym="${s}" title="Click to type your own EV/EBITDA">${show}</span>${tag}${rst('ev',isNum(f.ev)?num(f.ev,1):'NM')}</td>`; }
+    if(m.key==='dfcf'){ const v=effDfcf(s), dfCarry=!isNum(v)&&isNum(cy.dfcf),
+      tag=isNum(o.dfcf)?OVR:(isNum(v)&&v<0?pen(`Negative FCF → ${effPenalty(m)}×`):(dfCarry?qual('Debt/FCF carried over from this name’s standing on the factors it does report'):(!isNum(v)?na('Debt/FCF N/A → excluded'):''))),
+      show=isNum(v)?(v<0?'NM':num(v,2)):(dfCarry?num(cy.dfcf,2):'—');
+      return `<td class="num"><span class="editable" data-edit="dfcf" data-sym="${s}" title="Click to type your own Total Debt / FCF">${show}</span>${tag}${rst('dfcf',isNum(f.dfcf)?(f.dfcf<0?'NM':num(f.dfcf,2)):'—')}</td>`; }
+    if(m.key==='pe'){ const v=effPe(s), tag=isNum(o.pe)?OVR:(!(isNum(v)&&v>0)?pen(`No/negative earnings → ${effPenalty(m)}×`):(f.peCalc?calc('P/E computed from TTM statements: market cap ÷ net income'):''));
+      return `<td class="num"><span class="editable" data-edit="pe" data-sym="${s}" title="Click to type your own P/E">${num(v,1)}</span>${tag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>`; }
+    if(m.key==='mom'){ const v=momOf(s), cls=isNum(v)?(v>=0?'up':'down'):''; return `<td class="num ${cls}">${isNum(v)?signed(v*100,1)+'%':'—'}</td>`; }
+    const v=m.getter(s), edit=m.overridable?`<span class="editable" data-edit="${m.overrideKey}" data-sym="${s}" title="Click to type your own ${m.label}">${isNum(v)?fmtVal(m,v):'—'}</span>`:(isNum(v)?fmtVal(m,v):'—');   // generic catalog cell
+    return `<td class="num">${edit}${m.overridable?rst(m.overrideKey,''):''}</td>`;
+  };
+  const footCell=(m,r)=>{
+    if(m.key==='mom') return `<td class="num ${isNum(r.mom.value)?(r.mom.value>=0?'up':'down'):''}">${isNum(r.mom.value)?signed(r.mom.value*100,1)+'%':'—'}</td>`;
+    if(m.key==='peg') return `<td class="num">${num(r.peg.value,2)}</td>`;
+    if(m.key==='ev')  return `<td class="num">${num(r.ev.value,1)}</td>`;
+    if(m.key==='dfcf')return `<td class="num">${isNum(r.dfcf.value)?num(r.dfcf.value,2):'—'}</td>`;
+    if(m.key==='pe')  return `<td class="num">${num(r.pe.value,1)}</td>`;
+    const c=r[m.key]; return `<td class="num">${c&&isNum(c.value)?fmtVal(m,c.value):'—'}</td>`;
+  };
   A.rows.forEach(r=>{
     const t=r.theme;
     const body=tickersOf(t.key).map(s=>{
-      const f=state.fundamentals[s]||{}, o=state.overrides[s]||{};
-      const pegV=effPeg(s), evV=effEv(s), dfV=effDfcf(s), peV=effPe(s), mc=effMcap(s), mV=momOf(s);
-      const cy=(A.carry&&A.carry[s])||{};
-      const evCarry=!isNum(evV)&&isNum(cy.ev), dfCarry=!isNum(dfV)&&isNum(cy.dfcf);
-      const ovr='<span class="tag ovr">ovr</span>';
-      const pen=ti=>`<span class="tag pen" title="${ti}">prem</span>`;
-      const na =ti=>`<span class="tag na" title="${ti}">n/a</span>`;
-      const calc=ti=>`<span class="tag calc" title="${ti}">calc</span>`;
-      const qual=ti=>`<span class="tag qual" title="${ti}">qual</span>`;
-      const pegTag= isNum(o.peg)?ovr:(!(isNum(pegV)&&pegV>0)?pen(`No/negative PEG → ${state.penalty.peg}×`):'');
-      const peTag = isNum(o.pe) ?ovr:(!(isNum(peV)&&peV>0)?pen(`No/negative earnings → ${state.penalty.pe}×`):(f.peCalc?calc('P/E computed from TTM statements: market cap ÷ net income'):''));
-      const evTag = isNum(o.ev) ?ovr:(isNum(evV)&&evV<=0?pen(`Negative EV/EBITDA → ${state.penalty.ev}×`):(evCarry?qual('EV/EBITDA carried over from this name’s standing on the factors it does report (banks don’t report it)'):(!isNum(evV)?na('EV/EBITDA N/A → excluded'):(f.evCalc?calc('EV/EBITDA computed from TTM statements'):''))));
-      const dfTag = isNum(o.dfcf)?ovr:(isNum(dfV)&&dfV<0?pen(`Negative FCF → ${state.penalty.dfcf}×`):(dfCarry?qual('Debt/FCF carried over from this name’s standing on the factors it does report'):(!isNum(dfV)?na('Debt/FCF N/A → excluded'):'')));
-      const rst=(field,live)=>isNum(o[field])?`<span class="reset" data-reset="${field}" data-sym="${s}" title="Reset to live (${live})">↺</span>`:'';
-      const evShow= isNum(evV)?num(evV,1):(evCarry?num(cy.ev,1):'—');
-      const dfShow= isNum(dfV)?(dfV<0?'NM':num(dfV,2)):(dfCarry?num(cy.dfcf,2):'—');
-      const momCls= isNum(mV)?(mV>=0?'up':'down'):'';
-      return `<tr>
-        <td class="sym">${s}</td>
-        <td class="num">${bil(mc)}</td>
-        <td class="num"><span class="editable" data-edit="peg" data-sym="${s}" title="Click to type your own PEG">${num(pegV,2)}</span>${pegTag}${rst('peg',num(f.peg,2))}</td>
-        <td class="num"><span class="editable" data-edit="ev" data-sym="${s}" title="Click to type your own EV/EBITDA">${evShow}</span>${evTag}${rst('ev',isNum(f.ev)?num(f.ev,1):'NM')}</td>
-        <td class="num"><span class="editable" data-edit="dfcf" data-sym="${s}" title="Click to type your own Total Debt / FCF">${dfShow}</span>${dfTag}${rst('dfcf',isNum(f.dfcf)?(f.dfcf<0?'NM':num(f.dfcf,2)):'—')}</td>
-        <td class="num"><span class="editable" data-edit="pe" data-sym="${s}" title="Click to type your own P/E">${num(peV,1)}</span>${peTag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>
-        <td class="num ${momCls}">${isNum(mV)?signed(mV*100,1)+'%':'—'}</td>
-      </tr>`;}).join("");
+      const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
+      return `<tr><td class="sym">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+    }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
+    const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
+    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
     grid.insertAdjacentHTML("beforeend",`
       <div class="card theme">
         <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
@@ -1043,10 +1146,9 @@ function renderFundamentals(){
           <button class="addname-btn" data-editth="${t.key}" title="Rename / recolour ${t.name}">✎</button>
           <button class="addname-btn" data-delth="${t.key}" title="Delete ${t.name}">✕</button></div>
           <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
-        <table><thead><tr><th>Ticker</th><th>Cap</th><th>PEG</th><th>EV/EB</th><th>D/FCF</th><th>P/E</th><th>Mom</th></tr></thead>
+        <table><thead>${thead}</thead>
         <tbody>${body}</tbody>
-        <tfoot><tr><td>Theme</td><td class="num" title="theme average market cap">${bil(r.mcap)}</td>
-          <td class="num">${num(r.peg.value,2)}</td><td class="num">${num(r.ev.value,1)}</td><td class="num">${isNum(r.dfcf.value)?num(r.dfcf.value,2):'—'}</td><td class="num">${num(r.pe.value,1)}</td><td class="num ${isNum(r.mom.value)?(r.mom.value>=0?'up':'down'):''}">${isNum(r.mom.value)?signed(r.mom.value*100,1)+'%':'—'}</td></tr></tfoot>
+        <tfoot>${tfoot}</tfoot>
         </table>
       </div>`);
   });
@@ -1062,7 +1164,8 @@ function renderFundamentals(){
 
 function startEdit(el){
   const sym=el.dataset.sym, field=el.dataset.edit;
-  const cur=field==="peg"?effPeg(sym):field==="ev"?effEv(sym):field==="pe"?effPe(sym):effDfcf(sym);
+  const m=metrics().find(x=>x.overridable&&x.overrideKey===field);   // E2.3: resolve the editor's live value via the descriptor
+  const cur=m?m.getter(sym):null;
   const inp=document.createElement("input"); inp.type="number"; inp.step="0.01"; inp.value=isNum(cur)?cur:"";
   inp.style.width="70px"; el.replaceWith(inp); inp.focus(); inp.select();
   const commit=async(save)=>{
@@ -1074,6 +1177,142 @@ function startEdit(el){
   };
   inp.addEventListener("keydown",e=>{ if(e.key==="Enter")commit(true); if(e.key==="Escape")commit(false); });
   inp.addEventListener("blur",()=>commit(true));
+}
+
+/* ======================================================================
+   E2.4 — per-metric direction & bad-data config (state.metricCfg, pruned on default)
+   E2.5 — presets / reset to the default 6
+   ====================================================================== */
+// The default model (kept in sync with the state literal for weights/penalty), used by reset + preset diffing.
+const DEFAULT_CONFIG = {
+  weights: (function(){ const w={}; DEFAULT_METRICS.forEach(m=>{ w[m.weightKey]=m.defaultWeight; }); return w; })(),
+  penalty: {peg:10, ev:1000, dfcf:50, pe:200}
+};
+function backfillPenalty(){ ['peg','ev','dfcf','pe'].forEach(k=>{ if(!isNum(state.penalty[k])) state.penalty[k]=DEFAULT_CONFIG.penalty[k]; }); }   // restore any missing default-metric penalty after a wholesale replace
+function pruneMetricCfg(key){
+  if(!state.metricCfg) return;
+  const e=state.metricCfg[key];
+  if(e && !Object.keys(e).length) delete state.metricCfg[key];
+  if(!Object.keys(state.metricCfg).length) state.metricCfg=null;
+}
+function setMetricPenalty(key,v){
+  const m=catalogByKey(key); if(!m||!(isNum(v)&&v>=0)) return;
+  if(m.penaltyKey){ state.penalty[m.penaltyKey]=v; return; }   // the 6 keep their single storage location (byte-identity)
+  state.metricCfg=state.metricCfg||{}; state.metricCfg[key]=state.metricCfg[key]||{}; state.metricCfg[key].penalty=v; pruneMetricCfg(key);
+}
+function setMetricPolicy(key,policy){
+  const m=catalogByKey(key); if(!m) return;
+  state.metricCfg=state.metricCfg||{}; state.metricCfg[key]=state.metricCfg[key]||{};
+  if(policy===m.badData) delete state.metricCfg[key].badData; else state.metricCfg[key].badData=policy;   // prune-on-default
+  pruneMetricCfg(key);
+}
+function toggleMetricDirection(key){
+  const m=catalogByKey(key); if(!m||!m.scoreFromDir) return;   // only catalog metrics flip; the 6 are fixed
+  const next=effDirection(m)==='higher'?'lower':'higher';
+  state.metricCfg=state.metricCfg||{}; state.metricCfg[key]=state.metricCfg[key]||{};
+  if(next===m.direction) delete state.metricCfg[key].direction; else state.metricCfg[key].direction=next;
+  pruneMetricCfg(key);
+}
+// Replace the whole metric model (weights/penalty/metricCfg wholesale; metrics via validateMetrics). Cap is untouched.
+function applyConfig(cfg){
+  if(!cfg) return;
+  if('metrics' in cfg) state.metrics=validateMetrics(cfg.metrics);       // null/[] => the default 6
+  if(cfg.weights && Object.keys(cfg.weights).length) state.weights=deepCopy(cfg.weights);   // ignore an empty/malformed weights map (never wipe the live model)
+  if(cfg.penalty && Object.keys(cfg.penalty).length){ state.penalty=deepCopy(cfg.penalty); backfillPenalty(); }
+  if('metricCfg' in cfg) state.metricCfg=cfg.metricCfg?deepCopy(cfg.metricCfg):null;
+}
+async function resetToDefault6(){
+  if(!confirm("Reset the metric model to the default 6 (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) with default weights and exception handling?\n\nYour theme cap and your holdings are NOT changed."))return;
+  state.metrics=null; state.metricCfg=null;
+  state.weights=deepCopy(DEFAULT_CONFIG.weights); state.penalty=deepCopy(DEFAULT_CONFIG.penalty);
+  if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc(); toast("Reset to the default 6 metrics");
+}
+function currentModelConfig(){
+  return { metrics: state.metrics?state.metrics.map(m=>({key:m.key})):null,
+    weights: deepCopy(state.weights), penalty: deepCopy(state.penalty),
+    metricCfg: state.metricCfg?deepCopy(state.metricCfg):null };
+}
+async function saveCurrentPreset(){
+  const name=(prompt("Save the current metric model as a preset.\nName:")||"").trim(); if(!name) return;
+  state.presets=Array.isArray(state.presets)?state.presets:[];
+  const cfg=currentModelConfig(), existing=state.presets.find(p=>p.name===name);
+  if(existing) existing.config=cfg; else state.presets.push({name:name, config:cfg, savedAt:todayISO()});
+  if(state.portfolio)await savePortfolio(); renderPresetSelect(); const sel=$("#presetSelect"); if(sel)sel.value=name; toast('Preset "'+name+'" saved');
+}
+async function loadPreset(name){
+  const p=(state.presets||[]).find(x=>x.name===name); if(!p||!p.config){ toast("Preset not found"); return; }
+  applyConfig(p.config);
+  if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc(); toast('Loaded "'+name+'"');
+}
+async function deleteSelectedPreset(){
+  const sel=$("#presetSelect"); const name=sel&&sel.value; if(!name){ toast("Pick a preset to delete"); return; }
+  if(!confirm('Delete preset "'+name+'"?'))return;
+  state.presets=(state.presets||[]).filter(p=>p.name!==name);
+  if(state.portfolio)await savePortfolio(); renderPresetSelect(); toast("Preset deleted");
+}
+function renderPresetSelect(){
+  const sel=$("#presetSelect"); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML="";
+  const o0=document.createElement("option"); o0.value=""; o0.textContent="—"; sel.appendChild(o0);
+  (state.presets||[]).forEach(p=>{ const o=document.createElement("option"); o.value=p.name; o.textContent=p.name; sel.appendChild(o); });
+  const names=(state.presets||[]).map(p=>p.name);
+  sel.value = names.indexOf(cur)>=0?cur:"";
+}
+// keep only structurally-valid presets on load (validateMetrics tolerates null => default 6)
+function sanitizePreset(p){
+  if(!p||typeof p!=='object'||typeof p.name!=='string'||!p.name||!p.config||typeof p.config!=='object') return null;
+  const c=p.config;
+  return { name:p.name, savedAt:p.savedAt||null, config:{
+    metrics: Array.isArray(c.metrics)?c.metrics.filter(x=>x&&x.key).map(x=>({key:x.key})):null,
+    weights: (c.weights&&typeof c.weights==='object')?c.weights:{},
+    penalty: (c.penalty&&typeof c.penalty==='object')?c.penalty:{},
+    metricCfg: (c.metricCfg&&typeof c.metricCfg==='object'&&!Array.isArray(c.metricCfg))?c.metricCfg:null } };
+}
+
+/* ---- E2.3: metric picker (catalog grouped by category; toggle active metrics) ---- */
+const METRIC_GROUP_LABELS = {value:'Valuation', quality:'Profitability & margins', growth:'Growth', income:'Dividends', risk:'Financial health / risk', size:'Size', momentum:'Momentum'};
+function metricDataCoverage(m){
+  const syms=new Set(); themes().forEach(t=>tickersOf(t.key).forEach(s=>syms.add(s)));
+  let have=0, total=0; syms.forEach(s=>{ total++; if(isNum(m.getter(s)))have++; });
+  return {have, total};
+}
+function openMetricPicker(){
+  const activeKeys=new Set(metrics().map(m=>m.key));
+  const hasData=Object.keys(state.fundamentals||{}).length>0;
+  const groups={}; METRIC_CATALOG.forEach(m=>{ (groups[m.group]=groups[m.group]||[]).push(m); });
+  const order=['value','quality','growth','income','risk','size','momentum'];
+  const body=order.filter(g=>groups[g]).map(g=>{
+    const rows=groups[g].map(m=>{
+      const cov=hasData?metricDataCoverage(m):null;
+      const badge=cov?(cov.have===0?'<span class="tag na" title="no data for your book">no data</span>':`<span class="muted xs">${cov.have}/${cov.total}</span>`):'';
+      const hint=m.formulaHint?' · '+m.formulaHint:'';
+      return `<label class="row small" style="gap:8px;align-items:center;margin:2px 0">
+        <input type="checkbox" data-mpick="${m.key}"${activeKeys.has(m.key)?' checked':''}>
+        <span style="min-width:150px">${m.label}</span>
+        <span class="muted xs">${m.direction==='higher'?'↑':'↓'}${hint}</span> ${badge}</label>`;
+    }).join("");
+    return `<div style="margin:12px 0 2px"><b class="small">${METRIC_GROUP_LABELS[g]||g}</b></div>${rows}`;
+  }).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="mpModal"><div class="modal-card card pad" style="max-width:560px;max-height:82vh;overflow:auto">
+      <h2 style="font-size:16px">Choose scoring metrics</h2>
+      <p class="small muted">Tick the metrics that drive your model. New picks start at a 10% weight — tune weights after. At least one metric must stay on.${hasData?'':' <b>Load fundamentals</b> (Refresh) to see per-metric data coverage for your book.'}</p>
+      ${body}
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn primary" id="mpClose">Done</button></div>
+    </div></div>`;
+  const apply=async()=>{
+    const picked=[]; $$('#mpModal input[data-mpick]').forEach(cb=>{ if(cb.checked)picked.push(cb.dataset.mpick); });
+    if(!picked.length){ toast("Keep at least one metric"); return false; }
+    const list=METRIC_CATALOG.filter(m=>picked.indexOf(m.key)>=0).map(m=>({key:m.key}));   // stable catalog order (6 first)
+    const nm=validateMetrics(list);
+    state.metrics=(nm&&nm.length===DEFAULT_METRICS.length&&nm.every((m,i)=>m===DEFAULT_METRICS[i]))?null:nm;   // exactly the default 6 => null
+    metrics().forEach(m=>{ if(!isNum(state.weights[m.weightKey])) state.weights[m.weightKey]=m.defaultWeight; });   // seed new weights (absent only)
+    if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc();
+    return true;
+  };
+  $$('#mpModal input[data-mpick]').forEach(cb=>cb.addEventListener("change",async()=>{ const ok=await apply(); if(!ok)cb.checked=true; }));
+  $("#mpClose").addEventListener("click",closeModal);
+  $("#mpModal").addEventListener("click",e=>{ if(e.target.id==="mpModal")closeModal(); });
 }
 
 /* ======================================================================
@@ -1339,7 +1578,7 @@ function renderHistory(){
       <div class="kvs" style="margin-top:8px">
         ${themes().map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
       </div>
-      <details class="exp"><summary>${(tx.trades||[]).length} trades · weights PEG ${Math.round((tx.weights&&tx.weights.peg||.5)*100)}% / EV ${Math.round((tx.weights&&tx.weights.ev||.5)*100)}%</summary>
+      <details class="exp"><summary>${(tx.trades||[]).length} trades</summary>
         <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
           <tbody>${trades}</tbody></table></div></details>
     </div>`;}).join("");
@@ -1802,21 +2041,25 @@ function setupEvents(){
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
-  function readWeights(){ const gp=id=>{ const v=parseFloat($(id).value); return isNum(v)&&v>=0?v/100:0; };
-    state.weights={peg:gp("#wPeg"), ev:gp("#wEv"), dfcf:gp("#wDfcf"), pe:gp("#wPe"), mcap:gp("#wMcap"), mom:gp("#wMom")}; }
-  ["#wPeg","#wEv","#wDfcf","#wPe","#wMcap","#wMom"].forEach(id=>{
-    $(id).addEventListener("input",()=>{ readWeights(); renderFundamentals(); });
-    $(id).addEventListener("change",async()=>{ readWeights(); renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
-  });
-  function onPenalty(){
-    const ev=parseFloat($("#penEv").value), pg=parseFloat($("#penPeg").value), df=parseFloat($("#penDfcf").value), pe=parseFloat($("#penPe").value);
-    if(isNum(ev)&&ev>=0)state.penalty.ev=ev;
-    if(isNum(pg)&&pg>=0)state.penalty.peg=pg;
-    if(isNum(df)&&df>=0)state.penalty.dfcf=df;
-    if(isNum(pe)&&pe>=0)state.penalty.pe=pe;
-    renderFundamentals(); renderCalc();
+  // ① weights — MUTATE state.weights over metrics() (never reassign, so activated catalog keys survive); delegated on the stable #wGroup wrapper
+  function readWeights(){ metrics().forEach(m=>{ const inp=document.querySelector('#wInputs input[data-wkey="'+m.key+'"]'); if(inp){ const v=parseFloat(inp.value); state.weights[m.weightKey]=(isNum(v)&&v>=0)?v/100:0; } }); }
+  if($("#wGroup")){
+    $("#wGroup").addEventListener("input",e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); } });
+    $("#wGroup").addEventListener("change",async e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); } });
   }
-  ["#penEv","#penPeg","#penDfcf","#penPe"].forEach(id=>$(id).addEventListener("change",async()=>{ onPenalty(); if(state.portfolio)await savePortfolio(); }));
+  // ② per-metric exception handling — delegated on #metricCfgRows (policy select, direction toggle, penalty input)
+  if($("#metricCfgRows")){
+    const cfgApply=async persist=>{ renderFundamentals(); if(persist){ renderCalc(); if(state.portfolio)await savePortfolio(); } };
+    $("#metricCfgRows").addEventListener("input",e=>{ const pen=e.target.closest('input[data-mpen]'); if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); cfgApply(false); } });
+    $("#metricCfgRows").addEventListener("change",e=>{ const sel=e.target.closest('select[data-mpolicy]'), pen=e.target.closest('input[data-mpen]');
+      if(sel) setMetricPolicy(sel.dataset.mpolicy, sel.value); else if(pen) setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); else return; cfgApply(true); });
+    $("#metricCfgRows").addEventListener("click",e=>{ const b=e.target.closest('button[data-mdir]'); if(b){ toggleMetricDirection(b.dataset.mdir); cfgApply(true); } });
+  }
+  if($("#chooseMetricsBtn")) $("#chooseMetricsBtn").addEventListener("click",openMetricPicker);   // E2.3: choose active metrics
+  if($("#reset6Btn")) $("#reset6Btn").addEventListener("click",resetToDefault6);                  // E2.5: reset the model
+  if($("#savePresetBtn")) $("#savePresetBtn").addEventListener("click",saveCurrentPreset);        // E2.5: save preset
+  if($("#delPresetBtn")) $("#delPresetBtn").addEventListener("click",deleteSelectedPreset);       // E2.5: delete preset
+  if($("#presetSelect")) $("#presetSelect").addEventListener("change",e=>{ if(e.target.value)loadPreset(e.target.value); });   // E2.5: load preset
   $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
