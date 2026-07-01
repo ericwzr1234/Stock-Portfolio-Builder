@@ -11,10 +11,10 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 2 |
 | Design | 4 |
 | Implementation | 0 |
-| Testing | 6 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 17 |
+| Done | 23 |
 
 ---
 
@@ -58,37 +58,10 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (6)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_ · [spec](features/E1.5_rename-recolour.md)
-  - Edit an existing theme's display name and colour via a ✎ button next to each theme in the Fundamentals allocation legend.
-  - Updates consistently everywhere (Prices, allocation legend/bar, screener chips, holdings, history) because E1.1 routes all reads through themes()/themeByKey().
-  - The theme's KEY never changes on rename — so membership, the curated Screener list, and past version snapshots stay intact; a pure rename changes no allocations (verified maxDiff=0).
-  - Built & verified on dev — awaiting your click-through.
-- **E1.6** · _E1 · User-Defined Themes_ — **Delete a theme / restore defaults** _(depends E1.4, web)_ · [spec](features/E1.6_delete-theme.md)
-  - Delete a single theme (✕ per theme in the Fundamentals legend) or restore the default 5 (↺ button).
-  - Removing a theme turns its held names into exiting positions — sold to $0 on the next rebalance; a warning banner in the rebalance preview lists them before any liquidation.
-  - Deleting your only remaining theme is blocked (use Restore defaults). Note: a true 'zero themes' state isn't meaningful — the allocator needs ≥1 theme, so 'clear all' is served by Restore defaults.
-  - Built & verified on dev (delete → exiting + preview warning, last-theme block, restore to the 5) — awaiting your click-through.
-- **E4.1** · _E4 · Fundamentals & Screener workflow_ — **Declutter the allocation-model panel** _(web)_
-  - Top 'Theme allocation model' card keeps only: the user inputs, the % weight summary per theme, and New theme / Restore defaults.
-  - Three clearly-named input groups by purpose: ① Metrics — assign weights; ② Exception handling — the artificial value to use when a metric is negative or not found; ③ Maximum weight per theme.
-  - Spell metrics out fully (e.g. PEG = P/E ÷ Growth%, EV/EBITDA = Enterprise Value ÷ EBITDA, Debt/FCF = Total Debt ÷ Free Cash Flow, P/E, Avg market cap, Price momentum).
-  - Remove all inline explanations from the top; keep them in the collapsible 'How the math works & data-quality notes' (hidden by default).
-- **E4.2** · _E4 · Fundamentals & Screener workflow_ — **Per-theme actions in each theme's section** _(depends E4.1, web)_
-  - Move add-ticker / rename-theme / delete-theme out of the top allocation legend and into each theme's own section header (the #fundGrid cards), next to the theme name.
-  - The top legend becomes a clean read-only % summary.
-- **E4.3** · _E4 · Fundamentals & Screener workflow_ — **Split add flow — Fundamentals adds directly, Screener watchlists** _(depends E4.2, web)_
-  - Adding a ticker from Fundamentals & Allocation is a DECISION → add it directly to that theme and run the rebalance preview (no watchlist).
-  - Searching in the Screener is BROWSING → add the found name to the watchlist, defaulting to NO theme.
-  - Once a watchlist name is assigned a theme, the user is ready → trigger the add-to-portfolio + rebalance.
-  - Revises E1.3 (which currently routes both entry points to the watchlist).
-- **E4.4** · _E4 · Fundamentals & Screener workflow_ — **Screener = search + watchlist; add-vs-swap confirmation** _(depends E4.3, web)_
-  - Remove the pooled recommendations list from the Screener (unwanted). Screener = a search box + the watchlist.
-  - Flow: 1) look up a stock → add to watchlist (no theme); 2) when decided, choose 'add to theme' → a confirmation to either (a) add the ticker to the portfolio or (b) swap it for an existing holding; 3) on confirm, run the rebalance.
-  - Keeps the tap-to-swap capability, integrated into the watchlist commit.
-  - Revises E1.9 (the flat recommendation Screener).
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -100,7 +73,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (17)
+## Done  (23)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -117,14 +90,24 @@ _Integrated into the product (on main)._
 - **C10** — Cross-platform: web + iOS
 
 </details>
-<details><summary><b>E1 · User-Defined Themes</b> — 7 done</summary>
+<details><summary><b>E1 · User-Defined Themes</b> — 9 done</summary>
 
 - **E1.1** — Data-driven theme list (foundation) · [spec](features/E1.1_data-driven-themes.md)
 - **E1.2** — Add / remove a ticker in a theme · [spec](features/E1.2_add-remove-ticker.md)
 - **E1.3** — Ticker search & validate · [spec](features/E1.3_ticker-search.md)
 - **E1.4** — Create a new theme · [spec](features/E1.4_create-theme.md)
+- **E1.5** — Rename / recolour a theme · [spec](features/E1.5_rename-recolour.md)
+- **E1.6** — Delete a theme / restore defaults · [spec](features/E1.6_delete-theme.md)
 - **E1.7** — Similar-stock recommendations (peers of picks)
 - **E1.8** — Seed recommendations from a new theme's name
 - **E1.9** — Flat Screener: pooled recommendations + actions · [spec](features/E1.9_flat-screener-recommendations.md)
+
+</details>
+<details><summary><b>E4 · Fundamentals & Screener workflow</b> — 4 done</summary>
+
+- **E4.1** — Declutter the allocation-model panel
+- **E4.2** — Per-theme actions in each theme's section
+- **E4.3** — Split add flow — Fundamentals adds directly, Screener watchlists
+- **E4.4** — Screener = search + watchlist; add-vs-swap confirmation
 
 </details>
