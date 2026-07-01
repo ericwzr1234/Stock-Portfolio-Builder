@@ -113,11 +113,12 @@
       "The theme's KEY never changes on rename — so membership, the curated Screener list, and past version snapshots stay intact; a pure rename changes no allocations (verified maxDiff=0).",
       "Built & verified on dev — awaiting your click-through." ] },
 
-    { "id": "E1.6", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
-      "title": "Delete a theme / delete-all / restore defaults", "notes": [
-      "Delete a single theme, clear all themes, or restore the default 5.",
-      "Removing a theme turns its held names into exiting positions (sold on the next realign).",
-      "Surfaces a clear warning in the rebalance preview before any liquidation." ] },
+    { "id": "E1.6", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.4", "spec": "docs/features/E1.6_delete-theme.md",
+      "title": "Delete a theme / restore defaults", "notes": [
+      "Delete a single theme (✕ per theme in the Fundamentals legend) or restore the default 5 (↺ button).",
+      "Removing a theme turns its held names into exiting positions — sold to $0 on the next rebalance; a warning banner in the rebalance preview lists them before any liquidation.",
+      "Deleting your only remaining theme is blocked (use Restore defaults). Note: a true 'zero themes' state isn't meaningful — the allocator needs ≥1 theme, so 'clear all' is served by Restore defaults.",
+      "Built & verified on dev (delete → exiting + preview warning, last-theme block, restore to the 5) — awaiting your click-through." ] },
 
     { "id": "E1.7", "epic": "E1", "stage": "done", "platform": "web", "depends": "E1.3",
       "title": "Similar-stock recommendations (peers of picks)", "notes": [
