@@ -12,9 +12,10 @@
     { "key": "done",           "label": "Done",           "desc": "Integrated into the product (on main)." }
   ],
   "epics": [
-    { "key": "core", "name": "Core tool (shipped)",       "color": "#13605C" },
-    { "key": "E1",   "name": "E1 · User-Defined Themes",  "color": "#3A6EA5" },
-    { "key": "E2",   "name": "E2 · User-Defined Metrics", "color": "#A4683C" }
+    { "key": "core", "name": "Core tool (shipped)",        "color": "#13605C" },
+    { "key": "E1",   "name": "E1 · User-Defined Themes",   "color": "#3A6EA5" },
+    { "key": "E2",   "name": "E2 · User-Defined Metrics",  "color": "#A4683C" },
+    { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" }
   ],
   "items": [
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
@@ -142,6 +143,14 @@
       "Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.",
       "Only metrics available or computable from our data source (Yahoo) are offered; the current 6 stay the default set (regression-safe).",
       "Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.",
-      "Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec." ] }
+      "Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec." ] },
+
+    { "id": "E3.1", "epic": "E3", "stage": "ideation", "platform": "web", "spec": "docs/features/E3_statement-driven-data.md",
+      "title": "Statement-driven data: load TTM statements, compute metrics, stock detail page", "notes": [
+      "Fundamentally change the data source: instead of pulling Yahoo's pre-calculated metrics, LOAD the 3 financial statements (income, balance sheet, cash flow) over the last 4 quarters (TTM) for portfolio + screener names.",
+      "A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.",
+      "Metrics become CALCULATED from the statements, not read straight from Yahoo (we already do this as a fallback — E3 makes it primary).",
+      "Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.",
+      "Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown." ] }
   ]
 }

@@ -56,6 +56,14 @@
   .card a.spec:hover{text-decoration:underline}
   .col.done .card{border-left-color:#9bb0a8;box-shadow:none}
   .col.done .card .title{font-weight:600}
+  .epic-group{border:1px solid var(--line2);border-radius:9px;margin-bottom:8px;background:#FCFAF4}
+  .epic-group>summary{list-style:none;cursor:pointer;padding:8px 10px;display:flex;align-items:center;gap:8px;border-radius:9px;font-size:12px}
+  .epic-group>summary::-webkit-details-marker{display:none}
+  .epic-group>summary::before{content:"▸";color:var(--muted);font-size:10px}
+  .epic-group[open]>summary::before{content:"▾"}
+  .epic-group .gname{font-weight:700;color:var(--ink)}
+  .epic-group .gcount{margin-left:auto;color:var(--muted);font-size:11px;font-weight:600}
+  .epic-group .gcards{padding:0 8px 8px;display:flex;flex-direction:column;gap:8px}
   .empty{color:#b3ab98;font-size:11px;font-style:italic;padding:6px 2px}
   footer{padding:0 22px 30px;color:var(--muted);font-size:11px}
 </style>
@@ -95,21 +103,35 @@
   const byStage = {}; B.stages.forEach(s=>byStage[s.key]=[]);
   B.items.forEach(it=>{ (byStage[it.stage]=byStage[it.stage]||[]).push(it); });
 
+  function cardHtml(it){
+    const ep = epics[it.epic]||{name:it.epic,color:'#888'};
+    const tags = [];
+    if(it.depends) tags.push(`<span class="tag">⇠ ${esc(it.depends)}</span>`);
+    if(it.platform) tags.push(`<span class="tag">${esc(it.platform)}</span>`);
+    const spec = it.spec ? `<a class="spec" href="${esc(it.spec)}">spec ↗</a>` : '';
+    return `<div class="card" style="border-left-color:${ep.color}">
+      <div class="id">${esc(it.id)}</div>
+      <div class="title">${esc(it.title)}</div>
+      ${renderNotes(it.notes)}
+      <div class="meta"><span class="epchip" style="background:${ep.color}">${esc(ep.name.split('·').pop().trim())}</span>${tags.join('')}${spec}</div>
+    </div>`;
+  }
   board.innerHTML = B.stages.map((s,i)=>{
     const its = byStage[s.key]||[];
-    const cards = its.length ? its.map(it=>{
-      const ep = epics[it.epic]||{name:it.epic,color:'#888'};
-      const tags = [];
-      if(it.depends) tags.push(`<span class="tag">⇠ ${esc(it.depends)}</span>`);
-      if(it.platform) tags.push(`<span class="tag">${esc(it.platform)}</span>`);
-      const spec = it.spec ? `<a class="spec" href="${esc(it.spec)}">spec ↗</a>` : '';
-      return `<div class="card" style="border-left-color:${ep.color}">
-        <div class="id">${esc(it.id)}</div>
-        <div class="title">${esc(it.title)}</div>
-        ${renderNotes(it.notes)}
-        <div class="meta"><span class="epchip" style="background:${ep.color}">${esc(ep.name.split('·').pop().trim())}</span>${tags.join('')}${spec}</div>
-      </div>`;
-    }).join('') : '<div class="empty">— empty —</div>';
+    let cards;
+    if(s.key==='done' && its.length){
+      // group completed cards by epic into collapsible groups so the Done column stays compact
+      const byEpic={}; its.forEach(it=>{ (byEpic[it.epic]=byEpic[it.epic]||[]).push(it); });
+      cards = B.epics.filter(e=>byEpic[e.key]&&byEpic[e.key].length).map(e=>{
+        const grp=byEpic[e.key];
+        return `<details class="epic-group"><summary style="border-left:3px solid ${e.color}">
+          <span class="gname">${esc(e.name.split('·').pop().trim())}</span>
+          <span class="gcount">${grp.length} done</span></summary>
+          <div class="gcards">${grp.map(cardHtml).join('')}</div></details>`;
+      }).join('');
+    } else {
+      cards = its.length ? its.map(cardHtml).join('') : '<div class="empty">— empty —</div>';
+    }
     return `<div class="col ${s.key==='done'?'done':''}">
       <div class="chead"><div class="t"><span>${esc(s.label)}</span><span class="n">${its.length}</span></div>
         <div class="d">${esc(s.desc)}</div></div>

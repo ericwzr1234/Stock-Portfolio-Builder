@@ -48,6 +48,22 @@ def main():
     L.append("")
     L.append("---")
     L.append("")
+    def item_line(it, compact=False):
+        spec = ""
+        if it.get("spec"):
+            rel = os.path.relpath(it["spec"], "docs").replace(os.sep, "/")
+            spec = f" · [spec]({rel})"
+        if compact:
+            return f"- **{it['id']}** — {it['title']}{spec}"
+        ep = epics.get(it.get("epic", ""), {})
+        tags = []
+        if it.get("depends"):
+            tags.append(f"depends {it['depends']}")
+        if it.get("platform"):
+            tags.append(it["platform"])
+        tagstr = (" _(" + ", ".join(tags) + ")_") if tags else ""
+        return f"- **{it['id']}** · _{ep.get('name', it.get('epic', ''))}_ — **{it['title']}**{tagstr}{spec}"
+
     for s in b["stages"]:
         its = by_stage.get(s["key"], [])
         L.append(f"## {s['label']}  ({len(its)})")
@@ -55,21 +71,24 @@ def main():
         L.append("")
         if not its:
             L.append("- _(none)_")
+        elif s["key"] == "done":
+            # group Done by epic in collapsible <details> so the board stays readable as it grows
+            done_by_epic = {}
+            for it in its:
+                done_by_epic.setdefault(it.get("epic", ""), []).append(it)
+            for e in b["epics"]:
+                group = done_by_epic.get(e["key"], [])
+                if not group:
+                    continue
+                L.append(f"<details><summary><b>{e['name']}</b> — {len(group)} done</summary>")
+                L.append("")
+                for it in group:
+                    L.append(item_line(it, compact=True))
+                L.append("")
+                L.append("</details>")
         else:
             for it in its:
-                ep = epics.get(it.get("epic", ""), {})
-                tags = []
-                if it.get("depends"):
-                    tags.append(f"depends {it['depends']}")
-                if it.get("platform"):
-                    tags.append(it["platform"])
-                tagstr = (" _(" + ", ".join(tags) + ")_") if tags else ""
-                spec = ""
-                if it.get("spec"):
-                    rel = os.path.relpath(it["spec"], "docs").replace(os.sep, "/")
-                    spec = f" · [spec]({rel})"
-                L.append(f"- **{it['id']}** · _{ep.get('name', it.get('epic', ''))}_ — "
-                         f"**{it['title']}**{tagstr}{spec}")
+                L.append(item_line(it))
                 notes = it.get("notes")
                 if isinstance(notes, list):
                     for n in notes:

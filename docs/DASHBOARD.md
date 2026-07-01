@@ -2,13 +2,13 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
-| Ideation | 1 |
+| Ideation | 2 |
 | Design | 2 |
 | Implementation | 0 |
 | Testing | 0 |
@@ -18,7 +18,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (1)
+## Ideation  (2)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E2.1** · _E2 · User-Defined Metrics_ — **User-selectable scoring metrics** _(web)_ · [spec](features/E2_user-defined-metrics.md)
@@ -27,6 +27,12 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Only metrics available or computable from our data source (Yahoo) are offered; the current 6 stay the default set (regression-safe).
   - Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.
   - Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec.
+- **E3.1** · _E3 · Statement-Driven Data_ — **Statement-driven data: load TTM statements, compute metrics, stock detail page** _(web)_ · [spec](features/E3_statement-driven-data.md)
+  - Fundamentally change the data source: instead of pulling Yahoo's pre-calculated metrics, LOAD the 3 financial statements (income, balance sheet, cash flow) over the last 4 quarters (TTM) for portfolio + screener names.
+  - A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.
+  - Metrics become CALCULATED from the statements, not read straight from Yahoo (we already do this as a fallback — E3 makes it primary).
+  - Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.
+  - Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown.
 
 ## Design  (2)
 _Detailed requirements captured; a spec exists in docs/features/._
@@ -62,87 +68,28 @@ _Approved; merging dev → main (prod) + updating docs._
 ## Done  (17)
 _Integrated into the product (on main)._
 
-- **C1** · _Core tool (shipped)_ — **Themed 6-factor allocation model**
-  - Splits the book across the themes, then equal-weights the names inside each theme.
-  - Scores each theme on a market-cap-weighted blend of 6 factors: PEG, EV/EBITDA, Debt/FCF, P/E (cheaper ⇒ higher), log average market cap, and price momentum.
-  - Factor weights are adjustable (default 20/20/20/15/10/15) and re-normalized live.
-  - A per-theme cap limits concentration; the excess spills to the other themes iteratively.
-- **C2** · _Core tool (shipped)_ — **Bad / missing data handling**
-  - Reported-negative ratios are penalized with a configurable multiple instead of breaking the score.
-  - Not-applicable metrics (e.g. a bank's EV/EBITDA) carry over a value imputed from the name's quality.
-  - Missing-but-computable values are derived from the trailing-twelve-month statements.
-  - Any individual cell can be manually overridden.
-- **C3** · _Core tool (shipped)_ — **Free live-data layer (Yahoo)**
-  - Pulls quotes and fundamentals from Yahoo Finance with no API key.
-  - Caches results (~15s for quotes, ~6h for fundamentals) and falls back to an embedded seed snapshot if a fetch fails.
-  - Web fetches through the local Python server proxy; iOS fetches on-device via CapacitorHttp (no CORS).
-- **C4** · _Core tool (shipped)_ — **Calculator / Rebalance**
-  - Builds the initial portfolio, or rebalances an existing one to the model targets.
-  - Three modes: full rebalance (buys + sells), cash-only deploy (no sells), and realign-only.
-  - Self-funding — the net cash change equals the amount you add.
-- **C5** · _Core tool (shipped)_ — **Version history (undo / redo / revert)**
-  - Saves every build and rebalance as a checkpoint.
-  - Each checkpoint snapshots holdings, settings, and theme membership together, so undo restores everything in lock-step.
-  - Supports undo, redo, revert-to-any-point, and git-style forking of the timeline.
-- **C6** · _Core tool (shipped)_ — **Prices tab**
-  - Live prices and day moves for every name, grouped by theme.
-  - Shows each theme's current value and weight once a portfolio exists.
-- **C7** · _Core tool (shipped)_ — **Screener tab**
-  - Lists the top ~50 stocks by live market cap in each theme.
-  - Themes are mutually exclusive — a name shown under one theme never appears under another.
-  - The universe is curated by tools/build_universe.py.
-- **C8** · _Core tool (shipped)_ — **Swap a stock in**
-  - Tap a screener stock to replace a same-theme holding.
-  - Triggers a full realign — sells the removed name to $0 and redeploys its cash to the model.
-  - Recorded as an undoable checkpoint when you Apply & save.
-- **C9** · _Core tool (shipped)_ — **Dynamic theme membership**
-  - Which tickers belong to each theme is data, not hardcoded.
-  - Stored in state.themeTickers — persisted and captured in every version snapshot.
-  - Read through tickersOf / membership / tradeUniverse helpers; the foundation the E1 epic builds on.
-- **C10** · _Core tool (shipped)_ — **Cross-platform: web + iOS**
-  - One www/ codebase runs as both the web app and a native iOS app (via Capacitor).
-  - A platform-agnostic data layer talks to the Python server on web, and to Yahoo + localStorage on iOS.
-  - LAN sync lets the phone share the computer's portfolio.json; a .native CSS skin gives iOS a mobile UI.
-  - (The iOS build itself is the Mac's domain.)
-- **E1.1** · _E1 · User-Defined Themes_ — **Data-driven theme list (foundation)** _(web)_ · [spec](features/E1.1_data-driven-themes.md)
-  - Makes the set of themes — which exist, plus each one's key, name and colour — data (state.themes), not a hardcoded list.
-  - The whole app now reads the live theme list through new themes() / themeByKey() accessors (14 call sites converted).
-  - The per-theme cap auto-scales as 1.5 ÷ N themes (30% at 5 themes, 50% at 3, ~21% at 7); a cap you set by hand is still honoured.
-  - The theme list is persisted and saved into every version snapshot, so undo / redo restores it too.
-  - Invisible at the default 5 themes — verified byte-for-behaviour identical, and proven to adapt cleanly at 3 and 7 themes.
-  - Integrated to main 2026-06-26.
-- **E1.2** · _E1 · User-Defined Themes_ — **Add / remove a ticker in a theme** _(depends E1.1, web)_ · [spec](features/E1.2_add-remove-ticker.md)
-  - Adds two actions alongside Swap: add a stock to a theme (it grows) or remove one (it shrinks).
-  - Add is a button in the screener-tap modal; remove is an ✕ on each holding in the Calculator.
-  - Both reuse the existing preview → Apply & save → version rail, so every change is one undoable checkpoint.
-  - One theme per ticker: adding a stock that already sits in another theme moves it out of the old one.
-  - Changing a theme's names re-ranks the whole portfolio (the theme's blended fundamentals shift) and re-sizes every position automatically — not just the added name.
-  - Integrated to main 2026-06-26.
-- **E1.3** · _E1 · User-Defined Themes_ — **Ticker search & validate** _(depends E1.2, web)_ · [spec](features/E1.3_ticker-search.md)
-  - Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.
-  - Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).
-  - Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).
-  - Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.
-  - On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).
-  - Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).
-  - Integrated to main 2026-06-26 (search + watchlist; TSM fix; opt-in SEC cache).
-- **E1.4** · _E1 · User-Defined Themes_ — **Create a new theme** _(depends E1.1, web)_ · [spec](features/E1.4_create-theme.md)
-  - Create a brand-new theme with a name and a colour via a '➕ New theme' button in the Fundamentals tab.
-  - It appears across every tab and starts empty, ready to fill via Add (E1.2) or Search (E1.3).
-  - Model rule (built + verified): an empty theme takes 0% of the allocation until it has names — otherwise it would siphon ~14% of the book into something with nothing to buy.
-  - Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).
-  - Integrated to main 2026-06-26.
-- **E1.7** · _E1 · User-Defined Themes_ — **Similar-stock recommendations (peers of picks)** _(depends E1.3, web)_
-  - Recommend names similar to a theme's current picks — live sector/industry peers via Yahoo.
-  - Realized by E1.9: dsPeers (Yahoo recommendationsbysymbol) feeds the flat Screener's custom-theme recommendations (e.g. TSM → AVGO/MU/ASML).
-  - Integrated to main 2026-06-26.
-- **E1.8** · _E1 · User-Defined Themes_ — **Seed recommendations from a new theme's name** _(depends E1.4, web)_
-  - Use a theme NAME's keywords (e.g. 'Semiconductors') to recommend stocks immediately — before it has any picks.
-  - Realized by E1.9: the flat Screener keyword-searches the theme name (+ de-pluralized words) to seed a brand-new theme's recommendations (e.g. Semiconductors → NXPI/ON/TSM/LSCC).
-  - Integrated to main 2026-06-26.
-- **E1.9** · _E1 · User-Defined Themes_ — **Flat Screener: pooled recommendations + actions** _(depends E1.3, web)_ · [spec](features/E1.9_flat-screener-recommendations.md)
-  - Replaces the 5 per-theme Screener tables with ONE running list: ~15 recommendations per theme (ungrouped) + ALL your holdings, sorted by market cap.
-  - Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.
-  - Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.
-  - Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.
-  - New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet).
+<details><summary><b>Core tool (shipped)</b> — 10 done</summary>
+
+- **C1** — Themed 6-factor allocation model
+- **C2** — Bad / missing data handling
+- **C3** — Free live-data layer (Yahoo)
+- **C4** — Calculator / Rebalance
+- **C5** — Version history (undo / redo / revert)
+- **C6** — Prices tab
+- **C7** — Screener tab
+- **C8** — Swap a stock in
+- **C9** — Dynamic theme membership
+- **C10** — Cross-platform: web + iOS
+
+</details>
+<details><summary><b>E1 · User-Defined Themes</b> — 7 done</summary>
+
+- **E1.1** — Data-driven theme list (foundation) · [spec](features/E1.1_data-driven-themes.md)
+- **E1.2** — Add / remove a ticker in a theme · [spec](features/E1.2_add-remove-ticker.md)
+- **E1.3** — Ticker search & validate · [spec](features/E1.3_ticker-search.md)
+- **E1.4** — Create a new theme · [spec](features/E1.4_create-theme.md)
+- **E1.7** — Similar-stock recommendations (peers of picks)
+- **E1.8** — Seed recommendations from a new theme's name
+- **E1.9** — Flat Screener: pooled recommendations + actions · [spec](features/E1.9_flat-screener-recommendations.md)
+
+</details>
