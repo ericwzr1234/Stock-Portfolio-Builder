@@ -61,6 +61,26 @@ metric needs a direction + a penalty/cap for bad/missing values, like today's fa
   extra `quoteSummary` modules in `server.py` and the iOS data layer).
 - Interaction with E1 (works for any theme set) and with version history (snapshot the metric config).
 
+## Card breakdown (foundation-first, mirroring E1)
+Expanded 2026-07-01 into small cards on the board:
+- **E2.1 — Data-driven metric list (foundation).** `state.metrics` (ordered `{key,label,weight,dir,penalty,
+  source}`); `computeAllocation` iterates it; default = the current 6, byte-identical until changed;
+  persisted + version-snapshotted; old portfolios migrate. *(The E1.1 analog — invisible, regression-safe.)*
+- **E2.2 — Metric catalog + compute layer.** The catalog above becomes data; a per-metric getter/formula
+  yields a per-stock value + direction. Source = Yahoo fields now; **E3 later switches the source to
+  computed-from-statements**.
+- **E2.3 — Choose your metrics (picker UI).** Add/remove active metrics; the weights panel generalizes to
+  N metrics; flag metrics missing data for the current book.
+- **E2.4 — Per-metric direction & bad-data handling.** Direction + penalty / carry-over / compute per
+  metric — generalizing C2 to any metric.
+- **E2.5 — Presets / reset to the default 6.** *(ideation)* one-click reset; optional named presets.
+
+## Relationship to Epic 3
+E2 defines *which* metrics and *how they're weighted*; **E3 (Statement-Driven Data)** changes *where the
+metric values come from* — computed from the loaded TTM statements rather than pulled pre-calculated.
+E2.2's compute layer is the natural seam where E3 plugs in. Forward-looking metrics (Fwd P/E, PEG) stay
+pulled in both.
+
 ## Notes
-- Brand-new epic; **not yet scheduled**. Detail into small cards (foundation first, like E1) when we pick
-  it up. Likely first card: "Metric list is data-driven (default = the current 6)", mirroring E1.1.
+- Cards E2.1–E2.4 are in **design**, E2.5 in **ideation**. Sequenced after Epic 1; foundation card **E2.1**
+  first (mirrors E1.1). Detailed per-card specs written when each card is picked up (per the pipeline).

@@ -140,13 +140,36 @@
       "Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.",
       "New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet)." ] },
 
-    { "id": "E2.1", "epic": "E2", "stage": "ideation", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
-      "title": "User-selectable scoring metrics", "notes": [
-      "Today the 6 scoring factors (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) are hardcoded; only their weights are adjustable.",
-      "Let users choose WHICH metrics drive the model from a catalog of common valuation, profitability, financial-health, growth, dividend, size and momentum metrics — and set each one's weight.",
-      "Only metrics available or computable from our data source (Yahoo) are offered; the current 6 stay the default set (regression-safe).",
-      "Mirrors E1.1's pattern: a hardcoded list becomes data-driven, persisted and version-snapshotted.",
-      "Brand-new epic — captured as ideation, to be detailed into foundation-first cards later. Starter metric catalog is in the spec." ] },
+    { "id": "E2.1", "epic": "E2", "stage": "design", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Data-driven metric list (foundation)", "notes": [
+      "Make the SET of scoring metrics data (state.metrics = ordered list of {key,label,weight,dir,penalty,source}), not the hardcoded 6 — mirroring E1.1's move for themes.",
+      "computeAllocation iterates state.metrics instead of the hardcoded PEG/EV/Debt-FCF/PE/mcap/momentum; default = today's 6 with their weights, so it's byte-identical until changed.",
+      "Persisted in portfolio.json + captured in every version snapshot (undo/redo); old portfolios migrate to the default 6.",
+      "Invisible & regression-safe foundation that the rest of E2 builds on." ] },
+
+    { "id": "E2.2", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.1", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Metric catalog + compute layer", "notes": [
+      "A catalog of common metrics grouped by category (valuation, profitability, financial-health, growth, dividend, size, momentum, operational) — the starter list is in the spec.",
+      "Only metrics AVAILABLE or COMPUTABLE from the data source are offered.",
+      "A per-metric getter/formula yields a per-stock value with its direction (cheaper / higher / lower-is-better). Source is Yahoo fields today; E3 later switches the SOURCE to computed-from-statements.",
+      "Lets the engine score ANY catalog metric, not just the original 6." ] },
+
+    { "id": "E2.3", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Choose your metrics (picker UI)", "notes": [
+      "Add or remove which catalog metrics are active in the model, from the Fundamentals tab.",
+      "The weights panel generalizes from the fixed 6 sliders to N chosen metrics (weights re-normalize live).",
+      "Flag metrics that are missing data for the current book so the user knows what actually drives the score." ] },
+
+    { "id": "E2.4", "epic": "E2", "stage": "design", "platform": "web", "depends": "E2.2", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Per-metric direction & bad-data handling", "notes": [
+      "For each active metric: its direction (cheaper-is-better / higher-is-better / lower-is-better) and how bad/missing values are handled — penalty, quality carry-over, or compute-from-statements.",
+      "Generalizes the existing C2 data-quality handling (prem / calc / qual / ovr) from the fixed 6 to any chosen metric." ] },
+
+    { "id": "E2.5", "epic": "E2", "stage": "ideation", "platform": "web", "depends": "E2.3", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Metric presets / reset to default 6", "notes": [
+      "Reset the metric set + weights back to the default 6 in one click.",
+      "Optionally save named metric presets (e.g. 'Deep value', 'Quality growth') to switch strategies.",
+      "Quality-of-life; sequenced last." ] },
 
     { "id": "E3.1", "epic": "E3", "stage": "ideation", "platform": "web", "spec": "docs/features/E3_statement-driven-data.md",
       "title": "Statement-driven data: load TTM statements, compute metrics, stock detail page", "notes": [
