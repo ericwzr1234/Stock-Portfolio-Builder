@@ -15,7 +15,8 @@
     { "key": "core", "name": "Core tool (shipped)",        "color": "#13605C" },
     { "key": "E1",   "name": "E1 · User-Defined Themes",   "color": "#3A6EA5" },
     { "key": "E2",   "name": "E2 · User-Defined Metrics",  "color": "#A4683C" },
-    { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" }
+    { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" },
+    { "key": "E4",   "name": "E4 · Fundamentals & Screener workflow", "color": "#4D7C6F" }
   ],
   "items": [
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
@@ -93,7 +94,8 @@
       "Search any symbol or company — incl. names outside the screener (e.g. AMD, TSM, AVGO) — from the Screener's '🔍 Search' or a theme's '＋ name' in Fundamentals.",
       "Refinement 1: search defaults to Yahoo's live search (reliable; NASDAQ+NYSE+ADRs) — fixes the 'TSM returns TSMG/TSMU but not TSM' bug, which came from a NASDAQ-only cache (nasdaqtrader's files are now behind a bot wall).",
       "Refinement 1: optional instant local cache from the SEC's company_tickers.json (10,433 names incl. TSM), opt-in via env PB_SEC_CONTACT=you@email (SEC requires a contact UA; kept out of committed code so the repo stays shareable).",
-      "Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it (then the usual rebalance preview → Apply). Searching from a theme pre-selects it as a hint. Excluded from the allocation until added.",
+      "Refinement 2: a searched name goes to a WATCHLIST at the top of the Screener — NOT the portfolio, no rebalance. From the watchlist you pick a theme to add it. Excluded from the allocation until added.",
+      "REVISED by E4.3 (2026-07-01): search from Fundamentals now adds a ticker DIRECTLY to that theme + rebalances (a decision); only the Screener search routes to the watchlist, defaulting to NO theme.",
       "On add, the name's live data is fetched and it's scored like any other (thin data → existing penalty/compute path).",
       "Touches server.py (/api/search) + iOS data layer — Mac syncs both. NOTE: restart a running server to pick up server.py changes (the original 'no matches' was a stale server).",
       "Integrated to main 2026-06-26 (search + watchlist; TSM fix; opt-in SEC cache)." ] },
@@ -138,7 +140,8 @@
       "Custom themes get LIVE recommendations: keyword search on the theme name (+ de-pluralized words) and sector PEERS of the theme's current picks (e.g. TSM → AVGO/MU/ASML). Original themes use the curated universe.",
       "Every row is tappable → add to a theme, swap into a theme, watchlist, or (for a held name) remove it from its theme — drop a holding with no replacement.",
       "Delivers the recommendation ideas from E1.7 (peers of picks) and E1.8 (keywords from name); both are realized here and will be marked done on merge.",
-      "New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet)." ] },
+      "New plumbing: /api/peers (Yahoo recommendationsbysymbol) + dsPeers. Integrated to main 2026-06-26 (83-row flat list, custom-theme recs, action sheet).",
+      "REVISED by E4.4 (2026-07-01): the pooled recommendations were removed per user; the Screener is now a search box + the watchlist, and the watchlist 'add to theme' prompts an add-vs-swap confirmation then rebalances. The peers/keyword functions remain in the code (unused)." ] },
 
     { "id": "E2.1", "epic": "E2", "stage": "design", "platform": "web", "spec": "docs/features/E2_user-defined-metrics.md",
       "title": "Data-driven metric list (foundation)", "notes": [
@@ -177,6 +180,32 @@
       "A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.",
       "Metrics become CALCULATED from the statements, not read straight from Yahoo (we already do this as a fallback — E3 makes it primary).",
       "Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.",
-      "Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown." ] }
+      "Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown." ] },
+
+    { "id": "E4.1", "epic": "E4", "stage": "testing", "platform": "web",
+      "title": "Declutter the allocation-model panel", "notes": [
+      "Top 'Theme allocation model' card keeps only: the user inputs, the % weight summary per theme, and New theme / Restore defaults.",
+      "Three clearly-named input groups by purpose: ① Metrics — assign weights; ② Exception handling — the artificial value to use when a metric is negative or not found; ③ Maximum weight per theme.",
+      "Spell metrics out fully (e.g. PEG = P/E ÷ Growth%, EV/EBITDA = Enterprise Value ÷ EBITDA, Debt/FCF = Total Debt ÷ Free Cash Flow, P/E, Avg market cap, Price momentum).",
+      "Remove all inline explanations from the top; keep them in the collapsible 'How the math works & data-quality notes' (hidden by default)." ] },
+
+    { "id": "E4.2", "epic": "E4", "stage": "testing", "platform": "web", "depends": "E4.1",
+      "title": "Per-theme actions in each theme's section", "notes": [
+      "Move add-ticker / rename-theme / delete-theme out of the top allocation legend and into each theme's own section header (the #fundGrid cards), next to the theme name.",
+      "The top legend becomes a clean read-only % summary." ] },
+
+    { "id": "E4.3", "epic": "E4", "stage": "testing", "platform": "web", "depends": "E4.2",
+      "title": "Split add flow — Fundamentals adds directly, Screener watchlists", "notes": [
+      "Adding a ticker from Fundamentals & Allocation is a DECISION → add it directly to that theme and run the rebalance preview (no watchlist).",
+      "Searching in the Screener is BROWSING → add the found name to the watchlist, defaulting to NO theme.",
+      "Once a watchlist name is assigned a theme, the user is ready → trigger the add-to-portfolio + rebalance.",
+      "Revises E1.3 (which currently routes both entry points to the watchlist)." ] },
+
+    { "id": "E4.4", "epic": "E4", "stage": "testing", "platform": "web", "depends": "E4.3",
+      "title": "Screener = search + watchlist; add-vs-swap confirmation", "notes": [
+      "Remove the pooled recommendations list from the Screener (unwanted). Screener = a search box + the watchlist.",
+      "Flow: 1) look up a stock → add to watchlist (no theme); 2) when decided, choose 'add to theme' → a confirmation to either (a) add the ticker to the portfolio or (b) swap it for an existing holding; 3) on confirm, run the rebalance.",
+      "Keeps the tap-to-swap capability, integrated into the watchlist commit.",
+      "Revises E1.9 (the flat recommendation Screener)." ] }
   ]
 }

@@ -318,39 +318,32 @@
       <div class="card pad">
         <div class="section-title"><h2>Theme allocation model</h2>
           <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
-        <p class="small muted" style="margin-top:-4px">
-          Each theme is scored on six metrics: <b>PEG</b>, <b>EV/EBITDA</b>, <b>Total&nbsp;Debt/FCF</b> and <b>P/E</b> (all TTM,
-          lower = cheaper / more sustainable = more weight), <b>average market cap</b> (log scale, bigger = steadier),
-          and <b>price momentum</b> (higher = stronger uptrend = more weight). Each is normalized across the five themes; set how much each counts:</p>
-        <div class="row small" style="gap:12px;align-items:center;margin-top:4px;flex-wrap:wrap">
-          <span class="muted">Metric weights →</span>
-          <label>PEG&nbsp;<input type="number" id="wPeg" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>EV/EBITDA&nbsp;<input type="number" id="wEv" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>Debt/FCF&nbsp;<input type="number" id="wDfcf" value="20" min="0" step="5" style="width:48px"> %</label>
-          <label>P/E&nbsp;<input type="number" id="wPe" value="15" min="0" step="5" style="width:48px"> %</label>
-          <label>Mkt cap&nbsp;<input type="number" id="wMcap" value="10" min="0" step="5" style="width:48px"> %</label>
-          <label>Momentum&nbsp;<input type="number" id="wMom" value="15" min="0" step="5" style="width:48px"> %</label>
+        <div class="row small" style="gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap">
+          <span class="muted"><b>① Metrics</b> — assign weights →</span>
+          <label>PEG <span class="muted xs">(P/E ÷ Growth%)</span>&nbsp;<input type="number" id="wPeg" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>EV/EBITDA <span class="muted xs">(Enterprise Value ÷ EBITDA)</span>&nbsp;<input type="number" id="wEv" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>Debt/FCF <span class="muted xs">(Total Debt ÷ Free Cash Flow)</span>&nbsp;<input type="number" id="wDfcf" value="20" min="0" step="5" style="width:48px"> %</label>
+          <label>P/E <span class="muted xs">(Price ÷ Earnings)</span>&nbsp;<input type="number" id="wPe" value="15" min="0" step="5" style="width:48px"> %</label>
+          <label>Average market cap&nbsp;<input type="number" id="wMcap" value="10" min="0" step="5" style="width:48px"> %</label>
+          <label>Price momentum&nbsp;<input type="number" id="wMom" value="15" min="0" step="5" style="width:48px"> %</label>
           <span class="muted xs" id="wEffNote"></span>
         </div>
-        <div class="row small" style="gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap">
-          <span class="muted">Negative / no-earnings penalty →</span>
+        <div class="row small" style="gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+          <span class="muted"><b>② Exception handling</b> — value to use when a metric is negative or not found →</span>
           <label>EV/EBITDA&nbsp;<input type="number" id="penEv" value="1000" min="0" step="100" style="width:72px"></label>
           <label>PEG&nbsp;<input type="number" id="penPeg" value="10" min="0" step="1" style="width:52px"></label>
           <label>Debt/FCF&nbsp;<input type="number" id="penDfcf" value="50" min="0" step="10" style="width:58px"></label>
           <label>P/E&nbsp;<input type="number" id="penPe" value="200" min="0" step="25" style="width:58px"></label>
-          <span class="muted xs">a reported negative ratio → this multiple; a not-applicable one (e.g. a bank's EV/EBITDA) is excluded</span>
         </div>
-        <div class="row small" style="gap:14px;align-items:center;margin-top:10px;flex-wrap:wrap">
-          <span class="muted">Max per theme →</span>
+        <div class="row small" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap">
+          <span class="muted"><b>③ Maximum weight per theme</b> →</span>
           <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
-          <span class="muted xs">cap any one sector at this; the excess spills to the others (repeated until all fit)</span>
         </div>
-        <div class="allocbar" id="allocBar" style="margin-top:14px"></div>
+        <div class="allocbar" id="allocBar" style="margin-top:16px"></div>
         <div class="legend" id="allocLegend"></div>
         <div class="row" style="margin-top:12px;align-items:center;gap:8px">
           <button class="btn sm" id="newThemeBtn">➕ New theme</button>
           <button class="btn sm" id="restoreThemesBtn">↺ Restore default 5</button>
-          <span class="muted xs">per theme: ＋ name (search → watchlist) · ✎ rename/recolour · ✕ delete</span>
         </div>
         <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
           <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
@@ -365,11 +358,6 @@
       </div>
     </div>
     <div class="theme-grid" id="fundGrid"></div>
-    <p class="note">PEG uses Yahoo's trailing PEG when published, otherwise its standard PEG. EV/EBITDA is TTM.
-      <b>Click any PEG or EV/EBITDA value</b> (blue dashed underline) to type your own number from a better source —
-      it's saved, flagged <span class="tag ovr">ovr</span>, and used everywhere in the model. Click <b>↺</b> to revert to
-      the live value. Overriding a negative name (e.g. entering a real EV/EBITDA for SNOW) replaces the super-premium
-      penalty with your figure.</p>
   </section>
 
   <!-- ============ CALCULATOR / REBALANCE ============ -->
@@ -962,10 +950,7 @@ function renderFundamentals(){
     sp.style.width=(r.alloc*100)+"%"; sp.style.background=r.theme.color; sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
-    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}
-    <button class="addname-btn" data-addto="${r.theme.key}" title="Search a name for ${r.theme.name} (→ watchlist)">＋ name</button>
-    <button class="addname-btn" data-editth="${r.theme.key}" title="Rename / recolour ${r.theme.name}">✎</button>
-    <button class="addname-btn" data-delth="${r.theme.key}" title="Delete ${r.theme.name}">✕</button></div>`;}).join("");
+    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
@@ -1007,6 +992,10 @@ function renderFundamentals(){
     ${Math.round(A.wPe*100)} / mkt-cap ${Math.round(A.wMc*100)} / momentum ${Math.round(A.wMo*100)}%).</p>
     <p>Finally, <b>no theme may exceed ${Math.round((state.cap||0)*100)}%</b> — excess from a leading theme is
     spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
+    <p><b>Per-theme tables (below):</b> each theme's names with their metrics. <b>Click any PEG or EV/EBITDA value</b>
+    (blue dashed underline) to type your own number — saved, flagged <span class="tag ovr">ovr</span>, and used
+    everywhere; click <b>↺</b> to revert. Overriding a negative name replaces its penalty with your figure. PEG uses
+    Yahoo's trailing PEG when published, else standard PEG; EV/EBITDA is TTM.</p>
     ${carryNote?("<p>"+carryNote+"</p>"):""}
     ${exNotes.length?("<p>"+exNotes.join("<br>")+"</p>"):""}`;
 
@@ -1046,7 +1035,10 @@ function renderFundamentals(){
     grid.insertAdjacentHTML("beforeend",`
       <div class="card theme">
         <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
-          <h3>${t.name}</h3>${srcTag}</div>
+          <h3>${t.name}</h3>${srcTag}
+          <button class="addname-btn" data-addticker="${t.key}" title="Add a ticker to ${t.name}">＋ ticker</button>
+          <button class="addname-btn" data-editth="${t.key}" title="Rename / recolour ${t.name}">✎</button>
+          <button class="addname-btn" data-delth="${t.key}" title="Delete ${t.name}">✕</button></div>
           <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
         <table><thead><tr><th>Ticker</th><th>Cap</th><th>PEG</th><th>EV/EB</th><th>D/FCF</th><th>P/E</th><th>Mom</th></tr></thead>
         <tbody>${body}</tbody>
@@ -1390,38 +1382,10 @@ async function loadThemeRecos(){
 function renderScreener(){
   renderWatchlist();
   const body=$("#screenerBody"); if(!body) return;
-  const held=new Set(holdingSyms());
-  // 1. up to 15 candidates per theme — curated top-15 by mcap, or cached keyword+peer recos for custom themes
-  const recoTheme={}, cand=[];
-  themes().forEach(t=>{
-    let syms=[];
-    if(isCuratedTheme(t.key)){
-      const uni=state.universe.themes.find(u=>u.key===t.key);
-      syms=(uni.stocks||[]).map(x=>({tk:x.ticker, mc:screenerMcap(x)})).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,15).map(x=>x.tk);
-    } else { syms=((state.themeRecos[t.key]||{}).syms)||[]; }
-    syms.forEach(s=>{ if(!recoTheme[s]) recoTheme[s]=t.key; cand.push(s); });
-  });
-  // 2. always include every holding; 3. one flat, deduped, market-cap-sorted list (no theme grouping)
-  const all=[...new Set([...cand, ...holdingSyms()])];
-  const rows=all.map(s=>{
-    const q=state.screenerQuotes[s]||state.quotes[s]||{}, inBook=held.has(s);
-    const th=inBook? themeOfSym(s) : themeByKey(recoTheme[s]);
-    return {s, q, inBook, th, mc:isNum(q.marketCap)?q.marketCap:null};
-  }).filter(r=>r.th).sort((a,b)=>(b.mc||0)-(a.mc||0));
-  const loading=themes().some(t=>!isCuratedTheme(t.key) && !state.themeRecos[t.key]);
-  body.innerHTML=`<div class="card pad">
-    <div class="muted small" style="margin-bottom:8px">${rows.length} names · ${held.size} held · 15 recommendations per theme${loading?' · finding custom-theme picks…':''}. Tap any row to add it to a theme, swap it in, or remove a held name.</div>
-    <div class="tscroll"><table><thead><tr><th>Stock</th><th>Theme</th><th class="num">Mkt cap</th><th class="num">Price</th><th class="num">Day</th><th class="center">Action</th></tr></thead>
-    <tbody>${rows.map(r=>{ const ch=r.q.changePct, cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
-      const action=r.inBook?'<span class="tag live">held</span>':'<span class="muted xs">tap ›</span>';
-      return `<tr class="screener-row" data-sym="${r.s}" data-theme="${r.th.key}">
-        <td class="sym">${r.s}<span class="co">${nameOf(r.s)}</span></td>
-        <td><span class="th-chip" style="border-color:${r.th.color};color:${r.th.color}">${r.th.name}</span></td>
-        <td class="num">${bil(r.mc)}</td>
-        <td class="num">${money(isNum(r.q.price)?r.q.price:price(r.s),2)}</td>
-        <td class="num ${cls}">${isNum(ch)?arrow+' '+Math.abs(ch).toFixed(2)+'%':'—'}</td>
-        <td class="center">${action}</td></tr>`;}).join("")}</tbody></table></div></div>`;
-  $$(".screener-row").forEach(r=>r.addEventListener("click",()=>openStockActions(r.dataset.sym, r.dataset.theme)));
+  const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
+  body.innerHTML = wl.length
+    ? `<p class="note">Your watchlist is above. When you're ready, pick a theme on a name to add it to your portfolio — you'll confirm whether to add it as a new name or swap it for a holding, then review the rebalance.</p>`
+    : `<div class="empty" style="padding:18px">Use <b>🔍 Search any ticker</b> above to look up a stock and add it to your <b>watchlist</b> (with no theme). From the watchlist you decide which theme to add it to — as a new name or a swap — then rebalance.</div>`;
 }
 
 /* ---- per-stock action sheet from the flat Screener (E1.9): add / swap / remove / watchlist ---- */
@@ -1453,15 +1417,7 @@ function openStockActions(sym, themeKey){
   $("#saWatch").addEventListener("click",()=>addToWatchlist(sym, $("#saTheme").value));
 }
 
-async function ensureScreener(){
-  renderScreener();
-  loadThemeRecos();                                  // E1.9: keyword+peer recos for custom themes (async; re-renders when ready)
-  if(state.screenerLoaded) return;
-  state.screenerLoaded=true;
-  const body=$("#screenerBody"); if(body) body.insertAdjacentHTML("afterbegin",`<div class="note" id="scLoading">Loading live market caps…</div>`);
-  try{ await loadScreenerQuotes(); }catch(e){ console.error(e); }
-  renderScreener();
-}
+async function ensureScreener(){ renderScreener(); }   // E4.4: Screener = search box + watchlist (no recommendations)
 
 function openSwap(newSym, themeKey){
   const t=themeByKey(themeKey); if(!t) return;
@@ -1659,14 +1615,15 @@ async function restoreDefaultThemes(){
 /* ---- search any ticker and add it to a theme (E1.3) ------------------------------------------
    Inline from the Fundamentals legend (scoped to a theme) and from the Screener (with a theme picker). */
 let _tsTimer=null;
-function openTickerSearch(themeKey){
+function openTickerSearch(themeKey, direct){
   const scoped=!!(themeKey && themeByKey(themeKey));
-  const title=scoped?("Find a name for "+themeByKey(themeKey).name):"Search & watchlist a ticker";
+  const tName=(themeByKey(themeKey)||{name:""}).name;
+  const title= direct ? ("Add a ticker to "+tName) : (scoped?("Find a name for "+tName):"Search & watchlist a ticker");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="tsModal"><div class="modal-card card pad">
       <h2 style="font-size:16px">${title}</h2>
-      <p class="small muted">Search any symbol or company — including names outside the Screener (e.g. AMD, TSM).
-        Pick one to add it to your <b>watchlist</b> (in the Screener). It <b>won't touch your portfolio</b> until
-        you add it to a theme from there.</p>
+      <p class="small muted">${direct
+        ? "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to <b>add it to "+tName+"</b> — the book then rebalances to the model."
+        : "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to add it to your <b>watchlist</b> — it <b>won't touch your portfolio</b> until you add it to a theme from there."}</p>
       <label class="small" style="display:block;margin:10px 0 4px">Search</label>
       <input type="text" id="tsQuery" placeholder="e.g. AMD or Advanced Micro" autocomplete="off"
         style="width:100%;padding:9px;border:1px solid #DDD6C6;border-radius:8px;font-size:14px">
@@ -1687,7 +1644,7 @@ function openTickerSearch(themeKey){
       res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${r.symbol}">
         <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
         <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join("");
-      $$(".ts-row").forEach(b=>b.addEventListener("click",()=>addToWatchlist(b.dataset.sym, themeKey||null)));
+      $$(".ts-row").forEach(b=>b.addEventListener("click",()=> direct ? addTicker(themeKey, b.dataset.sym) : addToWatchlist(b.dataset.sym, themeKey||null)));
     },250);
   });
   q.focus();
@@ -1712,10 +1669,9 @@ async function removeFromWatchlist(sym){
   state.watchlist=(state.watchlist||[]).filter(w=>!(w&&w.sym===sym));
   await savePortfolio(); renderScreener();
 }
-async function commitFromWatchlist(sym, themeKey){
+function commitFromWatchlist(sym, themeKey){
   if(!themeKey) return;
-  state.watchlist=(state.watchlist||[]).filter(w=>!(w&&w.sym===sym));
-  await addTicker(themeKey, sym);   // -> setMembership: switches to Calculator + previews the realign; Apply persists both
+  openSwap(sym, themeKey);   // E4.4: confirm — add as a new name OR swap for a holding, then rebalance. Watchlist self-heals once it's in a theme.
 }
 function renderWatchlist(){
   const el=$("#watchlist"); if(!el) return;
@@ -1837,7 +1793,7 @@ function setupEvents(){
     e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
   if($("#screenerSearch")) $("#screenerSearch").addEventListener("click",()=>openTickerSearch());   // E1.3: search (Screener)
-  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addto]"); if(b) openTickerSearch(b.dataset.addto); });   // E1.3: '＋ name' in the Fundamentals legend
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addticker]"); if(b) openTickerSearch(b.dataset.addticker, true); });   // E4.3: '＋ ticker' in a theme section — add DIRECTLY (rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-editth]"); if(b) openEditTheme(b.dataset.editth); });   // E1.5: rename / recolour a theme
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-delth]"); if(b) deleteTheme(b.dataset.delth); });   // E1.6: delete a theme
   if($("#restoreThemesBtn")) $("#restoreThemesBtn").addEventListener("click",restoreDefaultThemes);   // E1.6: restore default 5

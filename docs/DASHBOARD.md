@@ -2,7 +2,7 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
@@ -11,7 +11,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 2 |
 | Design | 4 |
 | Implementation | 0 |
-| Testing | 2 |
+| Testing | 6 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 17 |
@@ -58,7 +58,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (2)
+## Testing  (6)
 _Built; waiting for you to try it._
 
 - **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_ · [spec](features/E1.5_rename-recolour.md)
@@ -71,6 +71,24 @@ _Built; waiting for you to try it._
   - Removing a theme turns its held names into exiting positions — sold to $0 on the next rebalance; a warning banner in the rebalance preview lists them before any liquidation.
   - Deleting your only remaining theme is blocked (use Restore defaults). Note: a true 'zero themes' state isn't meaningful — the allocator needs ≥1 theme, so 'clear all' is served by Restore defaults.
   - Built & verified on dev (delete → exiting + preview warning, last-theme block, restore to the 5) — awaiting your click-through.
+- **E4.1** · _E4 · Fundamentals & Screener workflow_ — **Declutter the allocation-model panel** _(web)_
+  - Top 'Theme allocation model' card keeps only: the user inputs, the % weight summary per theme, and New theme / Restore defaults.
+  - Three clearly-named input groups by purpose: ① Metrics — assign weights; ② Exception handling — the artificial value to use when a metric is negative or not found; ③ Maximum weight per theme.
+  - Spell metrics out fully (e.g. PEG = P/E ÷ Growth%, EV/EBITDA = Enterprise Value ÷ EBITDA, Debt/FCF = Total Debt ÷ Free Cash Flow, P/E, Avg market cap, Price momentum).
+  - Remove all inline explanations from the top; keep them in the collapsible 'How the math works & data-quality notes' (hidden by default).
+- **E4.2** · _E4 · Fundamentals & Screener workflow_ — **Per-theme actions in each theme's section** _(depends E4.1, web)_
+  - Move add-ticker / rename-theme / delete-theme out of the top allocation legend and into each theme's own section header (the #fundGrid cards), next to the theme name.
+  - The top legend becomes a clean read-only % summary.
+- **E4.3** · _E4 · Fundamentals & Screener workflow_ — **Split add flow — Fundamentals adds directly, Screener watchlists** _(depends E4.2, web)_
+  - Adding a ticker from Fundamentals & Allocation is a DECISION → add it directly to that theme and run the rebalance preview (no watchlist).
+  - Searching in the Screener is BROWSING → add the found name to the watchlist, defaulting to NO theme.
+  - Once a watchlist name is assigned a theme, the user is ready → trigger the add-to-portfolio + rebalance.
+  - Revises E1.3 (which currently routes both entry points to the watchlist).
+- **E4.4** · _E4 · Fundamentals & Screener workflow_ — **Screener = search + watchlist; add-vs-swap confirmation** _(depends E4.3, web)_
+  - Remove the pooled recommendations list from the Screener (unwanted). Screener = a search box + the watchlist.
+  - Flow: 1) look up a stock → add to watchlist (no theme); 2) when decided, choose 'add to theme' → a confirmation to either (a) add the ticker to the portfolio or (b) swap it for an existing holding; 3) on confirm, run the rebalance.
+  - Keeps the tap-to-swap capability, integrated into the watchlist commit.
+  - Revises E1.9 (the flat recommendation Screener).
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
