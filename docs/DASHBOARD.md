@@ -35,11 +35,11 @@ _A half-baked idea; can be pushed further down once fleshed out._
 ## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E2.1** · _E2 · User-Defined Metrics_ — **Data-driven metric list (foundation)** _(web)_ · [spec](features/E2_user-defined-metrics.md)
-  - Make the SET of scoring metrics data (state.metrics = ordered list of {key,label,weight,dir,penalty,source}), not the hardcoded 6 — mirroring E1.1's move for themes.
-  - computeAllocation iterates state.metrics instead of the hardcoded PEG/EV/Debt-FCF/PE/mcap/momentum; default = today's 6 with their weights, so it's byte-identical until changed.
-  - Persisted in portfolio.json + captured in every version snapshot (undo/redo); old portfolios migrate to the default 6.
-  - Invisible & regression-safe foundation that the rest of E2 builds on.
+- **E2.1** · _E2 · User-Defined Metrics_ — **Data-driven metric list (foundation)** _(web)_ · [spec](features/E2.1_data-driven-metrics.md)
+  - Make the SET of scoring metrics data (DEFAULT_METRICS + state.metrics + a metrics() accessor), not the hardcoded 6 — mirroring E1.1's move for themes.
+  - computeAllocation loops over metrics() instead of the hardcoded PEG/EV/Debt-FCF/PE/mcap/momentum; each descriptor keeps its own score formula (log mcap, momentum floor, Debt/FCF 1/max(x,0.1), carry-over) so the default 6 stay BYTE-IDENTICAL (fixed iteration order = identical float sums).
+  - Weights/penalties stay in state.weights/state.penalty (untouched); state.metrics only governs which keys exist + their order. Persisted as [{key}] + version-snapshotted; old portfolios migrate to the default 6.
+  - ENGINE-ONLY foundation (the weight/penalty inputs, notes, and fundamentals table stay hardcoded until E2.2). Hardened by a 5-agent code audit; spec written, awaiting sign-off.
 - **E2.2** · _E2 · User-Defined Metrics_ — **Metric catalog + compute layer** _(depends E2.1, web)_ · [spec](features/E2_user-defined-metrics.md)
   - A catalog of common metrics grouped by category (valuation, profitability, financial-health, growth, dividend, size, momentum, operational) — the starter list is in the spec.
   - Only metrics AVAILABLE or COMPUTABLE from the data source are offered.
