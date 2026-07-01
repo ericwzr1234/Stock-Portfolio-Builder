@@ -530,7 +530,7 @@ const METRIC_CATALOG = [
   catMetric({key:'revGrowth',    group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Revenue growth',   header:'Rev g'}),
   catMetric({key:'earnGrowth',   group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Earnings growth',  header:'Earn g'}),
   catMetric({key:'netCashPct',   group:'risk',    direction:'higher', fmt:{kind:'pct',dp:1}, label:'Net cash / mcap',  header:'NetCash', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s); return (isNum(f.cash)&&isNum(f.debt)&&isNum(mc)&&mc>0)?(f.cash-f.debt)/mc:null;}}),
-  catMetric({key:'divYield',     group:'income',  direction:'higher', badData:'zero', fmt:{kind:'pct',dp:2}, label:'Dividend yield', header:'Yield', getter:s=>{const f=state.fundamentals[s]; const v=f&&f.divYield; return isNum(v)?v:0;}}),   // non-payers => 0, not excluded
+  catMetric({key:'divYield',     group:'income',  direction:'higher', badData:'penalize', fmt:{kind:'pct',dp:2}, label:'Dividend yield', header:'Yield'}),   // non-payers score 0 via penalize (higher-better bad value => worst = 0)
 ];
 const DEFAULT_METRICS = METRIC_CATALOG.filter(m=>m.defaultActive);
 function metrics(){ const m=state.metrics; return (Array.isArray(m)&&m.length)?m:DEFAULT_METRICS; }
@@ -544,9 +544,9 @@ function validateMetrics(list){   // reattach real descriptors by key from the C
 // E2.4 per-metric config resolvers. state.metricCfg (null => baked-in descriptor defaults for every metric).
 function cfgOf(k){ return (state.metricCfg&&state.metricCfg[k])||{}; }
 function effBadData(m){ return cfgOf(m.key).badData||m.badData; }
-function effDirection(m){ return cfgOf(m.key).direction||m.direction; }
+function effDirection(m){ return m.direction; }   // direction is auto-assigned from the catalog map — never asked/editable
 function effPenalty(m){ return m.penaltyKey ? state.penalty[m.penaltyKey]
-  : (cfgOf(m.key).penalty!=null ? cfgOf(m.key).penalty : (m.defaultPenalty!=null ? m.defaultPenalty : null)); }
+  : (cfgOf(m.key).penalty!=null ? cfgOf(m.key).penalty : (m.defaultPenalty!=null ? m.defaultPenalty : (m.direction==='higher'?0:1000))); }
 // E2.2 scoring: the 6 keep their own score() closures (scoreFromDir:false); catalog metrics score by direction.
 function dirScore(m,x){ if(!isNum(x))return 0; return effDirection(m)==='higher' ? Math.max(0,x) : (x>=0?1/Math.max(x,m.scoreFloor||0.1):0); }   // lower-better: 0 = best (floored); negatives score 0
 function scoreOf(m,x){ return m.scoreFromDir ? dirScore(m,x) : m.score(x); }
@@ -579,17 +579,22 @@ function themeMetric(tickers, getter, penaltyVal, allowZero, nullExcludes){
   return den>0 ? {value:num/den, penalized, excluded} : {value:null, penalized, excluded};
 }
 
-function themeAvgMcap(tickers){   // simple average market cap of a theme's names (bigger = more stable)
+function themeAvgMcap(tickers, getter, penVal, pol){   // simple average market cap; missing => policy (penalize=substitute else exclude)
+  getter=getter||effMcap;
   let sum=0, n=0;
-  for(const s of tickers){ const mc=effMcap(s); if(isNum(mc)&&mc>0){ sum+=mc; n++; } }
+  for(const s of tickers){ let v=getter(s);
+    if(!(isNum(v)&&v>0)){ if(pol==='penalize'&&isNum(penVal)){ v=penVal; } else continue; }
+    sum+=v; n++;
+  }
   return n>0 ? sum/n : null;
 }
-function themeMomentum(tickers){   // cap-weighted price momentum (vs 50/200-day MA); missing -> excluded
+function themeMomentum(tickers, getter, penVal, pol){   // cap-weighted momentum (negatives kept); missing => policy
+  getter=getter||momOf;
   let num=0, den=0, excluded=[];
-  for(const s of tickers){ const m=momOf(s), mc=effMcap(s);
+  for(const s of tickers){ let v=getter(s); const mc=effMcap(s);
     if(!(isNum(mc)&&mc>0)) continue;
-    if(!isNum(m)){ excluded.push(s); continue; }
-    num+=m*mc; den+=mc;
+    if(!isNum(v)){ if(pol==='penalize'&&isNum(penVal)){ v=penVal; } else { excluded.push(s); continue; } }
+    num+=v*mc; den+=mc;
   }
   return den>0 ? {value:num/den, excluded} : {value:null, excluded};
 }
@@ -610,6 +615,10 @@ function computeCarryover(){
   };
   const MEMB=membership();
   const dist={}; Object.keys(F).forEach(k=>{ dist[k]=MEMB.map(F[k]).filter(isNum).sort((a,b)=>a-b); });
+  const carryMs = metrics().filter(m=>effBadData(m)==='carry');   // any metric the user set to carry-over (default = ev,dfcf)
+  carryMs.forEach(m=>{ if(!dist[m.key]){   // build a goodness distribution for a carry metric not among the 6 quality factors
+    const gg=s=>{ const v=m.getter(s); return isNum(v)?(m.direction==='higher'?v:(v>0?1/Math.max(v,m.scoreFloor||0.1):null)):null; };
+    dist[m.key]=MEMB.map(gg).filter(isNum).sort((a,b)=>a-b); } });
   const rank=(a,v)=>{ if(a.length<2)return 0.5; let c=0; for(const x of a) if(x<v)c++; return c/(a.length-1); };
   const quant=(a,p)=>{ if(!a.length)return null; const i=clamp(p,0,1)*(a.length-1),lo=Math.floor(i),hi=Math.ceil(i); return a[lo]+(a[hi]-a[lo])*(i-lo); };
   const carry={};
@@ -617,10 +626,11 @@ function computeCarryover(){
     const ranks=[]; Object.keys(F).forEach(k=>{ const g=F[k](s); if(isNum(g))ranks.push(rank(dist[k],g)); });
     if(!ranks.length) continue;
     const qp=ranks.reduce((a,b)=>a+b,0)/ranks.length;            // composite quality percentile (0..1)
-    metrics().filter(m=>m.carryKey&&effBadData(m)==='carry').map(m=>m.carryKey).forEach(k=>{   // E2.4: only carry-policy metrics imputed (default = ev,dfcf)
-      if(F[k](s)===null){                                        // genuinely N/A -> impute at this percentile
+    carryMs.forEach(m=>{ const k=m.key;
+      if(!isNum(m.getter(s))){                                   // genuinely missing -> impute at this quality percentile
         const g=quant(dist[k],qp);
-        if(isNum(g)&&g>0){ carry[s]=carry[s]||{}; carry[s][k]= k==='dfcf'?Math.max(0,1/g):1/g; }
+        if(isNum(g)&&g>0){ carry[s]=carry[s]||{};
+          carry[s][k]= (k==='ev') ? 1/g : (k==='dfcf') ? Math.max(0,1/g) : (m.direction==='higher') ? g : Math.max(0,1/g); }
       }
     });
   }
@@ -634,11 +644,12 @@ function computeAllocation(){
   const wsum = M.reduce((a,m)=>a+wOf(m),0);
   const wN={}; M.forEach(m=>{ wN[m.key]= wsum>0 ? wOf(m)/wsum : 1/M.length; });   // all-zero weights => equal blend (never a 0-sum model that liquidates the book)
   const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
-  const getFor=m=> (m.carryKey && effBadData(m)==='carry') ? (s=>{ const v=m.getter(s); return isNum(v)?v:((carry[s]&&isNum(carry[s][m.carryKey]))?carry[s][m.carryKey]:null); }) : m.getter;
+  const getFor=m=> (effBadData(m)==='carry') ? (s=>{ const v=m.getter(s); return isNum(v)?v:((carry[s]&&isNum(carry[s][m.key]))?carry[s][m.key]:null); }) : m.getter;
   const allRows=themes().map(t=>{ const tk=tickersOf(t.key), row={theme:t};
-    M.forEach(m=>{ row[m.key] = m.valueKind==='avgMcap'  ? themeAvgMcap(tk)
-                             : m.valueKind==='momentum' ? themeMomentum(tk)
-                             : themeMetric(tk, getFor(m), (effDirection(m)==='higher'?0:effPenalty(m)), m.allowZero, (effBadData(m)==='penalize')?false:true); });   // higher-better penalty = 0 (worst), never a rewarding positive
+    M.forEach(m=>{ const pol=effBadData(m), penVal=(pol==='exclude')?undefined:(m.direction==='higher'?0:effPenalty(m));   // penalize/carry: higher-better bad value => 0 (worst); ignore => exclude
+      row[m.key] = m.valueKind==='avgMcap'  ? themeAvgMcap(tk, getFor(m), penVal, pol)
+                 : m.valueKind==='momentum' ? themeMomentum(tk, getFor(m), penVal, pol)
+                 : themeMetric(tk, getFor(m), penVal, m.allowZero, pol!=='penalize'); });
     return row; });
   // E1.4: a theme with no names is "empty" — it scores 0% and is excluded from the model until it has names.
   allRows.forEach(r=>{ if(tickersOf(r.theme.key).length===0){ r.empty=true; r.alloc=0; r.allocRaw=0; } });
@@ -999,30 +1010,20 @@ function fmtVal(m,v){
 }
 // E2.4 group-② per-metric exception-handling row.
 function policyOptions(m){
-  const cur=effBadData(m), opts=[];
-  if(m.penaltyKey) opts.push(['penalize','Penalize (use a number)']);   // 'penalize' needs a penalty slot + natural unit -> only the built-in ratios (peg/ev/dfcf/pe)
-  if(m.carryKey) opts.push(['carry','Carry over (impute)']);
-  opts.push(['exclude','Exclude the name']);
-  if(m.badData==='zero') opts.push(['zero','Treat missing as 0']);
-  if(m.computeCapable) opts.push(['compute','Compute from statements']);
+  const cur=effBadData(m);
+  const opts=[['penalize','Penalize (artificial value)'],['carry','Carry over (impute from quality)'],['exclude','Ignore (exclude the name)']];   // all 3 offered for EVERY metric, incl. the original 6
   return opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join("");
 }
 function metricCfgRowHTML(m){
-  const dir=effDirection(m)==='higher'?'↑ higher better':'↓ lower better';
-  const dirCtl=m.scoreFromDir
-    ? `<button class="btn xs" data-mdir="${m.key}" title="Toggle scoring direction">${dir}</button>`
-    : `<span class="muted xs" title="Fixed scoring direction for this metric">${dir}</span>`;
-  if(m.valueKind!=='themeMetric')   // avgMcap / momentum ignore bad-data policy in the engine — expose no inert controls
-    return `<div class="row small" data-mrow="${m.key}" style="gap:8px;align-items:center;margin:2px 0">
-      <span style="min-width:150px">${m.label}</span>${dirCtl}<span class="muted xs">missing names excluded</span></div>`;
-  const showPen = !!m.penaltyKey;   // penalty value only meaningful for the built-in ratios (used for a negative reading)
+  const dirBadge=`<span class="muted xs" title="Scoring direction is set automatically for this metric">${m.direction==='higher'?'↑ higher better':'↓ lower better'}</span>`;
+  const showPen = effBadData(m)==='penalize' && m.direction==='lower';   // an editable artificial value only makes sense lower-better; higher-better bad values are treated as worst (0)
   const penVal = isNum(effPenalty(m))?effPenalty(m):'';
   const penCtl = showPen
-    ? `<label class="muted xs" title="Value substituted when this metric is reported negative">neg→&nbsp;<input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px"></label>`
+    ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading">value&nbsp;<input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px"></label>`
     : '';
   return `<div class="row small" data-mrow="${m.key}" style="gap:8px;align-items:center;margin:2px 0">
-    <span style="min-width:150px">${m.label}</span>${dirCtl}
-    <select data-mpolicy="${m.key}" style="max-width:190px">${policyOptions(m)}</select>${penCtl}</div>`;
+    <span style="min-width:150px">${m.label}</span>${dirBadge}
+    <select data-mpolicy="${m.key}" style="max-width:200px">${policyOptions(m)}</select>${penCtl}</div>`;
 }
 function renderFundamentals(){
   const W=state.weights, MM=metrics();
@@ -1204,13 +1205,6 @@ function setMetricPolicy(key,policy){
   const m=catalogByKey(key); if(!m) return;
   state.metricCfg=state.metricCfg||{}; state.metricCfg[key]=state.metricCfg[key]||{};
   if(policy===m.badData) delete state.metricCfg[key].badData; else state.metricCfg[key].badData=policy;   // prune-on-default
-  pruneMetricCfg(key);
-}
-function toggleMetricDirection(key){
-  const m=catalogByKey(key); if(!m||!m.scoreFromDir) return;   // only catalog metrics flip; the 6 are fixed
-  const next=effDirection(m)==='higher'?'lower':'higher';
-  state.metricCfg=state.metricCfg||{}; state.metricCfg[key]=state.metricCfg[key]||{};
-  if(next===m.direction) delete state.metricCfg[key].direction; else state.metricCfg[key].direction=next;
   pruneMetricCfg(key);
 }
 // Replace the whole metric model (weights/penalty/metricCfg wholesale; metrics via validateMetrics). Cap is untouched.
@@ -2047,13 +2041,12 @@ function setupEvents(){
     $("#wGroup").addEventListener("input",e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); } });
     $("#wGroup").addEventListener("change",async e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); } });
   }
-  // ② per-metric exception handling — delegated on #metricCfgRows (policy select, direction toggle, penalty input)
+  // ② per-metric exception handling — delegated on #metricCfgRows (policy select + penalty input; direction is auto)
   if($("#metricCfgRows")){
     const cfgApply=async persist=>{ renderFundamentals(); if(persist){ renderCalc(); if(state.portfolio)await savePortfolio(); } };
     $("#metricCfgRows").addEventListener("input",e=>{ const pen=e.target.closest('input[data-mpen]'); if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); cfgApply(false); } });
     $("#metricCfgRows").addEventListener("change",e=>{ const sel=e.target.closest('select[data-mpolicy]'), pen=e.target.closest('input[data-mpen]');
       if(sel) setMetricPolicy(sel.dataset.mpolicy, sel.value); else if(pen) setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); else return; cfgApply(true); });
-    $("#metricCfgRows").addEventListener("click",e=>{ const b=e.target.closest('button[data-mdir]'); if(b){ toggleMetricDirection(b.dataset.mdir); cfgApply(true); } });
   }
   if($("#chooseMetricsBtn")) $("#chooseMetricsBtn").addEventListener("click",openMetricPicker);   // E2.3: choose active metrics
   if($("#reset6Btn")) $("#reset6Btn").addEventListener("click",resetToDefault6);                  // E2.5: reset the model
