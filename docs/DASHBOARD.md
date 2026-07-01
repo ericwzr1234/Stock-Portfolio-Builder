@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 2 |
+| Design | 1 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 17 |
@@ -34,12 +34,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.
   - Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown.
 
-## Design  (2)
+## Design  (1)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_
-  - Edit an existing theme's display name and colour.
-  - Updates consistently everywhere — Prices, allocation legend, screener swatch, and history.
 - **E1.6** · _E1 · User-Defined Themes_ — **Delete a theme / delete-all / restore defaults** _(depends E1.4, web)_
   - Delete a single theme, clear all themes, or restore the default 5.
   - Removing a theme turns its held names into exiting positions (sold on the next realign).
@@ -50,10 +47,14 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E1.5** · _E1 · User-Defined Themes_ — **Rename / recolour a theme** _(depends E1.4, web)_ · [spec](features/E1.5_rename-recolour.md)
+  - Edit an existing theme's display name and colour via a ✎ button next to each theme in the Fundamentals allocation legend.
+  - Updates consistently everywhere (Prices, allocation legend/bar, screener chips, holdings, history) because E1.1 routes all reads through themes()/themeByKey().
+  - The theme's KEY never changes on rename — so membership, the curated Screener list, and past version snapshots stay intact; a pure rename changes no allocations (verified maxDiff=0).
+  - Built & verified on dev — awaiting your click-through.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

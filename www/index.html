@@ -962,7 +962,8 @@ function renderFundamentals(){
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
     ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}
-    <button class="addname-btn" data-addto="${r.theme.key}" title="Search a name for ${r.theme.name} (→ watchlist)">＋ name</button></div>`;}).join("");
+    <button class="addname-btn" data-addto="${r.theme.key}" title="Search a name for ${r.theme.name} (→ watchlist)">＋ name</button>
+    <button class="addname-btn" data-editth="${r.theme.key}" title="Rename / recolour ${r.theme.name}">✎</button></div>`;}).join("");
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
@@ -1581,6 +1582,47 @@ function openCreateTheme(){
   const n=$("#ctName"); if(n)n.focus();
 }
 
+/* ---- rename / recolour a theme (E1.5): key stays fixed, so membership/universe/history are unaffected ---- */
+async function renameTheme(key, name, color){
+  name=String(name||"").trim();
+  if(!name){ toast("Give the theme a name"); return false; }
+  const list=themes().map(t=>({key:t.key,name:t.name,color:t.color}));   // materialize defaults -> concrete
+  const t=list.find(x=>x.key===key); if(!t){ toast("Theme not found"); return false; }
+  t.name=name; if(color)t.color=color;                                   // KEY unchanged
+  state.themes=list; rebuildThemeOf();
+  closeModal();
+  await savePortfolio();
+  renderAll();
+  toast("Updated “"+name+"”");
+  return true;
+}
+function openEditTheme(key){
+  const th=themeByKey(key); if(!th){ toast("Theme not found"); return; }
+  const cur=(th.color||"").toLowerCase();
+  const swatches=THEME_PALETTE.map(c=>`<button type="button" class="ct-sw${c.toLowerCase()===cur?' sel':''}" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="etModal"><div class="modal-card card pad">
+      <h2 style="font-size:16px">Edit theme</h2>
+      <p class="small muted">Rename or recolour this theme — it updates everywhere. Its stocks and history are unaffected.</p>
+      <label class="small" style="display:block;margin:10px 0 4px">Name</label>
+      <input type="text" id="etName" autocomplete="off"
+        style="width:100%;padding:9px;border:1px solid #DDD6C6;border-radius:8px;font-size:14px">
+      <label class="small" style="display:block;margin:14px 0 6px">Colour</label>
+      <div class="ct-swatches">${swatches}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn" id="etCancel">Cancel</button>
+        <button class="btn primary" id="etSave">Save</button>
+      </div></div></div>`;
+  let color=th.color;
+  $("#etName").value=th.name;                                            // via property (no HTML-attr injection)
+  $$(".ct-sw").forEach(b=>b.addEventListener("click",()=>{ color=b.dataset.color;
+    $$(".ct-sw").forEach(x=>x.classList.remove("sel")); b.classList.add("sel"); }));
+  $("#etCancel").addEventListener("click",closeModal);
+  $("#etModal").addEventListener("click",e=>{ if(e.target.id==="etModal")closeModal(); });
+  $("#etName").addEventListener("keydown",e=>{ if(e.key==="Enter")renameTheme(key,$("#etName").value,color); });
+  $("#etSave").addEventListener("click",()=>renameTheme(key,$("#etName").value,color));
+  const n=$("#etName"); if(n){ n.focus(); n.select(); }
+}
+
 /* ---- search any ticker and add it to a theme (E1.3) ------------------------------------------
    Inline from the Fundamentals legend (scoped to a theme) and from the Screener (with a theme picker). */
 let _tsTimer=null;
@@ -1763,6 +1805,7 @@ function setupEvents(){
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
   if($("#screenerSearch")) $("#screenerSearch").addEventListener("click",()=>openTickerSearch());   // E1.3: search (Screener)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addto]"); if(b) openTickerSearch(b.dataset.addto); });   // E1.3: '＋ name' in the Fundamentals legend
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-editth]"); if(b) openEditTheme(b.dataset.editth); });   // E1.5: rename / recolour a theme
   $("main").addEventListener("change",e=>{ const sel=e.target.closest("select.wl-add"); if(sel&&sel.value) commitFromWatchlist(sel.dataset.sym, sel.value); });   // E1.3: watchlist -> add to a theme (previews rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-wlsym]"); if(b) removeFromWatchlist(b.dataset.wlsym); });   // E1.3: drop from watchlist
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;

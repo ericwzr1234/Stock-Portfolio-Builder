@@ -106,10 +106,12 @@
       "Funded themes still sum to 100% and the book fully deploys; with the default 5 (all funded) behaviour is byte-identical (verified maxDiff=0).",
       "Integrated to main 2026-06-26." ] },
 
-    { "id": "E1.5", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
+    { "id": "E1.5", "epic": "E1", "stage": "testing", "platform": "web", "depends": "E1.4", "spec": "docs/features/E1.5_rename-recolour.md",
       "title": "Rename / recolour a theme", "notes": [
-      "Edit an existing theme's display name and colour.",
-      "Updates consistently everywhere — Prices, allocation legend, screener swatch, and history." ] },
+      "Edit an existing theme's display name and colour via a ✎ button next to each theme in the Fundamentals allocation legend.",
+      "Updates consistently everywhere (Prices, allocation legend/bar, screener chips, holdings, history) because E1.1 routes all reads through themes()/themeByKey().",
+      "The theme's KEY never changes on rename — so membership, the curated Screener list, and past version snapshots stay intact; a pure rename changes no allocations (verified maxDiff=0).",
+      "Built & verified on dev — awaiting your click-through." ] },
 
     { "id": "E1.6", "epic": "E1", "stage": "design", "platform": "web", "depends": "E1.4",
       "title": "Delete a theme / delete-all / restore defaults", "notes": [
