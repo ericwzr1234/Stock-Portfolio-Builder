@@ -433,6 +433,7 @@ const state = {
   overrides:{},                   // sym -> {peg?,ev?,marketCap?}
   asOf:null,
   themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
+  metrics:null,                   // ordered scoring-metric list (E2.1); null => DEFAULT_METRICS. Persisted as [{key}]; weights/penalty stay in state.weights/state.penalty
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
   themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
@@ -474,6 +475,31 @@ function effMcap(s){ const o=state.overrides[s]; if(o&&isNum(o.marketCap))return
   const f=state.fundamentals[s]; return f&&isNum(f.marketCap)?f.marketCap:null; }
 function price(s){ const q=state.quotes[s]; return q&&isNum(q.price)?q.price:null; }
 function nameOf(s){ return (state.quotes[s]&&state.quotes[s].name)||(state.fundamentals[s]&&state.fundamentals[s].name)||s; }
+
+/* ======================================================================
+   Metrics — DATA-DRIVEN list (E2.1). DEFAULT_METRICS holds the code-side descriptors (closures live here,
+   never serialized). state.metrics (persisted as [{key}]) governs WHICH metrics score the model + their
+   ORDER; the weight/penalty NUMBERS stay in state.weights / state.penalty. Read the live list via metrics().
+   Default = these 6 in this order -> computeAllocation is byte-for-behaviour identical until the list changes.
+   Each descriptor keeps its OWN value getter + score formula, so mcap stays log, momentum stays floored,
+   Debt/FCF stays 1/max(x,0.1), and the ev/dfcf carry-over still fires. (The weight/penalty INPUTS + notes +
+   fundamentals table are still hardcoded to the 6; generating those from metrics() is E2.2.)
+   ====================================================================== */
+const DEFAULT_METRICS = [
+  { key:'peg',  weightKey:'peg',  weightInputId:'#wPeg',  defaultWeight:0.20, getter:effPeg,  valueKind:'themeMetric', penaltyKey:'peg',  allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.peg.value,  useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'peg',       label:'PEG',                header:'PEG' },
+  { key:'ev',   weightKey:'ev',   weightInputId:'#wEv',   defaultWeight:0.20, getter:effEv,   valueKind:'themeMetric', penaltyKey:'ev',   allowZero:false, nullExcludes:true,  carryKey:'ev',   readValue:r=>r.ev.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'ev',        label:'EV/EBITDA',          header:'EV/EB' },
+  { key:'dfcf', weightKey:'dfcf', weightInputId:'#wDfcf', defaultWeight:0.20, getter:effDfcf, valueKind:'themeMetric', penaltyKey:'dfcf', allowZero:true,  nullExcludes:true,  carryKey:'dfcf', readValue:r=>r.dfcf.value, useMedian:true,  score:x=>(isNum(x)&&x>=0)?1/Math.max(x,0.1):0,           overridable:true,  overrideKey:'dfcf',      label:'Debt/FCF',           header:'D/FCF' },
+  { key:'pe',   weightKey:'pe',   weightInputId:'#wPe',   defaultWeight:0.15, getter:effPe,   valueKind:'themeMetric', penaltyKey:'pe',   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.pe.value,   useMedian:true,  score:x=>(isNum(x)&&x>0)?1/x:0,                          overridable:true,  overrideKey:'pe',        label:'P/E',                header:'P/E' },
+  { key:'mcap', weightKey:'mcap', weightInputId:'#wMcap', defaultWeight:0.10, getter:effMcap, valueKind:'avgMcap',     penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mcap,       useMedian:true,  score:x=>(isNum(x)&&x>0)?Math.max(0,Math.log(x/1e9)):0,  overridable:true,  overrideKey:'marketCap', label:'Average market cap', header:'Cap' },
+  { key:'mom',  weightKey:'mom',  weightInputId:'#wMom',  defaultWeight:0.15, getter:momOf,   valueKind:'momentum',    penaltyKey:null,   allowZero:false, nullExcludes:false, carryKey:null,   readValue:r=>r.mom.value,  useMedian:false, score:x=>isNum(x)?Math.max(0,x):0,                       overridable:false, overrideKey:null,        label:'Price momentum',     header:'Mom' },
+];
+function metrics(){ const m=state.metrics; return (Array.isArray(m)&&m.length)?m:DEFAULT_METRICS; }
+function metricByKey(k){ return metrics().find(m=>m.key===k); }
+function validateMetrics(list){   // reattach real descriptors by key; dedupe; drop unknown; [] => null (defaults)
+  const seen=new Set(), out=[];
+  (list||[]).forEach(x=>{ const k=x&&x.key, d=DEFAULT_METRICS.find(m=>m.key===k); if(d&&!seen.has(k)){ seen.add(k); out.push(d); } });
+  return out.length?out:null;
+}
 
 /* ======================================================================
    Strategy: theme cap-weighted metrics -> target weights
@@ -547,60 +573,35 @@ function computeCarryover(){
   return carry;
 }
 
+function aliasWeights(wN){ return {wPeg:wN.peg||0, wEv:wN.ev||0, wDf:wN.dfcf||0, wPe:wN.pe||0, wMc:wN.mcap||0, wMo:wN.mom||0}; }  // E2.1: keep flat aliases so existing readers work
 function computeAllocation(){
-  const W=state.weights;
-  const wp=W.peg||0, we=W.ev||0, wd=W.dfcf||0, wpe=W.pe||0, wm=W.mcap||0, wmo=W.mom||0;
-  const wsum=(wp+we+wd+wpe+wm+wmo)||1;
-  const wPeg=wp/wsum, wEv=we/wsum, wDf=wd/wsum, wPe=wpe/wsum, wMc=wm/wsum, wMo=wmo/wsum;
-  const P=state.penalty;
+  const M=metrics();                                                               // E2.1: the active metric descriptors (default = the 6, fixed order)
+  const wsum = M.reduce((a,m)=>a+(state.weights[m.weightKey]||0),0)||1;
+  const wN={}; M.forEach(m=>{ wN[m.key]=(state.weights[m.weightKey]||0)/wsum; });   // normalized weight per metric key
   const carry=computeCarryover();   // impute genuinely-N/A factors (bank EV/EBITDA & Debt/FCF) from the name's quality
-  const evGet=s=>{ const v=effEv(s);   return isNum(v)?v:((carry[s]&&isNum(carry[s].ev))  ?carry[s].ev  :null); };
-  const dfGet=s=>{ const v=effDfcf(s); return isNum(v)?v:((carry[s]&&isNum(carry[s].dfcf))?carry[s].dfcf:null); };
-  const allRows=themes().map(t=>({theme:t,
-    peg :themeMetric(tickersOf(t.key),effPeg ,P.peg ,false,false),   // null PEG -> penalize
-    ev  :themeMetric(tickersOf(t.key),evGet  ,P.ev  ,false,true),    // negative -> penalize; N/A -> carry-over value (else exclude)
-    dfcf:themeMetric(tickersOf(t.key),dfGet  ,P.dfcf,true ,true),    // 0 = best; negative FCF -> penalize; N/A -> carry-over value
-    pe  :themeMetric(tickersOf(t.key),effPe  ,P.pe  ,false,false),   // null/negative P/E (losses) -> penalize
-    mom :themeMomentum(tickersOf(t.key)) }));
-  allRows.forEach(r=>{ r.mcap=themeAvgMcap(tickersOf(r.theme.key)); });   // avg market cap per theme
-  // E1.4: a theme with no names is "empty" — it scores 0% and is excluded from the model until it has
-  // names, so the funded themes still sum to 100% and the book fully deploys. No-op when all themes are filled.
+  const getFor=m=> m.carryKey ? (s=>{ const v=m.getter(s); return isNum(v)?v:((carry[s]&&isNum(carry[s][m.carryKey]))?carry[s][m.carryKey]:null); }) : m.getter;
+  const allRows=themes().map(t=>{ const tk=tickersOf(t.key), row={theme:t};
+    M.forEach(m=>{ row[m.key] = m.valueKind==='avgMcap'  ? themeAvgMcap(tk)
+                             : m.valueKind==='momentum' ? themeMomentum(tk)
+                             : themeMetric(tk, getFor(m), state.penalty[m.penaltyKey], m.allowZero, m.nullExcludes); });
+    return row; });
+  // E1.4: a theme with no names is "empty" — it scores 0% and is excluded from the model until it has names.
   allRows.forEach(r=>{ if(tickersOf(r.theme.key).length===0){ r.empty=true; r.alloc=0; r.allocRaw=0; } });
   const rows = allRows.filter(r=>!r.empty);   // funded themes only — scored, normalized, capped below
   if(!rows.length){ const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);   // all themes empty: nothing to allocate yet
-    return {rows:allRows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:(state.cap!=null?state.cap:0.3), carry}; }
-  const medPeg=median(rows.map(r=>r.peg.value)), medEv=median(rows.map(r=>r.ev.value)),
-        medDf=median(rows.map(r=>r.dfcf.value)), medPe=median(rows.map(r=>r.pe.value)), medMc=median(rows.map(r=>r.mcap));
-  rows.forEach(r=>{
-    r.pegUsed = isNum(r.peg.value)?r.peg.value:medPeg;
-    r.evUsed  = isNum(r.ev.value) ?r.ev.value :medEv;
-    r.dfcfUsed= isNum(r.dfcf.value)?r.dfcf.value:medDf;
-    r.peUsed  = isNum(r.pe.value) ?r.pe.value :medPe;
-    r.mcapUsed= isNum(r.mcap)     ?r.mcap     :medMc;
-    r.pegScore = isNum(r.pegUsed)&&r.pegUsed>0 ? 1/r.pegUsed : 0;      // cheaper ⇒ higher
-    r.evScore  = isNum(r.evUsed) &&r.evUsed >0 ? 1/r.evUsed  : 0;      // cheaper ⇒ higher
-    r.dfcfScore= isNum(r.dfcfUsed)&&r.dfcfUsed>=0 ? 1/Math.max(r.dfcfUsed,0.1) : 0;  // LOWER ⇒ higher; 0 = debt-free = best
-    r.peScore  = isNum(r.peUsed) &&r.peUsed >0 ? 1/r.peUsed  : 0;      // cheaper ⇒ higher
-    r.mcapScore= isNum(r.mcapUsed)&&r.mcapUsed>0 ? Math.max(0, Math.log(r.mcapUsed/1e9)) : 0;   // BIGGER ⇒ higher (log)
-    r.momScore = isNum(r.mom.value) ? Math.max(0, r.mom.value) : 0;    // HIGHER ⇒ higher; downtrends floored at 0
-  });
-  const sP=rows.reduce((a,r)=>a+r.pegScore,0), sE=rows.reduce((a,r)=>a+r.evScore,0), sD=rows.reduce((a,r)=>a+r.dfcfScore,0),
-        sPe=rows.reduce((a,r)=>a+r.peScore,0), sM=rows.reduce((a,r)=>a+r.mcapScore,0), sMo=rows.reduce((a,r)=>a+r.momScore,0);
-  rows.forEach(r=>{
-    r.pegN = sP>0 ? r.pegScore/sP : 1/rows.length;
-    r.evN  = sE>0 ? r.evScore/sE  : 1/rows.length;
-    r.dfcfN= sD>0 ? r.dfcfScore/sD: 1/rows.length;
-    r.peN  = sPe>0? r.peScore/sPe : 1/rows.length;
-    r.mcapN= sM>0 ? r.mcapScore/sM: 1/rows.length;
-    r.momN = sMo>0? r.momScore/sMo: 1/rows.length;
-    r.alloc = wPeg*r.pegN + wEv*r.evN + wDf*r.dfcfN + wPe*r.peN + wMc*r.mcapN + wMo*r.momN;
-  });
+    return Object.assign({rows:allRows, byKey, cap:(state.cap!=null?state.cap:0.3), carry, wByKey:wN}, aliasWeights(wN)); }
+  const med={}; M.forEach(m=>{ if(m.useMedian) med[m.key]=median(rows.map(r=>m.readValue(r))); });   // theme-level median fill (per metric; not momentum)
+  rows.forEach(r=>M.forEach(m=>{ const raw=m.readValue(r); const used=m.useMedian?(isNum(raw)?raw:med[m.key]):raw;
+    if(m.useMedian) r[m.key+'Used']=used; r[m.key+'Score']=m.score(used); }));                       // each metric keeps its own score formula
+  const S={}; M.forEach(m=>{ S[m.key]=rows.reduce((a,r)=>a+r[m.key+'Score'],0); });
+  rows.forEach(r=>{ M.forEach(m=>{ r[m.key+'N']= S[m.key]>0 ? r[m.key+'Score']/S[m.key] : 1/rows.length; });
+    r.alloc = M.reduce((a,m)=>a+wN[m.key]*r[m.key+'N'],0); });                                        // blend in fixed metric order == the old wPeg*pegN + … sum
   const tot=rows.reduce((a,r)=>a+r.alloc,0)||1;
   rows.forEach(r=>r.alloc/=tot);
-  const capEff = state.cap!=null ? state.cap : clamp(1.5/rows.length, 1/rows.length+1e-9, 1);  // E1.1: N-adaptive default (1.5/N => 0.30 at N=5), kept above the 1/N equal-weight floor
+  const capEff = state.cap!=null ? state.cap : clamp(1.5/rows.length, 1/rows.length+1e-9, 1);  // E1.1: N-adaptive default (1.5/N => 0.30 at N=5)
   applyThemeCap(rows, capEff);   // no theme over the cap; excess spills to the rest, iteratively
   const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);
-  return {rows:allRows, byKey, wPeg, wEv, wDf, wPe, wMc, wMo, cap:capEff, carry};
+  return Object.assign({rows:allRows, byKey, cap:capEff, carry, wByKey:wN}, aliasWeights(wN));
 }
 
 // Iterative weight cap: no theme may exceed `cap`. Excess from over-cap themes is redistributed to the
@@ -647,7 +648,8 @@ function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" $
   `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
 function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
   weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
-  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes), watchlist:deepCopy(state.watchlist) }; }
+  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes), watchlist:deepCopy(state.watchlist),
+  metrics:(state.metrics?state.metrics.map(m=>({key:m.key})):null) }; }
 
 function pushVersion(txn){
   const p=state.portfolio; p.versions=p.versions||[]; if(!isNum(p.head))p.head=p.versions.length-1;
@@ -659,7 +661,7 @@ function pushVersion(txn){
 
 function restoreVersion(i){
   const p=state.portfolio; p.head=i;
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.watchlist=[]; rebuildThemeOf(); return; }   // before the initial build
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.watchlist=[]; state.metrics=null; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
@@ -668,6 +670,7 @@ function restoreVersion(i){
   state.themeTickers = s.themeTickers!=null ? deepCopy(s.themeTickers) : null;
   state.themes = s.themes!=null ? deepCopy(s.themes) : null;
   state.watchlist = Array.isArray(s.watchlist) ? deepCopy(s.watchlist) : (Array.isArray(s.otherList) ? s.otherList.map(x=>({sym:x,theme:null})) : []);
+  state.metrics = (Array.isArray(s.metrics)&&s.metrics.length) ? validateMetrics(s.metrics) : null;   // E2.1: reattach by key; null => defaults
   rebuildThemeOf();
 }
 
@@ -677,7 +680,7 @@ function migrateVersions(p){   // forward-compat for any legacy file that only h
   txns.forEach(t=>{ (t.trades||[]).forEach(tr=>{ const c=h[tr.sym]||{shares:0,costBasis:0};
       c.shares+=tr.shares||0; c.costBasis+=tr.amount||0; h[tr.sym]=c; });
     contrib+=t.cashIn||0; const v=Object.assign({},t); v.id=p.versions.length+1;
-    v.snapshot={holdings:deepCopy(h),totalContributed:contrib,weights:t.weights||deepCopy(state.weights),penalty:deepCopy(state.penalty),overrides:{}};
+    v.snapshot={holdings:deepCopy(h),totalContributed:contrib,weights:t.weights||deepCopy(state.weights),penalty:deepCopy(state.penalty),overrides:{},metrics:null};
     p.versions.push(v); });
   p.head=p.versions.length-1; delete p.transactions;
 }
@@ -838,6 +841,7 @@ async function loadPortfolio(){
     if(p.themes)state.themes=p.themes;
     if(Array.isArray(p.watchlist))state.watchlist=p.watchlist.map(w=>(typeof w==="string"?{sym:w,theme:null}:w));
     else if(Array.isArray(p.otherList))state.watchlist=p.otherList.map(s=>({sym:s,theme:null}));   // migrate old 'Other' list
+    state.metrics = (Array.isArray(p.metrics)&&p.metrics.length) ? validateMetrics(p.metrics) : null;   // E2.1: reattach descriptors by key; null/absent => defaults
     if(!('mom' in state.weights)) state.weights={peg:0.20,ev:0.20,dfcf:0.20,pe:0.15,mcap:0.10,mom:0.15};   // upgrade older saves to the 6-metric default
     if(!isNum(state.penalty.dfcf)) state.penalty.dfcf=50;
     if(!isNum(state.penalty.pe)) state.penalty.pe=200;
@@ -851,6 +855,7 @@ async function savePortfolio(){
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
   state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
+  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
   if(useRemote()){
     try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
     catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }

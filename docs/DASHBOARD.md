@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 4 |
+| Design | 3 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 23 |
@@ -32,14 +32,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.
   - Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown.
 
-## Design  (4)
+## Design  (3)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E2.1** · _E2 · User-Defined Metrics_ — **Data-driven metric list (foundation)** _(web)_ · [spec](features/E2.1_data-driven-metrics.md)
-  - Make the SET of scoring metrics data (DEFAULT_METRICS + state.metrics + a metrics() accessor), not the hardcoded 6 — mirroring E1.1's move for themes.
-  - computeAllocation loops over metrics() instead of the hardcoded PEG/EV/Debt-FCF/PE/mcap/momentum; each descriptor keeps its own score formula (log mcap, momentum floor, Debt/FCF 1/max(x,0.1), carry-over) so the default 6 stay BYTE-IDENTICAL (fixed iteration order = identical float sums).
-  - Weights/penalties stay in state.weights/state.penalty (untouched); state.metrics only governs which keys exist + their order. Persisted as [{key}] + version-snapshotted; old portfolios migrate to the default 6.
-  - ENGINE-ONLY foundation (the weight/penalty inputs, notes, and fundamentals table stay hardcoded until E2.2). Hardened by a 5-agent code audit; spec written, awaiting sign-off.
 - **E2.2** · _E2 · User-Defined Metrics_ — **Metric catalog + compute layer** _(depends E2.1, web)_ · [spec](features/E2_user-defined-metrics.md)
   - A catalog of common metrics grouped by category (valuation, profitability, financial-health, growth, dividend, size, momentum, operational) — the starter list is in the spec.
   - Only metrics AVAILABLE or COMPUTABLE from the data source are offered.
@@ -58,10 +53,15 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E2.1** · _E2 · User-Defined Metrics_ — **Data-driven metric list (foundation)** _(web)_ · [spec](features/E2.1_data-driven-metrics.md)
+  - Make the SET of scoring metrics data (DEFAULT_METRICS + state.metrics + a metrics() accessor), not the hardcoded 6 — mirroring E1.1's move for themes.
+  - computeAllocation loops over metrics() instead of the hardcoded PEG/EV/Debt-FCF/PE/mcap/momentum; each descriptor keeps its own score formula (log mcap, momentum floor, Debt/FCF 1/max(x,0.1), carry-over) so the default 6 stay BYTE-IDENTICAL (fixed iteration order = identical float sums).
+  - Weights/penalties stay in state.weights/state.penalty (untouched); state.metrics only governs which keys exist + their order. Persisted as [{key}] + version-snapshotted; old portfolios migrate to the default 6.
+  - ENGINE-ONLY foundation (the weight/penalty inputs, notes, and fundamentals table stay hardcoded until E2.2).
+  - BUILT + self-verified on dev 2026-07-01: byte-identity maxDiff=0 across 968 comparisons x 8 scenarios (on frozen inputs); generality proof (drop/reorder/single/revert); validateMetrics dedupe+drop-unknown; persistence round-trip; no console errors. Awaiting user click-through + merge to main.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
