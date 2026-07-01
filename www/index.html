@@ -375,11 +375,9 @@
 
   <!-- ============ SCREENER ============ -->
   <section id="view-screener" class="view">
-    <div class="section-title"><h2>Screener — top stocks by theme</h2>
-      <span style="display:flex;gap:8px">
-        <button id="screenerSearch" class="btn sm">🔍 Search any ticker</button>
-        <button id="screenerRefresh" class="btn sm">↻ Refresh live caps</button></span></div>
-    <p class="small muted" style="margin-top:-6px">One running list of <b>recommendations</b> (≈15 per theme — curated for the original themes, keyword + peer-based for custom ones) plus <b>your current holdings</b>, sorted by market cap. <b>Tap any row</b> to add it to a theme, swap it in for a holding, or remove a held name. Use <b>🔍 Search</b> above to find any other ticker.</p>
+    <div class="section-title"><h2>Screener — search &amp; watchlist</h2>
+      <button id="screenerSearch" class="btn sm">🔍 Search any ticker</button></div>
+    <p class="small muted" style="margin-top:-6px">Look up any stock and add it to your <b>watchlist</b> (no theme yet). When you're ready, pick a theme on a watchlisted name — you'll confirm whether to <b>add it as a new name</b> or <b>swap</b> it for a holding, then review the rebalance.</p>
     <div id="watchlist"></div>
     <div id="screenerBody"></div>
     <p class="note">Universe is a curated seed (largest, most clearly-relevant names per theme); order is re-sorted on each refresh by live market cap. Stocks already in your portfolio are tagged <span class="tag live">held</span>.</p>
@@ -1784,9 +1782,6 @@ function setupAutoRefresh(){
 function setupEvents(){
   $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b)switchView(b.dataset.view); });
   $("#refreshBtn").addEventListener("click",()=>refreshPrices(true));
-  $("#screenerRefresh").addEventListener("click",async()=>{ $("#screenerRefresh").disabled=true;
-    try{ await loadScreenerQuotes(); renderScreener(); toast("Screener updated"); }
-    catch(e){ toast("Screener refresh failed"); } finally{ $("#screenerRefresh").disabled=false; } });
   $("main").addEventListener("click",e=>{ const b=e.target.closest("[data-vaction]"); if(!b||b.disabled)return;
     const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(parseInt(b.dataset.idx,10)); else if(a==="sync")openSyncSheet(); });
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-rmvtkr]"); if(!b)return;
