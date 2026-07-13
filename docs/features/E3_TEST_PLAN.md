@@ -70,6 +70,18 @@ A separate multi-dimension review found **16 confirmed items**; all real ones fi
 - The reviewer separately **verified clean**: toggle persistence/versioning, server cache selection, and the E2
   regression path.
 
+## Post-testing fixes (user-found, 2026-07-13)
+User opened **TSM** (a Screener name, not a holding) and saw all metrics blank + tagged `pulled`. Two real bugs found & fixed:
+1. **`openStockDetail` only lazy-loaded statements, not the quote + pulled fundamentals** → for a non-holding, `state.pulled[sym]`
+   was absent, so `rebuildFundamentals()` (which derives from `state.pulled`) never created `state.fundamentals[sym]` and every
+   getter returned nothing. **Fixed:** `openStockDetail` now loads quote + pulled fundamentals + statements on demand, then rebuilds.
+2. **Foreign ADR currency mismatch** (TSM files in **TWD**, market cap in **USD**): computing `mcap ÷ statement` gives wrong
+   valuation ratios. **Fixed:** server forwards `financialCurrency` + trading `currency`; when they differ, the **market-cap-based
+   metrics** (P/E, P/S, P/B, EV/EBITDA, EV/Rev, P/FCF, net-cash) stay **pulled** (Yahoo currency-adjusts them), while the
+   **currency-neutral** ratios (margins, ROE/ROA, current/quick, D/E, Debt/FCF, payout, growth) are still **computed**. The detail
+   header notes "statements in TWD — valuation kept pulled" and a "Figures in TWD" line above the tables. Verified: TSM → 14 computed
+   (neutral) + 13 pulled (7 mcap-based + 6 market/forward), correct real values (gross margin 61.9%, ROE 36.5%); US names unaffected.
+
 ## Notes / artifacts (not product bugs)
 - The harness `STMT_FIELD_MAP` count assertion expected 30; the real (correct) count is **31** — the server test
   confirms server==client==31. Fixed expectation.

@@ -408,6 +408,11 @@ def _fetch_one_fundamental(sym):
             "price": price,
             "name": pr.get("shortName") or pr.get("longName") or sym,
             "source": "live",
+            # E3: currencies — statements are filed in financialCurrency; the quote/mktcap is in the trading currency.
+            # When they differ (foreign ADRs: TSM=TWD, SAP=EUR, BABA=CNY), market-cap-based metrics can't be computed
+            # from statements without an FX rate, so the client keeps those pulled.
+            "financialCurrency": fd.get("financialCurrency"),
+            "currency": pr.get("currency"),
             # ---- E2.2 extended catalog fields (all null-safe via _rv; missing => None, never fabricated) ----
             "forwardPE": _fwdpe,
             "evRev": _rv(ks, "enterpriseToRevenue"),

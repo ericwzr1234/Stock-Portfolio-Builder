@@ -526,7 +526,7 @@ const METRIC_CATALOG = [
   catMetric({key:'evRev',        group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'EV/Revenue',       header:'EV/Rev'}),
   catMetric({key:'ps',           group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'P/S',              header:'P/S'}),
   catMetric({key:'pb',           group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.1,  label:'P/B',              header:'P/B'}),
-  catMetric({key:'pfcf',         group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.5,  label:'P/FCF',            header:'P/FCF', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s), fcf=f.fcf; return (isNum(mc)&&isNum(fcf)&&fcf>0)?mc/fcf:null;}}),
+  catMetric({key:'pfcf',         group:'value',   direction:'lower',  fmt:{kind:'x',dp:1},     scoreFloor:0.5,  label:'P/FCF',            header:'P/FCF', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s), fcf=f.fcf; return (isNum(mc)&&isNum(fcf)&&fcf>0&&!currencyMismatch(s))?mc/fcf:null;}}),   // market-cap based -> skip on a currency mismatch (ADR)
   catMetric({key:'debtToEquity', group:'risk',    direction:'lower',  fmt:{kind:'x',dp:2},     scoreFloor:0.05, allowZero:true, label:'Debt/Equity', header:'D/E', getter:s=>{const f=state.fundamentals[s]; const v=f&&f.debtToEquity; return isNum(v)?v/100:null;}}),   // Yahoo returns a PERCENT; 0 = debt-free = best
   catMetric({key:'payout',       group:'income',  direction:'lower',  fmt:{kind:'pct',dp:0},   scoreFloor:0.02, allowZero:true, label:'Payout ratio', header:'Payout'}),   // 0% payout = retains all earnings = best
   catMetric({key:'beta',         group:'risk',    direction:'lower',  fmt:{kind:'ratio',dp:2}, scoreFloor:0.1,  label:'Beta',             header:'Beta'}),
@@ -542,7 +542,7 @@ const METRIC_CATALOG = [
   catMetric({key:'quickRatio',   group:'risk',    direction:'higher', fmt:{kind:'ratio',dp:2}, label:'Quick ratio',    header:'Quick'}),
   catMetric({key:'revGrowth',    group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Revenue growth',   header:'Rev g'}),
   catMetric({key:'earnGrowth',   group:'growth',  direction:'higher', fmt:{kind:'pct',dp:1}, label:'Earnings growth',  header:'Earn g'}),
-  catMetric({key:'netCashPct',   group:'risk',    direction:'higher', fmt:{kind:'pct',dp:1}, label:'Net cash / mcap',  header:'NetCash', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s); return (isNum(f.cash)&&isNum(f.debt)&&isNum(mc)&&mc>0)?(f.cash-f.debt)/mc:null;}}),
+  catMetric({key:'netCashPct',   group:'risk',    direction:'higher', fmt:{kind:'pct',dp:1}, label:'Net cash / mcap',  header:'NetCash', source:{kind:'derived'}, getter:s=>{const f=state.fundamentals[s]||{}; const mc=effMcap(s); return (isNum(f.cash)&&isNum(f.debt)&&isNum(mc)&&mc>0&&!currencyMismatch(s))?(f.cash-f.debt)/mc:null;}}),   // market-cap based -> skip on a currency mismatch (ADR)
   catMetric({key:'divYield',     group:'income',  direction:'higher', badData:'penalize', fmt:{kind:'pct',dp:2}, label:'Dividend yield', header:'Yield'}),   // non-payers score 0 via penalize (higher-better bad value => worst = 0)
 ];
 const DEFAULT_METRICS = METRIC_CATALOG.filter(m=>m.defaultActive);
@@ -875,7 +875,8 @@ async function nativeFundamentals(syms){
       let pe=rv(sd,"trailingPE"), peCalc=false; if(pe==null){ const ni=rv(ks,"netIncomeToCommon"); if(mc&&isNum(ni)&&ni>0){pe=mc/ni;peCalc=true;} }
       let ev=rv(ks,"enterpriseToEbitda"), evCalc=false; if(ev==null){ const ebitda=rv(fd,"ebitda"); if(mc&&isNum(ebitda)&&ebitda!==0){ev=(mc+td-cash)/ebitda;evCalc=true;} }
       const mom=jsMomentum(price, rv(sd,"fiftyDayAverage"), rv(sd,"twoHundredDayAverage"));
-      out[sym]={peg, ev, evCalc, dfcf, pe, peCalc, mom, marketCap:mc, price, name:pr.shortName||pr.longName||sym, source:"live"};
+      out[sym]={peg, ev, evCalc, dfcf, pe, peCalc, mom, marketCap:mc, price, name:pr.shortName||pr.longName||sym, source:"live",
+        financialCurrency:rv(fd,"financialCurrency"), currency:rv(pr,"currency")};   // E3: currency mismatch (ADR) gate
     }catch(e){ /* leave missing -> median/seed fallback handles it */ }
   }));
   return out;
@@ -970,12 +971,14 @@ function stmtTTM(sym){
     currentLiabilities:bal('currentLiabilities'), inventory:bal('inventory'),
     revGrowth:yoy('revenue'), earnGrowth:yoy('netIncome'), asOfDate:last.date, quarters:n };
 }
+function currencyMismatch(sym){ const pf=state.pulled[sym]||{}; return !!(pf.financialCurrency && pf.currency && pf.financialCurrency!==pf.currency); }   // foreign ADR: statements in a different currency than the market cap
 function computedMetrics(sym){
   const t=stmtTTM(sym); if(!t) return null;
   const mc=effMcap(sym), out={};
+  const mcapOk = isNum(mc) && !currencyMismatch(sym);   // can't mix market cap (trading ccy) with statement figures (financial ccy) without an FX rate -> keep those pulled
   const ev=(isNum(t.totalDebt)&&isNum(t.cash)&&isNum(mc))? mc+t.totalDebt-t.cash : null;
   const put=(k,v)=>{ if(isNum(v)) out[k]=v; };
-  if(isNum(mc)){
+  if(mcapOk){
     const niCommon = isNum(t.netIncomeCommon)?t.netIncomeCommon:t.netIncome;   // prefer net income to common (matches Yahoo trailing P/E)
     put('pe', (isNum(niCommon)&&niCommon>0)? mc/niCommon : null);
     put('ps', (isNum(t.revenue)&&t.revenue>0)? mc/t.revenue : null);
@@ -996,7 +999,8 @@ function computedMetrics(sym){
   put('roa', (isNum(t.netIncome)&&isNum(t.avgAssets)&&t.avgAssets>0)? t.netIncome/t.avgAssets : null);
   put('payout', (isNum(t.dividendsPaid)&&isNum(t.netIncome)&&t.netIncome>0)? clamp(-t.dividendsPaid/t.netIncome,0,5) : null);   // dividendsPaid is a negative outflow
   put('revGrowth', t.revGrowth); put('earnGrowth', t.earnGrowth);
-  put('fcf', t.fcf); put('ebitda', t.ebitda); put('revenue', t.revenue); put('cash', t.cash); put('debt', t.totalDebt);   // raw operands for the derived getters (pfcf/ebitdaMargin/fcfMargin/netCashPct)
+  put('fcf', t.fcf); put('ebitda', t.ebitda); put('revenue', t.revenue);   // operands for the currency-neutral derived margins (ebitdaMargin/fcfMargin) + pfcf
+  if(mcapOk){ put('cash', t.cash); put('debt', t.totalDebt); }   // cash/debt only feed netCashPct (market-cap based) -> skip on a currency mismatch so it doesn't mix currencies
   return {values:out, ttm:t};
 }
 function applyComputedMetrics(){
@@ -1039,8 +1043,10 @@ function fmtStmtCell(field, x){
   return bil(x);   // money in $B
 }
 const DERIVED_OPERANDS={pfcf:['fcf'], ebitdaMargin:['ebitda','revenue'], fcfMargin:['fcf','revenue'], netCashPct:['cash','debt']};
+const STMT_MCAP_METRICS=['pe','ps','pb','ev','evRev','pfcf','netCashPct'];   // depend on market cap -> not computable across a currency mismatch
 function metricSourceOf(sym, m){
   if(STMT_PULLED_METRIC_KEYS.indexOf(m.key)>=0) return 'pulled';
+  if(currencyMismatch(sym) && STMT_MCAP_METRICS.indexOf(m.key)>=0) return 'pulled';   // ADR: market-cap metrics stay pulled
   const src=state.metricSource[sym]||{};
   const ops=DERIVED_OPERANDS[m.key];
   if(ops) return ops.every(k=>src[k]==='computed') ? 'computed' : 'pulled';   // derived: all operands must be computed
@@ -1056,7 +1062,12 @@ async function openStockDetail(sym){
     </div></div>`;
   $("#sdClose").addEventListener("click",closeModal);
   $("#sdModal").addEventListener("click",e=>{ if(e.target.id==="sdModal")closeModal(); });
-  if(!state.statements[sym]){ try{ await loadStatements([sym]); }catch(e){} }
+  // Screener/search names aren't preloaded -> fetch quote + PULLED fundamentals + statements on demand, then rebuild
+  const jobs=[];
+  if(!state.quotes[sym]) jobs.push(dsQuotes([sym]).then(d=>{ if(d&&d.quotes) state.quotes=Object.assign({},state.quotes,d.quotes); }).catch(()=>{}));
+  if(!state.pulled[sym]) jobs.push(dsFundamentals([sym],false).then(f=>{ if(f) state.pulled=Object.assign({},state.pulled,f); }).catch(()=>{}));
+  if(!state.statements[sym]) jobs.push(dsStatements([sym]).then(s=>{ if(s) state.statements=Object.assign({},state.statements,s); }).catch(()=>{}));
+  if(jobs.length){ await Promise.all(jobs); rebuildFundamentals(); }
   const modal=$("#sdModal"); if(!modal || modal.dataset.sdSym!==sym) return;   // a newer detail opened while we awaited -> don't clobber it
   renderStockDetail(sym);
 }
@@ -1064,10 +1075,12 @@ function renderStockDetail(sym){
   const body=$("#sdBody"); if(!body) return;
   const st=state.statements[sym], f=state.fundamentals[sym]||{}, ttm=f._ttm;
   const price=(state.quotes[sym]&&state.quotes[sym].price), mc=effMcap(sym);
+  const pf=state.pulled[sym]||{}, fcur=pf.financialCurrency, tcur=pf.currency, fx=!!(fcur&&tcur&&fcur!==tcur);
+  const fxNote = fx ? ` <span class="tag pulled" title="Statements are filed in ${fcur} but the market cap is in ${tcur}. Market-cap ratios (P/E, EV/EBITDA, P/S, P/B) can't be computed across currencies without an FX rate, so they stay pulled; the margin/growth/return ratios are currency-neutral and still computed.">statements in ${fcur} — valuation kept pulled</span>` : '';
   const head=`<div class="row small" style="gap:14px;flex-wrap:wrap;margin:2px 0 10px">
     <span>Price <b>${isNum(price)?money(price,2):'—'}</b></span><span>Market cap <b>${bil(mc)}</b></span>
     ${ttm?`<span class="muted">TTM to ${ttm.asOfDate}</span>`:''}
-    <span class="muted xs">${state.computeFromStatements?'Metrics computed from statements':'Metrics pulled from Yahoo'}</span></div>`;
+    <span class="muted xs">${state.computeFromStatements?'Metrics computed from statements':'Metrics pulled from Yahoo'}</span>${fxNote}</div>`;
   // computed-metrics panel: every catalog metric with its value + source
   const tag=s=> s==='computed'?'<span class="tag calc" title="computed from the loaded statements">calc</span>'
              : s==='pulled'?'<span class="tag pulled" title="pulled from Yahoo (market / forward-looking, or a statement input was missing)">pulled</span>':'';
@@ -1079,6 +1092,7 @@ function renderStockDetail(sym){
   // statement tables (last 4 quarters + TTM for flows)
   let stmtHtml='';
   if(st&&st.quarters&&st.quarters.length){
+    if(fcur&&fcur!=='USD') stmtHtml+=`<p class="small muted" style="margin:10px 0 -2px">Figures in <b>${fcur}</b> (the currency the company files in); the $ symbol below is nominal.</p>`;
     const qs=st.quarters.slice(-4);   // last 4 quarters, oldest -> newest
     STMT_DISPLAY.forEach(([title,kind,rows])=>{
       const heads=qs.map(q=>`<th class="num">${q.date}</th>`).join("")+(kind==='flow'?'<th class="num">TTM</th>':'');
