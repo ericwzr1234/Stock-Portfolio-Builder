@@ -125,7 +125,7 @@
   .metric-grid .wm-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .metric-grid .wm-in{white-space:nowrap;color:var(--muted);font-size:12px}
   .metric-grid .wm-in input{width:48px;margin-right:3px}
-  .cfg-grid{display:grid;grid-template-columns:minmax(120px,max-content) max-content minmax(150px,1fr) auto;gap:9px 12px;align-items:center;margin-top:9px}
+  .cfg-grid{display:grid;grid-template-columns:minmax(120px,max-content) minmax(150px,1fr) auto;gap:9px 12px;align-items:center;margin-top:9px}
   .cfg-row{display:contents}
   .cfg-row .cfg-name{white-space:nowrap}
   .cfg-grid select{max-width:100%}
@@ -142,7 +142,7 @@
   .hint{background:#FBF6E9;border:1px solid #ECE0C2;color:#6f5a2a;border-radius:9px;padding:9px 12px;font-size:12.5px}
   .note{font-size:11.5px;color:var(--muted);margin-top:6px}
 
-  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:880px){.grid2{grid-template-columns:1fr}.band{grid-template-columns:repeat(2,1fr)}}
 
   .field{display:flex;flex-direction:column;gap:4px}
@@ -1282,15 +1282,15 @@ function policyOptions(m){
   return opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join("");
 }
 function metricCfgRowHTML(m){
-  const dir=m.direction==='higher'?'↑ higher better':'↓ lower better';
+  const arrow=m.direction==='higher'?'↑':'↓';   // inline direction cue (works on touch/keyboard, unlike a hover tooltip)
+  const dirTip=m.direction==='higher'?'↑ Higher is better (set automatically)':'↓ Lower is better (set automatically)';
   const showPen = effBadData(m)==='penalize' && m.direction==='lower';   // an editable artificial value only makes sense lower-better; higher-better bad values are treated as worst (0)
   const penVal = isNum(effPenalty(m))?effPenalty(m):'';
   const penCtl = showPen
-    ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading">value&nbsp;<input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px"></label>`
+    ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading"><input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px" aria-label="${m.label} penalty value"></label>`
     : '';
   return `<div class="cfg-row" data-mrow="${m.key}">
-    <span class="cfg-name">${m.label}</span>
-    <span class="muted xs" title="Scoring direction is set automatically for this metric">${dir}</span>
+    <span class="cfg-name" title="${dirTip}"><span class="muted xs">${arrow}</span> ${m.label}</span>
     <select data-mpolicy="${m.key}">${policyOptions(m)}</select>
     <span class="cfg-val">${penCtl}</span></div>`;
 }
@@ -1311,7 +1311,7 @@ function renderFundamentals(){
   // ② per-metric exception-handling rows (rebuilt unless a penalty input is being typed into — a focused <select> still rebuilds)
   const cfgRows=$("#metricCfgRows"), _ae=document.activeElement;
   if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]')))
-    cfgRows.innerHTML='<div class="cfg-row cfg-head"><span>Metric</span><span>Direction</span><span>When negative / missing</span><span>Value</span></div>'+MM.map(metricCfgRowHTML).join("");
+    cfgRows.innerHTML='<div class="cfg-row cfg-head"><span>Metric</span><span>When negative / missing</span><span>Value</span></div>'+MM.map(metricCfgRowHTML).join("");
   if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
   if(typeof renderPresetSelect==='function') renderPresetSelect();
   if($("#computeStmtToggle")) $("#computeStmtToggle").checked = state.computeFromStatements!==false;
