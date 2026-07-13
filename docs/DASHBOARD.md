@@ -2,19 +2,19 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 0 |
-| Design | 0 |
+| Design | 1 |
 | Implementation | 0 |
-| Testing | 6 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 28 |
+| Done | 34 |
 
 ---
 
@@ -23,39 +23,24 @@ _A half-baked idea; can be pushed further down once fleshed out._
 
 - _(none)_
 
-## Design  (0)
+## Design  (1)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- _(none)_
+- **APP1** · _APP · iOS app parity_ — **Bring the iOS app to parity with web (E1–E4.5)** _(ios)_ · [spec](APP_MIGRATION.md)
+  - One codebase (www/index.html) wrapped by Capacitor. Most web work reaches iOS just by running `npx cap sync ios` + rebuilding in Xcode — all UI (E1 themes, E4/E4.5 layout, E2/E3 panels, stock-detail) needs NO native code.
+  - CRITICAL native gap: nativeFundamentals() (www/index.html ~L884) returns only the 6 original factors; it does NOT mirror the ~21 E2 extended pulled fields server.py returns (forwardPE, evRev, ps, pb, grossMargin/opMargin/netMargin, roe, roa, debtToEquity[%], currentRatio, quickRatio, revGrowth, earnGrowth, divYield, payout, beta + raw fcf/ebitda/revenue/cash/debt). Without this, E2 catalog metrics and the pulled/market metrics are blank on-device.
+  - Already native: nativeStatements() mirrors server _STMT_FIELDS (E3), plus nativeQuotes/nativeSearch/dsPeers. Verify on-device: E3 compute-from-statements toggle, ADR currency handling, and the stock-detail page.
+  - Then `npm install` (Node 20) -> `npx cap sync ios` -> open in Xcode -> run; on-device regression of E1–E4.5 + calculator + history + Wi-Fi sync. Full checklist in docs/APP_MIGRATION.md.
 
 ## Implementation  (0)
 _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (6)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E3.1** · _E3 · Statement-Driven Data_ — **Statement fetch + cache (server)** _(web)_ · [spec](features/E3.1_statement-data-layer.md)
-  - /api/statements route (+ prefetch) over Yahoo's fundamentals-timeseries endpoint (the old v10 quoteSummary statement modules are DEAD — validated). Same cookie+crumb.
-  - Fetch ~8 quarters of the 3 statements; normalize to {sym, quarters:[{date, <lineItems>}], asOf}; cache per symbol with a long quarterly TTL + seed fallback. Foundation card.
-  - Data source + line-item availability validated live 2026-07-13 (AAPL 30/31 keys, NVDA 31/31; banks legitimately lack gross profit / current assets).
-- **E3.2** · _E3 · Statement-Driven Data_ — **Computed-metric engine (client)** _(depends E3.1, web)_ · [spec](features/E3.2_computed-metric-engine.md)
-  - Assemble TTM (sum-4Q flows, latest-Q balance) from the loaded statements; compute each E2 catalog metric via a documented formula -> the SAME state.fundamentals[sym].<field> the getters read.
-  - Forward/market metrics stay pulled (marketCap, price, momentum, forwardPE, peg, beta, divYield). Graceful fallback to the pulled field when a statement input is missing (banks). Per-field source tag.
-  - Formulas validated vs Yahoo pre-computed (P/E, EV/EBITDA, margins, P/S, P/B, current ratio, D/E match <=3%; ROE/ROA/quick differ by methodology — transparent single definition is the point).
-- **E3.3** · _E3 · Statement-Driven Data_ — **Stock-detail page (UI)** _(depends E3.2, web)_ · [spec](features/E3.3_stock-detail-page.md)
-  - Click a ticker (Prices / Screener / fundamentals table) -> a detail view: the 3 statements x last 4 quarters (+ a TTM column) + a computed-metrics panel (each metric: value + formula + source).
-  - Forward-looking fields labelled 'pulled, not computed'. Reuse the app's modal/view patterns.
-- **E3.4** · _E3 · Statement-Driven Data_ — **Integration + source labeling + toggle** _(depends E3.2, web)_ · [spec](features/E3.4_source-integration.md)
-  - Model consumes computed metrics as PRIMARY; a 'compute from statements' toggle (default on) with fallback to pulled; per-metric source tags in the fundamentals table; a compare (computed vs pulled) surface.
-  - New source => the default allocation shifts vs the pulled path (intended).
-- **E3.5** · _E3 · Statement-Driven Data_ — **Performance + iOS parity** _(depends E3.1, web)_ · [spec](features/E3.5_performance-ios.md)
-  - Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps.
-- **E4.5** · _E4 · Fundamentals & Screener workflow_ — **Allocation-model panel layout** _(web)_ · [spec](features/E4.5_allocation-panel-layout.md)
-  - Reorganize the Fundamentals cards: LEFT card = model inputs only (① Metrics, ② Exception handling, ③ Max weight per theme) + the 'How the math works' notes at the bottom.
-  - RIGHT card = the drift table, then the allocation bar + legend + New theme/Restore + preset row + compute-from-statements toggle/Compare/coverage note moved below it.
-  - ① Metrics -> 2-column aligned grid (name + weight box; formula in a tooltip, inline hints dropped); ② Exception handling -> aligned grid with a header row (Metric / Direction / When negative-missing / Value). BUILT on dev, held for user testing.
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -67,7 +52,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (28)
+## Done  (34)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -106,11 +91,21 @@ _Integrated into the product (on main)._
 - **E2.5** — Metric presets / reset to default 6 · [spec](features/E2.5_presets-reset.md)
 
 </details>
-<details><summary><b>E4 · Fundamentals & Screener workflow</b> — 4 done</summary>
+<details><summary><b>E3 · Statement-Driven Data</b> — 5 done</summary>
+
+- **E3.1** — Statement fetch + cache (server) · [spec](features/E3.1_statement-data-layer.md)
+- **E3.2** — Computed-metric engine (client) · [spec](features/E3.2_computed-metric-engine.md)
+- **E3.3** — Stock-detail page (UI) · [spec](features/E3.3_stock-detail-page.md)
+- **E3.4** — Integration + source labeling + toggle · [spec](features/E3.4_source-integration.md)
+- **E3.5** — Performance + iOS parity · [spec](features/E3.5_performance-ios.md)
+
+</details>
+<details><summary><b>E4 · Fundamentals & Screener workflow</b> — 5 done</summary>
 
 - **E4.1** — Declutter the allocation-model panel
 - **E4.2** — Per-theme actions in each theme's section
 - **E4.3** — Split add flow — Fundamentals adds directly, Screener watchlists
 - **E4.4** — Screener = search + watchlist; add-vs-swap confirmation
+- **E4.5** — Allocation-model panel layout · [spec](features/E4.5_allocation-panel-layout.md)
 
 </details>

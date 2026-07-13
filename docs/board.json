@@ -16,7 +16,8 @@
     { "key": "E1",   "name": "E1 · User-Defined Themes",   "color": "#3A6EA5" },
     { "key": "E2",   "name": "E2 · User-Defined Metrics",  "color": "#A4683C" },
     { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" },
-    { "key": "E4",   "name": "E4 · Fundamentals & Screener workflow", "color": "#4D7C6F" }
+    { "key": "E4",   "name": "E4 · Fundamentals & Screener workflow", "color": "#4D7C6F" },
+    { "key": "APP",  "name": "APP · iOS app parity",       "color": "#B0403A" }
   ],
   "items": [
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
@@ -172,31 +173,33 @@
       "↺ Reset to default 6 (cap NOT reset) + named preset library (save/load/delete). applyConfig replaces weights/penalty/metricCfg wholesale; presets persisted but EXCLUDED from version snapshots.",
       "Integrated to main 2026-07-01." ] },
 
-    { "id": "E3.1", "epic": "E3", "stage": "testing", "platform": "web", "spec": "docs/features/E3.1_statement-data-layer.md",
+    { "id": "E3.1", "epic": "E3", "stage": "done", "platform": "web", "spec": "docs/features/E3.1_statement-data-layer.md",
       "title": "Statement fetch + cache (server)", "notes": [
       "/api/statements route (+ prefetch) over Yahoo's fundamentals-timeseries endpoint (the old v10 quoteSummary statement modules are DEAD — validated). Same cookie+crumb.",
       "Fetch ~8 quarters of the 3 statements; normalize to {sym, quarters:[{date, <lineItems>}], asOf}; cache per symbol with a long quarterly TTL + seed fallback. Foundation card.",
       "Data source + line-item availability validated live 2026-07-13 (AAPL 30/31 keys, NVDA 31/31; banks legitimately lack gross profit / current assets)." ] },
 
-    { "id": "E3.2", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.2_computed-metric-engine.md",
+    { "id": "E3.2", "epic": "E3", "stage": "done", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.2_computed-metric-engine.md",
       "title": "Computed-metric engine (client)", "notes": [
       "Assemble TTM (sum-4Q flows, latest-Q balance) from the loaded statements; compute each E2 catalog metric via a documented formula -> the SAME state.fundamentals[sym].<field> the getters read.",
       "Forward/market metrics stay pulled (marketCap, price, momentum, forwardPE, peg, beta, divYield). Graceful fallback to the pulled field when a statement input is missing (banks). Per-field source tag.",
       "Formulas validated vs Yahoo pre-computed (P/E, EV/EBITDA, margins, P/S, P/B, current ratio, D/E match <=3%; ROE/ROA/quick differ by methodology — transparent single definition is the point)." ] },
 
-    { "id": "E3.3", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.3_stock-detail-page.md",
+    { "id": "E3.3", "epic": "E3", "stage": "done", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.3_stock-detail-page.md",
       "title": "Stock-detail page (UI)", "notes": [
       "Click a ticker (Prices / Screener / fundamentals table) -> a detail view: the 3 statements x last 4 quarters (+ a TTM column) + a computed-metrics panel (each metric: value + formula + source).",
       "Forward-looking fields labelled 'pulled, not computed'. Reuse the app's modal/view patterns." ] },
 
-    { "id": "E3.4", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.4_source-integration.md",
+    { "id": "E3.4", "epic": "E3", "stage": "done", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.4_source-integration.md",
       "title": "Integration + source labeling + toggle", "notes": [
       "Model consumes computed metrics as PRIMARY; a 'compute from statements' toggle (default on) with fallback to pulled; per-metric source tags in the fundamentals table; a compare (computed vs pulled) surface.",
       "New source => the default allocation shifts vs the pulled path (intended)." ] },
 
-    { "id": "E3.5", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.5_performance-ios.md",
+    { "id": "E3.5", "epic": "E3", "stage": "done", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.5_performance-ios.md",
       "title": "Performance + iOS parity", "notes": [
-      "Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps." ] },
+      "Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps.",
+      "iOS note: nativeStatements() mirrors the server for E3, BUT nativeFundamentals() still lacks the E2 extended pulled fields — see the APP1 card + docs/APP_MIGRATION.md.",
+      "E3.1–E3.5 integrated to main (prod) 2026-07-13." ] },
 
     { "id": "E4.1", "epic": "E4", "stage": "done", "platform": "web",
       "title": "Declutter the allocation-model panel", "notes": [
@@ -224,10 +227,18 @@
       "Keeps the tap-to-swap capability, integrated into the watchlist commit.",
       "Revises E1.9 (the flat recommendation Screener)." ] },
 
-    { "id": "E4.5", "epic": "E4", "stage": "testing", "platform": "web", "spec": "docs/features/E4.5_allocation-panel-layout.md",
+    { "id": "E4.5", "epic": "E4", "stage": "done", "platform": "web", "spec": "docs/features/E4.5_allocation-panel-layout.md",
       "title": "Allocation-model panel layout", "notes": [
-      "Reorganize the Fundamentals cards: LEFT card = model inputs only (① Metrics, ② Exception handling, ③ Max weight per theme) + the 'How the math works' notes at the bottom.",
-      "RIGHT card = the drift table, then the allocation bar + legend + New theme/Restore + preset row + compute-from-statements toggle/Compare/coverage note moved below it.",
-      "① Metrics -> 2-column aligned grid (name + weight box; formula in a tooltip, inline hints dropped); ② Exception handling -> aligned grid with a header row (Metric / Direction / When negative-missing / Value). BUILT on dev, held for user testing." ] }
+      "Split the two Fundamentals cards, equal width: LEFT = 'Target vs current weight' (drift table + allocation bar + legend + New theme/Restore + preset row + compute-from-statements toggle/Compare).",
+      "RIGHT = 'Theme allocation model' inputs only: ① Metrics as an aligned name+weight grid, ② Exception handling as an aligned grid, ③ Max weight per theme, then the 'How the math works' notes at the bottom.",
+      "② Exception handling dropped its Direction column to save width — direction is now a muted inline arrow on the metric name (full text in a hover tooltip); dropped the redundant 'value' label (header already says Value); penalty input got an aria-label.",
+      "Two adversarial reviews folded in (font-size parity; touch/keyboard accessibility). Integrated to main (prod) 2026-07-13." ] },
+
+    { "id": "APP1", "epic": "APP", "stage": "design", "platform": "ios", "spec": "docs/APP_MIGRATION.md",
+      "title": "Bring the iOS app to parity with web (E1–E4.5)", "notes": [
+      "One codebase (www/index.html) wrapped by Capacitor. Most web work reaches iOS just by running `npx cap sync ios` + rebuilding in Xcode — all UI (E1 themes, E4/E4.5 layout, E2/E3 panels, stock-detail) needs NO native code.",
+      "CRITICAL native gap: nativeFundamentals() (www/index.html ~L884) returns only the 6 original factors; it does NOT mirror the ~21 E2 extended pulled fields server.py returns (forwardPE, evRev, ps, pb, grossMargin/opMargin/netMargin, roe, roa, debtToEquity[%], currentRatio, quickRatio, revGrowth, earnGrowth, divYield, payout, beta + raw fcf/ebitda/revenue/cash/debt). Without this, E2 catalog metrics and the pulled/market metrics are blank on-device.",
+      "Already native: nativeStatements() mirrors server _STMT_FIELDS (E3), plus nativeQuotes/nativeSearch/dsPeers. Verify on-device: E3 compute-from-statements toggle, ADR currency handling, and the stock-detail page.",
+      "Then `npm install` (Node 20) -> `npx cap sync ios` -> open in Xcode -> run; on-device regression of E1–E4.5 + calculator + history + Wi-Fi sync. Full checklist in docs/APP_MIGRATION.md." ] }
   ]
 }
