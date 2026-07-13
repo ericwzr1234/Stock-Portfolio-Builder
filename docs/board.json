@@ -222,6 +222,12 @@
       "Remove the pooled recommendations list from the Screener (unwanted). Screener = a search box + the watchlist.",
       "Flow: 1) look up a stock → add to watchlist (no theme); 2) when decided, choose 'add to theme' → a confirmation to either (a) add the ticker to the portfolio or (b) swap it for an existing holding; 3) on confirm, run the rebalance.",
       "Keeps the tap-to-swap capability, integrated into the watchlist commit.",
-      "Revises E1.9 (the flat recommendation Screener)." ] }
+      "Revises E1.9 (the flat recommendation Screener)." ] },
+
+    { "id": "E4.5", "epic": "E4", "stage": "testing", "platform": "web", "spec": "docs/features/E4.5_allocation-panel-layout.md",
+      "title": "Allocation-model panel layout", "notes": [
+      "Reorganize the Fundamentals cards: LEFT card = model inputs only (① Metrics, ② Exception handling, ③ Max weight per theme) + the 'How the math works' notes at the bottom.",
+      "RIGHT card = the drift table, then the allocation bar + legend + New theme/Restore + preset row + compute-from-statements toggle/Compare/coverage note moved below it.",
+      "① Metrics -> 2-column aligned grid (name + weight box; formula in a tooltip, inline hints dropped); ② Exception handling -> aligned grid with a header row (Metric / Direction / When negative-missing / Value). BUILT on dev, held for user testing." ] }
   ]
 }

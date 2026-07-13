@@ -118,6 +118,25 @@
   .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px}
   .legend .it{display:flex;align-items:center;gap:6px;font-size:12px}
 
+  /* E4.5: aligned metric (①) + exception-handling (②) grids */
+  .metric-block{margin-top:14px}
+  .mb-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .metric-grid{display:grid;grid-template-columns:minmax(96px,1fr) auto minmax(96px,1fr) auto;gap:8px 18px;align-items:center;margin-top:9px}
+  .metric-grid .wm-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .metric-grid .wm-in{white-space:nowrap;color:var(--muted);font-size:12px}
+  .metric-grid .wm-in input{width:48px;margin-right:3px}
+  .cfg-grid{display:grid;grid-template-columns:minmax(120px,max-content) max-content minmax(150px,1fr) auto;gap:9px 12px;align-items:center;margin-top:9px}
+  .cfg-row{display:contents}
+  .cfg-row .cfg-name{white-space:nowrap}
+  .cfg-grid select{max-width:100%}
+  .cfg-head span{font-weight:600;border-bottom:1px solid var(--line2);padding-bottom:3px}
+  @media(max-width:640px){
+    .metric-grid{grid-template-columns:1fr auto}
+    .cfg-grid{display:block}
+    .cfg-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:7px 0}
+    .cfg-head{display:none}
+  }
+
   .section-title{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
   .section-title h2{font-size:16px}
   .hint{background:#FBF6E9;border:1px solid #ECE0C2;color:#6f5a2a;border-radius:9px;padding:9px 12px;font-size:12.5px}
@@ -319,25 +338,14 @@
   <section id="view-fundamentals" class="view">
     <div class="grid2" style="margin-bottom:18px">
       <div class="card pad">
-        <div class="section-title"><h2>Theme allocation model</h2>
-          <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
-        <div class="row small" id="wGroup" style="gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap">
-          <span class="muted"><b>① Metrics</b> — assign weights →</span>
-          <span id="wInputs" style="display:contents"></span>
-          <button id="chooseMetricsBtn" class="btn sm" title="Add or remove scoring metrics from the catalog">✎ Choose metrics</button>
-          <span class="muted xs" id="wEffNote"></span>
-        </div>
-        <div class="small" id="metricCfgWrap" style="margin-top:12px">
-          <span class="muted"><b>② Exception handling</b> — how to treat each metric when a value is negative or missing:</span>
-          <div id="metricCfgRows" style="margin-top:6px"></div>
-        </div>
-        <div class="row small" style="gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap">
-          <span class="muted"><b>③ Maximum weight per theme</b> →</span>
-          <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
-        </div>
-        <div class="allocbar" id="allocBar" style="margin-top:16px"></div>
+        <h2 style="font-size:16px">Target vs current weight</h2>
+        <p class="small muted" style="margin-top:2px">Where your money is vs where the model wants it.</p>
+        <table id="driftTable"><thead><tr><th>Theme</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
+          <tbody></tbody></table>
+        <p class="note">Current weights need an initialized portfolio (Calculator tab).</p>
+        <div class="allocbar" id="allocBar" style="margin-top:18px"></div>
         <div class="legend" id="allocLegend"></div>
-        <div class="row" style="margin-top:12px;align-items:center;gap:8px">
+        <div class="row" style="margin-top:12px;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="btn sm" id="newThemeBtn">➕ New theme</button>
           <button class="btn sm" id="restoreThemesBtn">↺ Restore default 5</button>
         </div>
@@ -353,16 +361,27 @@
           <button class="btn sm" id="srcCompareBtn" title="Compare each computed metric with Yahoo's pulled value">Compare sources</button>
           <span class="muted xs" id="stmtCoverageNote"></span>
         </div>
-        <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
-          <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
-        </details>
       </div>
       <div class="card pad">
-        <h2 style="font-size:16px">Target vs current weight</h2>
-        <p class="small muted" style="margin-top:2px">Where your money is vs where the model wants it.</p>
-        <table id="driftTable"><thead><tr><th>Theme</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
-          <tbody></tbody></table>
-        <p class="note">Current weights need an initialized portfolio (Calculator tab).</p>
+        <div class="section-title"><h2>Theme allocation model</h2>
+          <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
+        <div id="wGroup" class="metric-block small">
+          <div class="mb-head"><span class="muted"><b>① Metrics</b> — assign weights</span>
+            <button id="chooseMetricsBtn" class="btn sm" title="Add or remove scoring metrics from the catalog">✎ Choose metrics</button>
+            <span class="muted xs" id="wEffNote"></span></div>
+          <div id="wInputs" class="metric-grid"></div>
+        </div>
+        <div class="metric-block small" id="metricCfgWrap">
+          <div class="mb-head"><span class="muted"><b>② Exception handling</b> — how to treat a metric when a value is negative or missing</span></div>
+          <div id="metricCfgRows" class="cfg-grid"></div>
+        </div>
+        <div class="row small metric-block" style="gap:12px;align-items:center;flex-wrap:wrap">
+          <span class="muted"><b>③ Maximum weight per theme</b> →</span>
+          <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
+        </div>
+        <details class="exp" style="margin-top:14px"><summary>How the math works &amp; data-quality notes</summary>
+          <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
+        </details>
       </div>
     </div>
     <div class="theme-grid" id="fundGrid"></div>
@@ -1263,15 +1282,17 @@ function policyOptions(m){
   return opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join("");
 }
 function metricCfgRowHTML(m){
-  const dirBadge=`<span class="muted xs" title="Scoring direction is set automatically for this metric">${m.direction==='higher'?'↑ higher better':'↓ lower better'}</span>`;
+  const dir=m.direction==='higher'?'↑ higher better':'↓ lower better';
   const showPen = effBadData(m)==='penalize' && m.direction==='lower';   // an editable artificial value only makes sense lower-better; higher-better bad values are treated as worst (0)
   const penVal = isNum(effPenalty(m))?effPenalty(m):'';
   const penCtl = showPen
     ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading">value&nbsp;<input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px"></label>`
     : '';
-  return `<div class="row small" data-mrow="${m.key}" style="gap:8px;align-items:center;margin:2px 0">
-    <span style="min-width:150px">${m.label}</span>${dirBadge}
-    <select data-mpolicy="${m.key}" style="max-width:200px">${policyOptions(m)}</select>${penCtl}</div>`;
+  return `<div class="cfg-row" data-mrow="${m.key}">
+    <span class="cfg-name">${m.label}</span>
+    <span class="muted xs" title="Scoring direction is set automatically for this metric">${dir}</span>
+    <select data-mpolicy="${m.key}">${policyOptions(m)}</select>
+    <span class="cfg-val">${penCtl}</span></div>`;
 }
 function renderFundamentals(){
   const W=state.weights, MM=metrics();
@@ -1280,8 +1301,7 @@ function renderFundamentals(){
   const wIn=$("#wInputs");
   if(wIn){ const sig=MM.map(m=>m.key).join(',');
     if(wIn.dataset.sig!==sig){
-      wIn.innerHTML=MM.map(m=>{ const hint=m.formulaHint?` <span class="muted xs">(${m.formulaHint})</span>`:'';
-        return `<label data-mkey="${m.key}">${m.label}${hint}&nbsp;<input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5" style="width:48px"> %</label>`; }).join("");
+      wIn.innerHTML=MM.map(m=>`<span class="wm-name" data-mkey="${m.key}" title="${m.formulaHint?m.label+' — '+m.formulaHint:m.label}">${m.label}</span><span class="wm-in"><input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5"> %</span>`).join("");
       wIn.dataset.sig=sig;
     } else MM.forEach(m=>{ const inp=wIn.querySelector('input[data-wkey="'+m.key+'"]'); if(inp&&document.activeElement!==inp)inp.value=wVal(m); });
   }
@@ -1290,7 +1310,8 @@ function renderFundamentals(){
   if($("#wEffNote"))$("#wEffNote").textContent="→ "+MM.map(_pp).join("/")+"%";
   // ② per-metric exception-handling rows (rebuilt unless a penalty input is being typed into — a focused <select> still rebuilds)
   const cfgRows=$("#metricCfgRows"), _ae=document.activeElement;
-  if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]'))) cfgRows.innerHTML=MM.map(metricCfgRowHTML).join("");
+  if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]')))
+    cfgRows.innerHTML='<div class="cfg-row cfg-head"><span>Metric</span><span>Direction</span><span>When negative / missing</span><span>Value</span></div>'+MM.map(metricCfgRowHTML).join("");
   if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
   if(typeof renderPresetSelect==='function') renderPresetSelect();
   if($("#computeStmtToggle")) $("#computeStmtToggle").checked = state.computeFromStatements!==false;

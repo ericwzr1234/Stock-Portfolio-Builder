@@ -11,7 +11,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 0 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 5 |
+| Testing | 6 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 28 |
@@ -33,7 +33,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (5)
+## Testing  (6)
 _Built; waiting for you to try it._
 
 - **E3.1** · _E3 · Statement-Driven Data_ — **Statement fetch + cache (server)** _(web)_ · [spec](features/E3.1_statement-data-layer.md)
@@ -52,6 +52,10 @@ _Built; waiting for you to try it._
   - New source => the default allocation shifts vs the pulled path (intended).
 - **E3.5** · _E3 · Statement-Driven Data_ — **Performance + iOS parity** _(depends E3.1, web)_ · [spec](features/E3.5_performance-ios.md)
   - Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps.
+- **E4.5** · _E4 · Fundamentals & Screener workflow_ — **Allocation-model panel layout** _(web)_ · [spec](features/E4.5_allocation-panel-layout.md)
+  - Reorganize the Fundamentals cards: LEFT card = model inputs only (① Metrics, ② Exception handling, ③ Max weight per theme) + the 'How the math works' notes at the bottom.
+  - RIGHT card = the drift table, then the allocation bar + legend + New theme/Restore + preset row + compute-from-statements toggle/Compare/coverage note moved below it.
+  - ① Metrics -> 2-column aligned grid (name + weight box; formula in a tooltip, inline hints dropped); ② Exception handling -> aligned grid with a header row (Metric / Direction / When negative-missing / Value). BUILT on dev, held for user testing.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
