@@ -8,25 +8,20 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 1 |
+| Ideation | 0 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 5 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 28 |
 
 ---
 
-## Ideation  (1)
+## Ideation  (0)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E3.1** · _E3 · Statement-Driven Data_ — **Statement-driven data: load TTM statements, compute metrics, stock detail page** _(web)_ · [spec](features/E3_statement-driven-data.md)
-  - Fundamentally change the data source: instead of pulling Yahoo's pre-calculated metrics, LOAD the 3 financial statements (income, balance sheet, cash flow) over the last 4 quarters (TTM) for portfolio + screener names.
-  - A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.
-  - Metrics become CALCULATED from the statements, not read straight from Yahoo (we already do this as a fallback — E3 makes it primary).
-  - Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.
-  - Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown.
+- _(none)_
 
 ## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
@@ -38,10 +33,25 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (5)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E3.1** · _E3 · Statement-Driven Data_ — **Statement fetch + cache (server)** _(web)_ · [spec](features/E3.1_statement-data-layer.md)
+  - /api/statements route (+ prefetch) over Yahoo's fundamentals-timeseries endpoint (the old v10 quoteSummary statement modules are DEAD — validated). Same cookie+crumb.
+  - Fetch ~8 quarters of the 3 statements; normalize to {sym, quarters:[{date, <lineItems>}], asOf}; cache per symbol with a long quarterly TTL + seed fallback. Foundation card.
+  - Data source + line-item availability validated live 2026-07-13 (AAPL 30/31 keys, NVDA 31/31; banks legitimately lack gross profit / current assets).
+- **E3.2** · _E3 · Statement-Driven Data_ — **Computed-metric engine (client)** _(depends E3.1, web)_ · [spec](features/E3.2_computed-metric-engine.md)
+  - Assemble TTM (sum-4Q flows, latest-Q balance) from the loaded statements; compute each E2 catalog metric via a documented formula -> the SAME state.fundamentals[sym].<field> the getters read.
+  - Forward/market metrics stay pulled (marketCap, price, momentum, forwardPE, peg, beta, divYield). Graceful fallback to the pulled field when a statement input is missing (banks). Per-field source tag.
+  - Formulas validated vs Yahoo pre-computed (P/E, EV/EBITDA, margins, P/S, P/B, current ratio, D/E match <=3%; ROE/ROA/quick differ by methodology — transparent single definition is the point).
+- **E3.3** · _E3 · Statement-Driven Data_ — **Stock-detail page (UI)** _(depends E3.2, web)_ · [spec](features/E3.3_stock-detail-page.md)
+  - Click a ticker (Prices / Screener / fundamentals table) -> a detail view: the 3 statements x last 4 quarters (+ a TTM column) + a computed-metrics panel (each metric: value + formula + source).
+  - Forward-looking fields labelled 'pulled, not computed'. Reuse the app's modal/view patterns.
+- **E3.4** · _E3 · Statement-Driven Data_ — **Integration + source labeling + toggle** _(depends E3.2, web)_ · [spec](features/E3.4_source-integration.md)
+  - Model consumes computed metrics as PRIMARY; a 'compute from statements' toggle (default on) with fallback to pulled; per-metric source tags in the fundamentals table; a compare (computed vs pulled) surface.
+  - New source => the default allocation shifts vs the pulled path (intended).
+- **E3.5** · _E3 · Statement-Driven Data_ — **Performance + iOS parity** _(depends E3.1, web)_ · [spec](features/E3.5_performance-ios.md)
+  - Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

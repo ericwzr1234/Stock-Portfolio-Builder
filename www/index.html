@@ -89,12 +89,15 @@
   .theme th,.theme td{padding-left:6px;padding-right:6px}
   .tag.na{background:#ECEAE4;color:#7a7a72}
   .tag.calc{background:#E0EFEA;color:#2c6b5e}
+  .tag.pulled{background:#EDEBF7;color:#5a4b8a}
   .tag.qual{background:#E6E2F2;color:#5b4a8c}
   th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;
     border-bottom:1px solid var(--line)}
   th:first-child,td:first-child{text-align:left}
   tr:last-child td{border-bottom:none}
   td.sym{font-weight:650}
+  td.sym[data-stock]{cursor:pointer}
+  td.sym[data-stock]:hover{text-decoration:underline}
   td .co{color:var(--muted);font-weight:400;font-size:11px;display:block;margin-top:1px}
   .up{color:var(--pos)}.down{color:var(--neg)}
   tfoot td{font-weight:650;background:#FBF9F3;border-top:1px solid var(--line)}
@@ -344,6 +347,12 @@
           <label class="muted xs">Preset&nbsp;<select id="presetSelect" style="max-width:170px"><option value="">—</option></select></label>
           <button class="btn sm" id="delPresetBtn" title="Delete the selected preset">✕</button>
         </div>
+        <div class="row small" id="sourceRow" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
+          <label title="Compute each metric from the loaded financial statements (primary). Forward-looking / market metrics (Fwd P/E, PEG, beta, momentum, market cap, dividend yield) always stay pulled from Yahoo.">
+            <input type="checkbox" id="computeStmtToggle" checked> <b>Compute metrics from statements</b></label>
+          <button class="btn sm" id="srcCompareBtn" title="Compare each computed metric with Yahoo's pulled value">Compare sources</button>
+          <span class="muted xs" id="stmtCoverageNote"></span>
+        </div>
         <details class="exp"><summary>How the math works &amp; data-quality notes</summary>
           <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
         </details>
@@ -435,6 +444,10 @@ const state = {
   metrics:null,                   // ordered scoring-metric list (E2.1); null => DEFAULT_METRICS. Persisted as [{key}]; weights/penalty stay in state.weights/state.penalty
   metricCfg:null,                 // {key:{penalty?,badData?,direction?}} per-metric overrides (E2.4); null/absent => baked-in descriptor defaults. Pruned on default.
   presets:[],                     // [{name,config,savedAt}] saved metric+weight models (E2.5); a user library, NOT versioned (excluded from snapshots)
+  statements:{},                  // sym -> {sym, quarters:[{date,<lineItems>}], asOf, source} financial statements (E3); source for computed metrics
+  pulled:{},                      // sym -> raw PULLED fundamentals (Yahoo pre-computed); state.fundamentals = this base, optionally overlaid with computed (E3)
+  computeFromStatements:true,     // E3.4: compute metrics FROM statements (primary) vs pull Yahoo's pre-computed fields
+  metricSource:{},                // sym -> {field: 'computed'|'pulled'} provenance for the fundamentals table + detail page (E3.4)
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
   themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
   themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
@@ -871,6 +884,42 @@ async function nativeFundamentals(syms){
 /* ---- unified entry points used by the rest of the app ---- */
 async function dsQuotes(syms){ return NATIVE? nativeQuotes(syms) : webQuotes(syms); }
 async function dsFundamentals(syms,force){ return NATIVE? nativeFundamentals(syms) : webFundamentals(syms,force); }
+/* ---- E3: financial statements (fundamentals-timeseries). Client mirror of server _STMT_FIELDS. ---- */
+const STMT_FIELD_MAP = {
+  quarterlyTotalRevenue:'revenue', quarterlyCostOfRevenue:'costOfRevenue', quarterlyGrossProfit:'grossProfit',
+  quarterlyOperatingExpense:'operatingExpense', quarterlyOperatingIncome:'operatingIncome',
+  quarterlyPretaxIncome:'pretaxIncome', quarterlyTaxProvision:'taxProvision', quarterlyNetIncome:'netIncome',
+  quarterlyNetIncomeCommonStockholders:'netIncomeCommon', quarterlyEBIT:'ebit', quarterlyEBITDA:'ebitda',
+  quarterlyInterestExpense:'interestExpense', quarterlyDilutedEPS:'dilutedEPS',
+  quarterlyDilutedAverageShares:'dilutedShares', quarterlyBasicAverageShares:'basicShares',
+  quarterlyTotalAssets:'totalAssets', quarterlyTotalLiabilitiesNetMinorityInterest:'totalLiabilities',
+  quarterlyStockholdersEquity:'equity', quarterlyCommonStockEquity:'commonEquity',
+  quarterlyCashAndCashEquivalents:'cash', quarterlyCashCashEquivalentsAndShortTermInvestments:'cashAndSTI',
+  quarterlyTotalDebt:'totalDebt', quarterlyCurrentAssets:'currentAssets', quarterlyCurrentLiabilities:'currentLiabilities',
+  quarterlyInventory:'inventory', quarterlyInvestedCapital:'investedCapital',
+  quarterlyOperatingCashFlow:'operatingCashFlow', quarterlyCapitalExpenditure:'capex', quarterlyFreeCashFlow:'fcf',
+  quarterlyRepurchaseOfCapitalStock:'buyback', quarterlyCashDividendsPaid:'dividendsPaid'
+};
+async function webStatements(syms,force){ const d=await api("/api/statements?symbols="+syms.join(",")+(force?"&force=1":"")); return d.statements||{}; }
+async function nativeStatements(syms){
+  const crumb=await yEnsureCrumb(); const out={}; const types=Object.keys(STMT_FIELD_MAP).join(",");
+  const p2=Math.floor(Date.now()/1000), p1=p2-6*366*24*3600;
+  await Promise.all(syms.map(async sym=>{
+    try{
+      const r=await yGet("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"+encodeURIComponent(sym),
+        {symbol:sym, type:types, period1:p1, period2:p2, merge:"false", padTimeSeries:"false", lang:"en-US", region:"US", crumb:crumb||""});
+      const result=((jsonOf(r.data)||{}).timeseries||{}).result||[];
+      const byDate={};
+      result.forEach(series=>{ const t=((series.meta||{}).type||[])[0]; const field=STMT_FIELD_MAP[t]; if(!field)return;
+        (series[t]||[]).forEach(pt=>{ if(!pt||pt.asOfDate==null)return; const rawv=(pt.reportedValue||{}).raw; if(rawv==null)return; (byDate[pt.asOfDate]=byDate[pt.asOfDate]||{})[field]=rawv; }); });   // skip padded/missing values
+      const dates=Object.keys(byDate).sort().slice(-9);
+      if(dates.length) out[sym]={sym, quarters:dates.map(d=>Object.assign({date:d}, byDate[d])), asOf:Math.floor(Date.now()/1000), source:"live"};
+      else out[sym]={sym, quarters:[], asOf:Math.floor(Date.now()/1000), source:"empty"};   // sentinel (parity with server) so a statement-less name isn't refetched every open
+    }catch(e){ /* fetch error -> leave uncached so it retries; pulled fallback stands */ }
+  }));
+  return out;
+}
+async function dsStatements(syms,force){ return NATIVE? nativeStatements(syms) : webStatements(syms,force); }
 async function dsLoadUniverse(){ if(window.__UNIVERSE) return window.__UNIVERSE; const r=await fetch("data/universe.json"); return r.json(); }
 async function webSearch(q){ const r=await api("/api/search?q="+encodeURIComponent(q)); return r.results||[]; }
 async function nativeSearch(q){
@@ -889,7 +938,190 @@ async function dsPeers(sym){
 }
 
 async function loadQuotes(){ const d=await dsQuotes(tradeUniverse()); state.quotes=Object.assign({}, state.quotes, d.quotes); state.asOf=d.asOf; }
-async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.fundamentals=Object.assign({}, state.fundamentals, f); }
+async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.pulled=Object.assign({}, state.pulled, f); rebuildFundamentals(); }   // E3: pulled base, then overlay computed
+async function loadStatements(syms,force){ const list=syms||membership(); if(!list.length) return {}; const s=await dsStatements(list,force); state.statements=Object.assign({}, state.statements, s); rebuildFundamentals(); return s; }   // E3
+
+/* ======================================================================
+   E3.2 — Computed-metric engine. Assemble TTM from the loaded statements (sum the
+   last 4 quarters for flows; latest quarter for the balance sheet; YoY growth =
+   latest Q vs the year-ago Q) and compute each catalog metric via a documented
+   formula, OVERLAYING the pulled fundamentals base. Forward/market metrics stay
+   pulled. A missing statement input (e.g. a bank's gross profit) falls back to the
+   pulled field. Formulas validated live vs Yahoo's own numbers (valuation + margins
+   match; ROE/ROA use AVERAGE equity/assets to match convention).
+   ====================================================================== */
+const STMT_COMPUTED_FIELDS = ['pe','ev','evRev','ps','pb','dfcf','debtToEquity','currentRatio','quickRatio',
+  'grossMargin','opMargin','netMargin','roe','roa','payout','revGrowth','earnGrowth','fcf','ebitda','revenue','cash','debt'];
+const STMT_PULLED_FIELDS = ['marketCap','price','mom','peg','forwardPE','beta','divYield'];   // market / forward-looking: never computed from trailing statements
+
+function stmtTTM(sym){
+  const st=state.statements[sym]; if(!st||!st.quarters||!st.quarters.length) return null;
+  const qs=st.quarters, n=qs.length, last=qs[n-1];
+  const sum4=f=>{ const s=qs.slice(-4); if(s.length<4) return null; let t=0; for(const q of s){ if(!isNum(q[f])) return null; t+=q[f]; } return t; };
+  const bal=f=> isNum(last[f])?last[f]:null;
+  const startIdx=Math.max(0,n-5);   // balance at the START of the TTM window (the quarter-end before the 4 TTM quarters)
+  const avgBal=f=>{ const a=qs[startIdx][f], b=last[f]; return (isNum(a)&&isNum(b))?(a+b)/2:(isNum(b)?b:null); };   // avg equity/assets over the TTM window (begin+end)
+  const yoy=f=>{ if(n<5) return null; const v0=last[f], v4=qs[n-5][f]; return (isNum(v0)&&isNum(v4)&&v4!==0)?(v0-v4)/Math.abs(v4):null; };
+  return { revenue:sum4('revenue'), grossProfit:sum4('grossProfit'), operatingIncome:sum4('operatingIncome'),
+    netIncome:sum4('netIncome'), netIncomeCommon:sum4('netIncomeCommon'), ebitda:sum4('ebitda'), ebit:sum4('ebit'), fcf:sum4('fcf'),
+    operatingCashFlow:sum4('operatingCashFlow'), capex:sum4('capex'), dividendsPaid:sum4('dividendsPaid'),
+    equity:bal('equity'), avgEquity:avgBal('equity'), totalAssets:bal('totalAssets'), avgAssets:avgBal('totalAssets'),
+    totalDebt:bal('totalDebt'), cash:(isNum(last.cashAndSTI)?last.cashAndSTI:bal('cash')), currentAssets:bal('currentAssets'),   // STI-inclusive to match Yahoo totalCash (EV/net-cash)
+    currentLiabilities:bal('currentLiabilities'), inventory:bal('inventory'),
+    revGrowth:yoy('revenue'), earnGrowth:yoy('netIncome'), asOfDate:last.date, quarters:n };
+}
+function computedMetrics(sym){
+  const t=stmtTTM(sym); if(!t) return null;
+  const mc=effMcap(sym), out={};
+  const ev=(isNum(t.totalDebt)&&isNum(t.cash)&&isNum(mc))? mc+t.totalDebt-t.cash : null;
+  const put=(k,v)=>{ if(isNum(v)) out[k]=v; };
+  if(isNum(mc)){
+    const niCommon = isNum(t.netIncomeCommon)?t.netIncomeCommon:t.netIncome;   // prefer net income to common (matches Yahoo trailing P/E)
+    put('pe', (isNum(niCommon)&&niCommon>0)? mc/niCommon : null);
+    put('ps', (isNum(t.revenue)&&t.revenue>0)? mc/t.revenue : null);
+    put('pb', (isNum(t.equity)&&t.equity>0)? mc/t.equity : null);
+    put('ev', (isNum(ev)&&isNum(t.ebitda)&&t.ebitda>0)? ev/t.ebitda : null);
+    put('evRev', (isNum(ev)&&isNum(t.revenue)&&t.revenue>0)? ev/t.revenue : null);
+  }
+  if(isNum(t.totalDebt)&&isNum(t.fcf)) put('dfcf', t.fcf>0 ? t.totalDebt/t.fcf : -1);   // matches server dfcf: >0 -> td/fcf, <=0 -> -1 sentinel
+  put('debtToEquity', (isNum(t.totalDebt)&&isNum(t.equity)&&t.equity>0)? (t.totalDebt/t.equity)*100 : null);   // PERCENT (the getter divides /100)
+  put('currentRatio', (isNum(t.currentAssets)&&isNum(t.currentLiabilities)&&t.currentLiabilities>0)? t.currentAssets/t.currentLiabilities : null);
+  put('quickRatio', (isNum(t.currentAssets)&&isNum(t.currentLiabilities)&&t.currentLiabilities>0&&isNum(t.inventory))? (t.currentAssets-t.inventory)/t.currentLiabilities : null);
+  if(isNum(t.revenue)&&t.revenue>0){
+    put('grossMargin', isNum(t.grossProfit)? t.grossProfit/t.revenue : null);
+    put('opMargin', isNum(t.operatingIncome)? t.operatingIncome/t.revenue : null);
+    put('netMargin', isNum(t.netIncome)? t.netIncome/t.revenue : null);
+  }
+  put('roe', (isNum(t.netIncome)&&isNum(t.avgEquity)&&t.avgEquity>0)? t.netIncome/t.avgEquity : null);
+  put('roa', (isNum(t.netIncome)&&isNum(t.avgAssets)&&t.avgAssets>0)? t.netIncome/t.avgAssets : null);
+  put('payout', (isNum(t.dividendsPaid)&&isNum(t.netIncome)&&t.netIncome>0)? clamp(-t.dividendsPaid/t.netIncome,0,5) : null);   // dividendsPaid is a negative outflow
+  put('revGrowth', t.revGrowth); put('earnGrowth', t.earnGrowth);
+  put('fcf', t.fcf); put('ebitda', t.ebitda); put('revenue', t.revenue); put('cash', t.cash); put('debt', t.totalDebt);   // raw operands for the derived getters (pfcf/ebitdaMargin/fcfMargin/netCashPct)
+  return {values:out, ttm:t};
+}
+function applyComputedMetrics(){
+  Object.keys(state.statements||{}).forEach(sym=>{
+    const f=state.fundamentals[sym]; if(!f) return;
+    const cm=computedMetrics(sym), vals=cm?cm.values:{}, src=state.metricSource[sym]||(state.metricSource[sym]={});
+    STMT_COMPUTED_FIELDS.forEach(field=>{ if(isNum(vals[field])){ f[field]=vals[field]; src[field]='computed'; }
+      else if(field in f && isNum(f[field])){ src[field]='pulled'; } });   // statement input missing -> keep the pulled value (banks)
+    if(cm) f._ttm=cm.ttm;
+  });
+}
+// state.fundamentals = the PULLED base (state.pulled), optionally overlaid with statement-computed metrics.
+function rebuildFundamentals(){
+  state.fundamentals={}; state.metricSource={};
+  Object.keys(state.pulled||{}).forEach(s=>{ state.fundamentals[s]=Object.assign({}, state.pulled[s]); });
+  if(state.computeFromStatements) applyComputedMetrics();
+}
+
+/* ======================================================================
+   E3.3 — Stock-detail page: the 3 statements x last 4 quarters (+ TTM) and a
+   computed-metrics panel (each metric: value + source). Reached by clicking a
+   ticker (fundamentals table / Prices / Screener). Lazy-loads statements.
+   ====================================================================== */
+const STMT_PULLED_METRIC_KEYS = ['mcap','mom','peg','forwardPE','beta','divYield'];   // never computed from trailing statements
+const STMT_DISPLAY = [
+  ['Income statement', 'flow', [['revenue','Revenue'],['costOfRevenue','Cost of revenue'],['grossProfit','Gross profit'],
+    ['operatingExpense','Operating expense'],['operatingIncome','Operating income'],['ebitda','EBITDA'],
+    ['pretaxIncome','Pretax income'],['taxProvision','Tax provision'],['netIncome','Net income'],
+    ['dilutedEPS','Diluted EPS'],['dilutedShares','Diluted shares']]],
+  ['Balance sheet', 'point', [['totalAssets','Total assets'],['currentAssets','Current assets'],['cash','Cash & equivalents'],
+    ['inventory','Inventory'],['currentLiabilities','Current liabilities'],['totalLiabilities','Total liabilities'],
+    ['totalDebt','Total debt'],['equity','Shareholder equity']]],
+  ['Cash flow', 'flow', [['operatingCashFlow','Operating cash flow'],['capex','Capital expenditure'],['fcf','Free cash flow'],
+    ['dividendsPaid','Dividends paid'],['buyback','Share buybacks']]],
+];
+function fmtStmtCell(field, x){
+  if(!isNum(x)) return '—';
+  if(field==='dilutedEPS') return num(x,2);
+  if(field==='dilutedShares'||field==='basicShares') return (x/1e9).toFixed(2)+'B';
+  return bil(x);   // money in $B
+}
+const DERIVED_OPERANDS={pfcf:['fcf'], ebitdaMargin:['ebitda','revenue'], fcfMargin:['fcf','revenue'], netCashPct:['cash','debt']};
+function metricSourceOf(sym, m){
+  if(STMT_PULLED_METRIC_KEYS.indexOf(m.key)>=0) return 'pulled';
+  const src=state.metricSource[sym]||{};
+  const ops=DERIVED_OPERANDS[m.key];
+  if(ops) return ops.every(k=>src[k]==='computed') ? 'computed' : 'pulled';   // derived: all operands must be computed
+  return src[m.key] || 'pulled';
+}
+async function openStockDetail(sym){
+  sym=(sym||'').toUpperCase(); if(!sym) return;
+  const nm=(state.quotes[sym]&&state.quotes[sym].name)||(state.fundamentals[sym]&&state.fundamentals[sym].name)||sym;
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="sdModal" data-sd-sym="${sym}"><div class="modal-card card pad" style="max-width:860px;max-height:90vh;overflow:auto">
+      <div class="section-title"><h2 style="font-size:17px">${sym} <span class="muted" style="font-weight:400">· ${nm}</span></h2>
+        <button class="btn sm" id="sdClose">Close</button></div>
+      <div id="sdBody"><p class="small muted" style="margin-top:10px">Loading statements…</p></div>
+    </div></div>`;
+  $("#sdClose").addEventListener("click",closeModal);
+  $("#sdModal").addEventListener("click",e=>{ if(e.target.id==="sdModal")closeModal(); });
+  if(!state.statements[sym]){ try{ await loadStatements([sym]); }catch(e){} }
+  const modal=$("#sdModal"); if(!modal || modal.dataset.sdSym!==sym) return;   // a newer detail opened while we awaited -> don't clobber it
+  renderStockDetail(sym);
+}
+function renderStockDetail(sym){
+  const body=$("#sdBody"); if(!body) return;
+  const st=state.statements[sym], f=state.fundamentals[sym]||{}, ttm=f._ttm;
+  const price=(state.quotes[sym]&&state.quotes[sym].price), mc=effMcap(sym);
+  const head=`<div class="row small" style="gap:14px;flex-wrap:wrap;margin:2px 0 10px">
+    <span>Price <b>${isNum(price)?money(price,2):'—'}</b></span><span>Market cap <b>${bil(mc)}</b></span>
+    ${ttm?`<span class="muted">TTM to ${ttm.asOfDate}</span>`:''}
+    <span class="muted xs">${state.computeFromStatements?'Metrics computed from statements':'Metrics pulled from Yahoo'}</span></div>`;
+  // computed-metrics panel: every catalog metric with its value + source
+  const tag=s=> s==='computed'?'<span class="tag calc" title="computed from the loaded statements">calc</span>'
+             : s==='pulled'?'<span class="tag pulled" title="pulled from Yahoo (market / forward-looking, or a statement input was missing)">pulled</span>':'';
+  const metricCells=METRIC_CATALOG.map(m=>{ const v=m.getter(sym), s=metricSourceOf(sym,m);
+    return `<div class="it" style="display:flex;justify-content:space-between;gap:8px;min-width:180px">
+      <span class="muted">${m.label}</span><span><b>${isNum(v)?fmtVal(m,v):'—'}</b> ${tag(s)}</span></div>`; }).join("");
+  const metricPanel=`<h3 style="font-size:14px;margin:6px 0">Metrics <span class="muted xs">(calc = from statements · pulled = Yahoo)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 16px">${metricCells}</div>`;
+  // statement tables (last 4 quarters + TTM for flows)
+  let stmtHtml='';
+  if(st&&st.quarters&&st.quarters.length){
+    const qs=st.quarters.slice(-4);   // last 4 quarters, oldest -> newest
+    STMT_DISPLAY.forEach(([title,kind,rows])=>{
+      const heads=qs.map(q=>`<th class="num">${q.date}</th>`).join("")+(kind==='flow'?'<th class="num">TTM</th>':'');
+      const body2=rows.map(([field,label])=>{
+        const cells=qs.map(q=>`<td class="num">${fmtStmtCell(field,q[field])}</td>`).join("");
+        let ttmCell='';
+        if(kind==='flow'){
+          const noSum=(field==='dilutedShares'||field==='dilutedEPS');   // shares/EPS aren't summed across quarters
+          const vals=qs.map(q=>q[field]), ok=!noSum&&vals.length===4&&vals.every(isNum);
+          ttmCell=`<td class="num"><b>${ok?fmtStmtCell(field, vals.reduce((a,b)=>a+b,0)):'—'}</b></td>`;
+        }
+        return `<tr><td>${label}</td>${cells}${ttmCell}</tr>`;
+      }).join("");
+      stmtHtml+=`<h3 style="font-size:14px;margin:14px 0 4px">${title}${kind==='point'?' <span class="muted xs">(point-in-time)</span>':''}</h3>
+        <table class="mono" style="font-size:12px"><thead><tr><th>Line item</th>${heads}</tr></thead><tbody>${body2}</tbody></table>`;
+    });
+  } else {
+    stmtHtml=`<p class="small muted" style="margin-top:12px">No statement data available for ${sym} (metrics fall back to Yahoo's pulled figures).</p>`;
+  }
+  body.innerHTML=head+metricPanel+stmtHtml;
+}
+
+/* E3.4 — compare each statement-computed metric with Yahoo's pulled value (state.pulled is the untouched base). */
+function openSourceCompare(){
+  const fields=[['pe','P/E'],['ev','EV/EBITDA'],['ps','P/S'],['pb','P/B'],['roe','ROE'],['roa','ROA'],
+    ['grossMargin','GrossM'],['netMargin','NetM'],['debtToEquity','D/E%'],['currentRatio','Curr'],['revGrowth','RevG']];
+  const rows=membership().map(sym=>{
+    const c=state.fundamentals[sym]||{}, p=state.pulled[sym]||{}, src=state.metricSource[sym]||{};
+    const cells=fields.map(([k])=>{ const cv=c[k], pv=p[k];
+      if(!isNum(cv)) return '<td class="num">—</td>';
+      const delta=(isNum(pv)&&pv!==0)?(cv-pv)/Math.abs(pv)*100:null, big=isNum(delta)&&Math.abs(delta)>10;
+      return `<td class="num${big?' down':''}" title="computed ${num(cv,3)} · pulled ${isNum(pv)?num(pv,3):'—'}${src[k]?' · '+src[k]:''}">${num(cv,2)}${isNum(delta)?` <span class="muted xs">${signed(delta,0)}%</span>`:''}</td>`;
+    }).join("");
+    return `<tr><td class="sym">${sym}</td>${cells}</tr>`;
+  }).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="scModal"><div class="modal-card card pad" style="max-width:920px;max-height:88vh;overflow:auto">
+      <div class="section-title"><h2 style="font-size:16px">Computed vs pulled</h2><button class="btn sm" id="scClose">Close</button></div>
+      <p class="small muted">Statement-<b>computed</b> value, with (%) distance from Yahoo's <b>pulled</b> figure. ROE / ROA / quick-ratio differ by design (Yahoo uses average balances / lease-inclusive debt); a &gt;10% gap is flagged.</p>
+      <table class="mono" style="font-size:12px"><thead><tr><th>Ticker</th>${fields.map(f=>`<th>${f[1]}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+    </div></div>`;
+  $("#scClose").addEventListener("click",closeModal);
+  $("#scModal").addEventListener("click",e=>{ if(e.target.id==="scModal")closeModal(); });
+}
 async function loadScreenerQuotes(){
   if(!state.universe) return;
   const syms=[...new Set(state.universe.themes.flatMap(t=>t.stocks.map(s=>s.ticker)))];
@@ -916,6 +1148,7 @@ async function loadPortfolio(){
     ['peg','ev','dfcf','pe','mcap','mom'].forEach(k=>{ if(!(k in state.weights)) state.weights[k]=DEFAULT_CONFIG.weights[k]; });   // E2.3: backfill missing default weights WITHOUT nuking activated catalog metrics
     backfillPenalty();   // restore any missing default-metric penalty (peg/ev/dfcf/pe) — no-op when complete
     if(isNum(p.cap)) state.cap=p.cap;
+    state.computeFromStatements = (p.computeFromStatements!==false);   // E3.4: data-source preference (default on); non-versioned
     migrateVersions(p); }
   rebuildThemeOf();
 }
@@ -924,6 +1157,7 @@ async function savePortfolio(){
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
+  state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
   state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
   state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
   state.portfolio.metricCfg = state.metricCfg || null;   // E2.4: per-metric config (null when all-default)
@@ -978,7 +1212,7 @@ function renderPrices(){
       const cls=isNum(ch)?(ch>=0?"up":"down"):"";
       const arrow=isNum(ch)?(ch>=0?"▲":"▼"):"";
       return `<tr>
-        <td class="sym">${s}<span class="co">${nameOf(s)}</span></td>
+        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<span class="co">${nameOf(s)}</span></td>
         <td class="num">${money(p,2)}</td>
         <td class="num ${cls}">${isNum(cp)?arrow+" "+Math.abs(cp).toFixed(2)+"%":"—"}</td>
         <td class="num">${init&&isNum(val)?money(val,0):"<span class='muted'>—</span>"}</td>
@@ -1045,6 +1279,10 @@ function renderFundamentals(){
   if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]'))) cfgRows.innerHTML=MM.map(metricCfgRowHTML).join("");
   if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
   if(typeof renderPresetSelect==='function') renderPresetSelect();
+  if($("#computeStmtToggle")) $("#computeStmtToggle").checked = state.computeFromStatements!==false;
+  if($("#srcCompareBtn")) $("#srcCompareBtn").disabled = state.computeFromStatements===false;   // E3.4: no computed values to compare when off   // E3.4
+  if($("#stmtCoverageNote")){ const ms=membership(), cov=ms.filter(s=>{ const st=state.statements[s]; return st&&st.quarters&&st.quarters.length>=4; }).length;
+    $("#stmtCoverageNote").textContent = state.computeFromStatements ? ("→ "+cov+"/"+ms.length+" names computed from statements (rest fall back to pulled)") : "→ using Yahoo's pulled metrics"; }
   const A=computeAllocation();
 
   // allocation bar + legend
@@ -1133,7 +1371,7 @@ function renderFundamentals(){
     const t=r.theme;
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
@@ -1698,7 +1936,9 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
   if(fetchSyms&&fetchSyms.length){
     toast("Fetching "+fetchSyms.join(", ")+"…");
     try{ const d=await dsQuotes(fetchSyms); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
-    try{ const f=await dsFundamentals(fetchSyms,false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
+    try{ const f=await dsFundamentals(fetchSyms,false); state.pulled=Object.assign({},state.pulled,f); }catch(e){}   // E3: pulled base (rebuildFundamentals derives state.fundamentals from it)
+    try{ await loadStatements(fetchSyms); }catch(e){}   // E3: load statements so the new names join the computed overlay
+    rebuildFundamentals();
   }
   if(isInit()){
     switchView("calc"); renderCalc();
@@ -1896,7 +2136,9 @@ async function addToWatchlist(sym, theme){
   closeModal();
   toast("Fetching "+sym+"…");
   try{ const d=await dsQuotes([sym]); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
-  try{ const f=await dsFundamentals([sym],false); state.fundamentals=Object.assign({},state.fundamentals,f); }catch(e){}
+  try{ const f=await dsFundamentals([sym],false); state.pulled=Object.assign({},state.pulled,f); }catch(e){}   // E3: pulled base, not the derived state.fundamentals
+  try{ await loadStatements([sym]); }catch(e){}   // E3: statements so a watchlisted name can be computed too
+  rebuildFundamentals();
   await savePortfolio();
   switchView("screener"); renderScreener();
   toast(sym+" added to your watchlist — add it to a theme when you're ready");
@@ -1922,7 +2164,7 @@ function renderWatchlist(){
     ${list.map(w=>{ const s=w.sym, q=state.quotes[s]||{}, p=price(s), ch=q.changePct;
       const cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
       return `<tr class="wl-row">
-        <td class="sym">${s}<span class="co">${nameOf(s)}</span></td>
+        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<span class="co">${nameOf(s)}</span></td>
         <td class="num">${money(p,2)}</td>
         <td class="num ${cls}">${isNum(ch)?arrow+" "+Math.abs(ch).toFixed(2)+"%":"—"}</td>
         <td class="num"><select class="wl-add" data-sym="${s}"><option value="">＋ Add to theme…</option>${opt(w.theme)}</select></td>
@@ -1980,7 +2222,7 @@ async function syncConnect(){
     if(!d || !("portfolio" in d)) throw new Error("not the Portfolio Builder server");
     state.serverUrl=url; try{ localStorage.setItem(SRV_KEY,url); }catch(e){}
     closeModal();
-    await loadPortfolio(); await Promise.all([loadQuotes(), loadFundamentals(false)]);
+    await loadPortfolio(); await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals();
     state.screenerLoaded=false;
     renderAll();
     toast("Connected — now syncing with your computer");
@@ -2033,7 +2275,7 @@ function setupEvents(){
   $("main").addEventListener("change",e=>{ const sel=e.target.closest("select.wl-add"); if(sel&&sel.value) commitFromWatchlist(sel.dataset.sym, sel.value); });   // E1.3: watchlist -> add to a theme (previews rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-wlsym]"); if(b) removeFromWatchlist(b.dataset.wlsym); });   // E1.3: drop from watchlist
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
-    try{ await loadFundamentals(true); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
+    try{ await Promise.all([loadFundamentals(true), loadStatements(membership(),true)]); rebuildFundamentals(); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
   // ① weights — MUTATE state.weights over metrics() (never reassign, so activated catalog keys survive); delegated on the stable #wGroup wrapper
   function readWeights(){ metrics().forEach(m=>{ const inp=document.querySelector('#wInputs input[data-wkey="'+m.key+'"]'); if(inp){ const v=parseFloat(inp.value); state.weights[m.weightKey]=(isNum(v)&&v>=0)?v/100:0; } }); }
@@ -2053,6 +2295,12 @@ function setupEvents(){
   if($("#savePresetBtn")) $("#savePresetBtn").addEventListener("click",saveCurrentPreset);        // E2.5: save preset
   if($("#delPresetBtn")) $("#delPresetBtn").addEventListener("click",deleteSelectedPreset);       // E2.5: delete preset
   if($("#presetSelect")) $("#presetSelect").addEventListener("change",e=>{ if(e.target.value)loadPreset(e.target.value); });   // E2.5: load preset
+  if($("#computeStmtToggle")) $("#computeStmtToggle").addEventListener("change",async e=>{   // E3.4: data-source toggle
+    state.computeFromStatements=e.target.checked; rebuildFundamentals(); renderAll(); if(state.portfolio)await savePortfolio(); });
+  if($("#srcCompareBtn")) $("#srcCompareBtn").addEventListener("click",openSourceCompare);   // E3.4: computed-vs-pulled compare
+  $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
+    if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
+    const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
   $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
@@ -2068,7 +2316,7 @@ async function init(){
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
   try{ await loadPortfolio(); }catch(e){ console.error(e); }
   rebuildThemeOf();
-  try{ await Promise.all([loadQuotes(), loadFundamentals(false)]); }
+  try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }   // E3: load statements + overlay computed metrics
   catch(e){ console.error(e); toast("Some data failed to load — using fallback"); }
   renderAll();
   setupAutoRefresh();

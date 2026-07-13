@@ -58,6 +58,8 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 QUOTE_TTL = 15          # seconds to cache live quotes
 FUND_TTL = 6 * 3600     # seconds to cache fundamentals (PEG / EV/EBITDA)
+STMT_TTL = 24 * 3600    # seconds to cache financial statements (E3 — they change quarterly)
+STMT_NEG_TTL = 6 * 3600 # shorter retry window for a symbol that returned NO statements (banks / thin / late filers)
 
 # The full universe (kept in sync with index.html). Used so the server can warm caches.
 ALL_TICKERS = ["CRCL", "MA", "V", "COIN", "JPM", "AAPL", "AMZN", "META", "GOOGL", "IBM",
@@ -109,6 +111,8 @@ _quote_cache = {"ts": 0, "data": {}}
 _quote_lock = threading.Lock()
 _fund_cache = {"ts": 0, "data": {}}
 _fund_lock = threading.Lock()
+_stmt_cache = {}                      # E3: {sym: {"ts": epoch, "data": {...}}} per-symbol statements (lazy; long TTL; negative-cached)
+_stmt_lock = threading.Lock()
 
 
 def _build_opener():
@@ -510,6 +514,114 @@ def get_fundamentals(symbols, force=False):
 
 
 # ---------------------------------------------------------------------------
+# E3 — Financial statements (income / balance sheet / cash flow), per quarter.
+# Source: Yahoo's fundamentals-timeseries endpoint (what finance.yahoo.com's own
+# statements pages use). The old v10 quoteSummary statement modules are dead
+# (balance sheet returns only endDate, cash-flow only netIncome), so we use this.
+# Returns the last ~5 quarters of raw line items; the client assembles TTM +
+# computes metrics from them (E3.2). No SEED fallback — a name with no statements
+# simply falls back to the pulled fundamentals path on the client.
+# ---------------------------------------------------------------------------
+# Yahoo quarterly type-key -> the short line-item name we hand the client.
+_STMT_FIELDS = {
+    # income statement (flow — client sums the last 4 quarters for TTM)
+    "quarterlyTotalRevenue": "revenue", "quarterlyCostOfRevenue": "costOfRevenue",
+    "quarterlyGrossProfit": "grossProfit", "quarterlyOperatingExpense": "operatingExpense",
+    "quarterlyOperatingIncome": "operatingIncome", "quarterlyPretaxIncome": "pretaxIncome",
+    "quarterlyTaxProvision": "taxProvision", "quarterlyNetIncome": "netIncome",
+    "quarterlyNetIncomeCommonStockholders": "netIncomeCommon", "quarterlyEBIT": "ebit",
+    "quarterlyEBITDA": "ebitda", "quarterlyInterestExpense": "interestExpense",
+    "quarterlyDilutedEPS": "dilutedEPS", "quarterlyDilutedAverageShares": "dilutedShares",
+    "quarterlyBasicAverageShares": "basicShares",
+    # balance sheet (point-in-time — client uses the latest quarter)
+    "quarterlyTotalAssets": "totalAssets", "quarterlyTotalLiabilitiesNetMinorityInterest": "totalLiabilities",
+    "quarterlyStockholdersEquity": "equity", "quarterlyCommonStockEquity": "commonEquity",
+    "quarterlyCashAndCashEquivalents": "cash", "quarterlyCashCashEquivalentsAndShortTermInvestments": "cashAndSTI",
+    "quarterlyTotalDebt": "totalDebt", "quarterlyCurrentAssets": "currentAssets",
+    "quarterlyCurrentLiabilities": "currentLiabilities", "quarterlyInventory": "inventory",
+    "quarterlyInvestedCapital": "investedCapital",
+    # cash-flow statement (flow)
+    "quarterlyOperatingCashFlow": "operatingCashFlow", "quarterlyCapitalExpenditure": "capex",
+    "quarterlyFreeCashFlow": "fcf", "quarterlyRepurchaseOfCapitalStock": "buyback",
+    "quarterlyCashDividendsPaid": "dividendsPaid",
+}
+
+
+def _fetch_one_statement(sym):
+    # Yahoo caps this endpoint at ~5 quarters; we keep up to 9 (future-proof). padTimeSeries=false + skipping
+    # null reportedValues avoids padded gaps that would break the client's 4-quarter TTM sum. One crumb retry.
+    p2 = int(time.time()); p1 = p2 - 8 * 366 * 24 * 3600
+    for attempt in range(2):
+        crumb = ensure_session(force=(attempt == 1))
+        if not crumb:
+            continue
+        qs = urllib.parse.urlencode({
+            "symbol": sym, "type": ",".join(_STMT_FIELDS.keys()),
+            "period1": p1, "period2": p2, "merge": "false", "padTimeSeries": "false",
+            "lang": "en-US", "region": "US", "crumb": crumb,
+        })
+        try:
+            raw = _http_get(f"https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/{sym}?{qs}")
+            result = (json.loads(raw).get("timeseries") or {}).get("result") or []
+        except Exception as e:
+            if attempt == 1:
+                sys.stderr.write(f"[yahoo] statements {sym}: {e}\n")
+                return sym, None   # transient error -> leave UNCACHED so the next load retries
+            continue               # 1st failure: refresh the crumb and try once more
+        by_date = {}   # asOfDate -> {field: raw}
+        for series in result:
+            types = (series.get("meta") or {}).get("type") or []
+            field = _STMT_FIELDS.get(types[0]) if types else None
+            if not field:
+                continue
+            for pt in (series.get(types[0]) or []):
+                if not pt:
+                    continue
+                d = pt.get("asOfDate"); rawv = (pt.get("reportedValue") or {}).get("raw")
+                if d is None or rawv is None:   # skip missing/padded values
+                    continue
+                by_date.setdefault(d, {})[field] = rawv
+        if not by_date:
+            # clean 'no statements' (banks / thin names) -> cache a sentinel so we don't refetch every load
+            return sym, {"sym": sym, "quarters": [], "asOf": int(time.time()), "source": "empty"}
+        ordered = sorted(by_date.keys())[-9:]   # oldest -> newest
+        quarters = [dict({"date": d}, **by_date[d]) for d in ordered]
+        return sym, {"sym": sym, "quarters": quarters, "asOf": int(time.time()), "source": "live"}
+    return sym, None
+
+
+def fetch_statements_live(symbols):
+    out = {}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for sym, data in ex.map(_fetch_one_statement, symbols):
+            if data is not None:   # includes the clean-empty sentinel (so sparse names get cached)
+                out[sym] = data
+    return out
+
+
+def get_statements(symbols, force=False):
+    """Per-symbol statement cache. Statements with data use STMT_TTL (24h); the empty/no-data
+    sentinel uses the shorter STMT_NEG_TTL so a late filing is picked up within a few hours.
+    Lazy: only fetches symbols that are missing or past their TTL — Screener names load on demand."""
+    now = time.time()
+    with _stmt_lock:
+        need = []
+        for s in symbols:
+            e = _stmt_cache.get(s)
+            ttl = STMT_TTL if (e and e["data"].get("quarters")) else STMT_NEG_TTL
+            if force or not e or (now - e["ts"]) >= ttl:
+                need.append(s)
+    if need:
+        live = fetch_statements_live(need)
+        with _stmt_lock:
+            for s in need:
+                if s in live:
+                    _stmt_cache[s] = {"ts": now, "data": live[s]}
+    with _stmt_lock:
+        return {s: _stmt_cache[s]["data"] for s in symbols if s in _stmt_cache}
+
+
+# ---------------------------------------------------------------------------
 # Local JSON "database"
 # ---------------------------------------------------------------------------
 _db_lock = threading.Lock()
@@ -577,6 +689,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/fundamentals":
                 force = qs.get("force", ["0"])[0] in ("1", "true", "yes")
                 self._send(200, {"fundamentals": get_fundamentals(self._symbols(qs), force=force),
+                                 "asOf": int(time.time())})
+            elif path == "/api/statements":
+                force = qs.get("force", ["0"])[0] in ("1", "true", "yes")
+                self._send(200, {"statements": get_statements(self._symbols(qs), force=force),
                                  "asOf": int(time.time())})
             elif path == "/api/search":
                 self._send(200, {"results": search_directory(qs.get("q", [""])[0])})
@@ -657,6 +773,17 @@ def main():
     threading.Thread(target=lambda: (get_quotes(ALL_TICKERS), get_fundamentals(ALL_TICKERS)),
                      daemon=True).start()
     threading.Thread(target=load_ticker_directory, daemon=True).start()   # warm the ticker search index
+
+    def _warm_statements():   # E3.5: statements are heavier -> warm only current HOLDINGS, after the quotes/fundamentals warm
+        try:
+            held = list((read_db() or {}).get("holdings", {}).keys())
+            if held:
+                st = get_statements(held)
+                thin = [s for s in held if not (st.get(s) or {}).get("quarters")]
+                sys.stderr.write(f"[statements] warmed {len(held)} holdings; {len(thin)} without statements: {thin}\n")
+        except Exception as e:
+            sys.stderr.write(f"[statements] warm error: {e}\n")
+    threading.Thread(target=_warm_statements, daemon=True).start()
     if not os.environ.get("PB_NO_BROWSER"):
         try:
             webbrowser.open(url)

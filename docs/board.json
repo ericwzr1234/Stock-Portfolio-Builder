@@ -172,13 +172,31 @@
       "↺ Reset to default 6 (cap NOT reset) + named preset library (save/load/delete). applyConfig replaces weights/penalty/metricCfg wholesale; presets persisted but EXCLUDED from version snapshots.",
       "Integrated to main 2026-07-01." ] },
 
-    { "id": "E3.1", "epic": "E3", "stage": "ideation", "platform": "web", "spec": "docs/features/E3_statement-driven-data.md",
-      "title": "Statement-driven data: load TTM statements, compute metrics, stock detail page", "notes": [
-      "Fundamentally change the data source: instead of pulling Yahoo's pre-calculated metrics, LOAD the 3 financial statements (income, balance sheet, cash flow) over the last 4 quarters (TTM) for portfolio + screener names.",
-      "A stock DETAIL PAGE: open a stock → see its TTM statements and a panel that CALCULATES metrics/KPIs/ratios (the E2 catalog) from them, to help build the portfolio and set weights.",
-      "Metrics become CALCULATED from the statements, not read straight from Yahoo (we already do this as a fallback — E3 makes it primary).",
-      "Exception: forward-looking metrics not in the statements (Forward P/E, forward PEG) are still pulled from Yahoo estimates.",
-      "Ties into E2 (which defines the metrics). Gist captured; details + card breakdown later — sequenced after E1 + the E2 breakdown." ] },
+    { "id": "E3.1", "epic": "E3", "stage": "testing", "platform": "web", "spec": "docs/features/E3.1_statement-data-layer.md",
+      "title": "Statement fetch + cache (server)", "notes": [
+      "/api/statements route (+ prefetch) over Yahoo's fundamentals-timeseries endpoint (the old v10 quoteSummary statement modules are DEAD — validated). Same cookie+crumb.",
+      "Fetch ~8 quarters of the 3 statements; normalize to {sym, quarters:[{date, <lineItems>}], asOf}; cache per symbol with a long quarterly TTL + seed fallback. Foundation card.",
+      "Data source + line-item availability validated live 2026-07-13 (AAPL 30/31 keys, NVDA 31/31; banks legitimately lack gross profit / current assets)." ] },
+
+    { "id": "E3.2", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.2_computed-metric-engine.md",
+      "title": "Computed-metric engine (client)", "notes": [
+      "Assemble TTM (sum-4Q flows, latest-Q balance) from the loaded statements; compute each E2 catalog metric via a documented formula -> the SAME state.fundamentals[sym].<field> the getters read.",
+      "Forward/market metrics stay pulled (marketCap, price, momentum, forwardPE, peg, beta, divYield). Graceful fallback to the pulled field when a statement input is missing (banks). Per-field source tag.",
+      "Formulas validated vs Yahoo pre-computed (P/E, EV/EBITDA, margins, P/S, P/B, current ratio, D/E match <=3%; ROE/ROA/quick differ by methodology — transparent single definition is the point)." ] },
+
+    { "id": "E3.3", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.3_stock-detail-page.md",
+      "title": "Stock-detail page (UI)", "notes": [
+      "Click a ticker (Prices / Screener / fundamentals table) -> a detail view: the 3 statements x last 4 quarters (+ a TTM column) + a computed-metrics panel (each metric: value + formula + source).",
+      "Forward-looking fields labelled 'pulled, not computed'. Reuse the app's modal/view patterns." ] },
+
+    { "id": "E3.4", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.2", "spec": "docs/features/E3.4_source-integration.md",
+      "title": "Integration + source labeling + toggle", "notes": [
+      "Model consumes computed metrics as PRIMARY; a 'compute from statements' toggle (default on) with fallback to pulled; per-metric source tags in the fundamentals table; a compare (computed vs pulled) surface.",
+      "New source => the default allocation shifts vs the pulled path (intended)." ] },
+
+    { "id": "E3.5", "epic": "E3", "stage": "testing", "platform": "web", "depends": "E3.1", "spec": "docs/features/E3.5_performance-ios.md",
+      "title": "Performance + iOS parity", "notes": [
+      "Cache tuning; prefetch holdings' statements; lazy-load Screener names on demand; iOS on-device fetch parity (mirror the ds* pattern). Log any coverage caps." ] },
 
     { "id": "E4.1", "epic": "E4", "stage": "done", "platform": "web",
       "title": "Declutter the allocation-model panel", "notes": [
