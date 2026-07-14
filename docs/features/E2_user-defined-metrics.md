@@ -1,7 +1,7 @@
-# E2 — User-Defined Scoring Metrics  *(epic · ideation)*
+# E2 — User-Defined Scoring Metrics  *(epic · shipped)*
 
 - **Epic:** E2 · User-Defined Metrics
-- **Stage:** ideation  *(idea captured; to be detailed into design cards later)*
+- **Stage:** done  *(all cards E2.1–E2.5 shipped to `main` 2026-07-01)*
 - **Platform:** web (then iOS)
 
 ## The idea
@@ -73,7 +73,7 @@ Expanded 2026-07-01 into small cards on the board:
   N metrics; flag metrics missing data for the current book.
 - **E2.4 — Per-metric direction & bad-data handling.** Direction + penalty / carry-over / compute per
   metric — generalizing C2 to any metric.
-- **E2.5 — Presets / reset to the default 6.** *(ideation)* one-click reset; optional named presets.
+- **E2.5 — Presets / reset to the default 6.** one-click reset; optional named presets.
 
 ## Relationship to Epic 3
 E2 defines *which* metrics and *how they're weighted*; **E3 (Statement-Driven Data)** changes *where the
@@ -82,5 +82,5 @@ E2.2's compute layer is the natural seam where E3 plugs in. Forward-looking metr
 pulled in both.
 
 ## Notes
-- Cards E2.1–E2.4 are in **design**, E2.5 in **ideation**. Sequenced after Epic 1; foundation card **E2.1**
-  first (mirrors E1.1). Detailed per-card specs written when each card is picked up (per the pipeline).
+- **All cards E2.1–E2.5 shipped to `main` 2026-07-01** (built after Epic 1, foundation card E2.1 first,
+  mirroring E1.1). Detailed per-card specs are in `docs/features/E2.{1..5}_*.md`.

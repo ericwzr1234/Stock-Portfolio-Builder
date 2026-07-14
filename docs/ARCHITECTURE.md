@@ -7,7 +7,8 @@ One codebase (`www/`) runs as a **web app** (served by `server.py`) and as a **n
 ```
                         ┌─────────────────────────── www/index.html ───────────────────────────┐
                         │  UI (Prices · Fundamentals · Calculator · Screener · History)          │
-                        │  Allocation engine (computeAllocation, planTrades, version timeline)   │
+                        │  Allocation + metric engine (metrics/computeAllocation, statement-      │
+                        │    driven compute [E3], planTrades, version timeline)                  │
                         │  Dynamic membership (tickersOf / membership / tradeUniverse)           │
                         └───────────────┬───────────────────────────────────┬───────────────────┘
                                         │  dsQuotes/dsFundamentals           │  loadPortfolio/savePortfolio
@@ -29,13 +30,21 @@ points that branch on `NATIVE`:
 |---|---|---|
 | `dsQuotes(syms)` | `GET /api/quotes` (server proxies Yahoo) | `nativeQuotes` → `CapacitorHttp` to Yahoo v7 quote |
 | `dsFundamentals(syms)` | `GET /api/fundamentals` | `nativeFundamentals` → `CapacitorHttp` to Yahoo v10 quoteSummary |
+| `dsStatements(syms)` *(E3)* | `GET /api/statements` | `nativeStatements` → `CapacitorHttp` to Yahoo `fundamentals-timeseries` |
+| `dsSearch(q)` *(E1)* | `GET /api/search` | `nativeSearch` → Yahoo search v1 |
+| `dsPeers(sym)` *(E1)* | `GET /api/peers` | native branch → Yahoo `recommendationsbysymbol` |
 | `loadPortfolio` / `savePortfolio` | `GET`/`POST /api/portfolio` → `portfolio.json` | `localStorage["pb_portfolio_v1"]` |
 | `dsLoadUniverse()` | `window.__UNIVERSE` (from `data/universe.js`) | same |
 
-The native Yahoo client mirrors `server.py` precisely: the cookie+crumb handshake
-(`yEnsureCrumb`), the quote field set, and the fundamentals derivations — Total Debt/FCF, the
-`P/E = mcap ÷ net income` and `EV/EBITDA = (mcap + debt − cash) ÷ EBITDA` fallbacks, and the
-50/200-day momentum blend. So the allocation math gets identical inputs on both platforms.
+The native Yahoo client mirrors `server.py` for the cookie+crumb handshake (`yEnsureCrumb`), quotes,
+statements (`nativeStatements` ↔ server `_STMT_FIELDS`, byte-identical), search, and peers — plus the
+original fundamentals derivations (Total Debt/FCF, the `P/E = mcap ÷ net income` and
+`EV/EBITDA = (mcap + debt − cash) ÷ EBITDA` fallbacks, and the 50/200-day momentum blend).
+**One open parity gap (E2):** `nativeFundamentals` still returns only the six original factors — it has
+**not** yet been extended to the ~21 extra E2 catalog fields that `server.py._fetch_one_fundamental`
+returns (forwardPE, ps, pb, evRev, margins, roe, roa, debtToEquity, current/quick, growth, divYield,
+payout, beta, raw operands). Until it is, the E2 catalog + E3 pulled/market metrics are blank on-device.
+Tracked in [`APP_MIGRATION.md`](APP_MIGRATION.md).
 
 `CapacitorHttp` is enabled in `capacitor.config.json`, which (a) guarantees `window.CapacitorHttp`
 exists and (b) routes `fetch`/`XHR` through native HTTP. Local assets are intentionally **not**
@@ -71,23 +80,27 @@ Trades are computed over `tradeUniverse()`. Names in a theme get their model tar
 net trade ≈ the added cash (0 for a pure swap). `applyRebalance` then deletes any zero-share,
 unthemed positions so the book stays clean.
 
-## Swap flow (Screener → portfolio)
-1. `renderScreener()` lists each theme's `universe.json` stocks, re-sorted by **live** market cap
-   (`screenerMcap` falls back to the seed `mcapB` when a live cap is missing), capped at 50.
-   Current holdings are tagged `held`.
-2. Tap a non-held row → `openSwap(newSym, themeKey)` → modal lists the theme's current holdings.
-3. Confirm → `doSwap(themeKey, oldSym, newSym)`: updates `state.themeTickers`, fetches the new
-   name's quote+fundamentals, switches to Calculator, and renders a full-realign plan.
-4. **Apply & save** → `applyRebalance` (a normal `REBALANCE` version checkpoint; undoable).
-   Membership is only persisted on Apply, so navigating away cancels a pending swap.
+## Screener → watchlist → add/swap flow (E4.4)
+The Screener is a **search box + a watchlist** (the old universe grid was removed in E4.4).
+1. Search any ticker (`dsSearch`) → `addToWatchlist(sym, theme?)` stages it in `state.watchlist`
+   (no theme; never in the portfolio yet). `renderScreener()` = `renderWatchlist()` + a hint note.
+2. On a watchlisted (or screener) name, `openStockActions(sym, themeKey)` is the action sheet: **Add to
+   theme** (`addTicker`), **Swap in…** (`openSwap`), **Remove** (`removeTicker`), or **Watchlist**.
+3. **Swap:** `openSwap(newSym, themeKey)` → radio list of the theme's current holdings →
+   `doSwap(themeKey, oldSym, newSym)` updates `state.themeTickers` (via `setMembership`), fetches the
+   new name's quote+fundamentals+statements, switches to the Calculator, and renders a full-realign plan.
+4. **Apply & save** → `applyRebalance` (a normal `REBALANCE` version checkpoint; undoable). Membership is
+   only persisted on Apply, so navigating away cancels a pending change.
 
-## The screener universe
+## The candidate universe
 `tools/build_universe.py` turns `data/universe-raw.json` (multi-agent curation output) into
-`data/universe.json` + `data/universe.js`. It pins the 25 core tickers to their theme, resolves any
-ticker that appears in two themes by priority (`stablecoin > robotics > data > enterpriseai >
-personalai`), drops placeholder/junk and known-bad symbols, fixes a couple of wrong tickers, sorts
-by seed market cap, caps each theme to 55 (the app then shows the live top 50), and asserts mutual
-exclusivity + that all cores are present. Re-runnable and idempotent.
+`data/universe.json` + `data/universe.js` (`window.__UNIVERSE`). It pins the core tickers to their
+theme, resolves any ticker that appears in two themes by priority (`stablecoin > robotics > data >
+enterpriseai > personalai`), drops placeholder/junk and known-bad symbols, fixes a couple of wrong
+tickers, sorts by seed market cap, caps each theme, and asserts mutual exclusivity + that all cores are
+present. Re-runnable and idempotent. (Since E4.4 the Screener UI no longer renders this as a grid; the
+dataset remains as a curated, mutually-exclusive candidate/market-cap reference loaded via
+`dsLoadUniverse`.)
 
 ## Native UI skin (iOS look without changing the web app)
 The iOS app is mobile-redesigned purely with CSS scoped to `html.native`:
@@ -107,6 +120,9 @@ The iOS app is mobile-redesigned purely with CSS scoped to `html.native`:
 
 ## server.py
 Python stdlib only. Serves `www/` statically (with a path-traversal guard and a small content-type
-map), exposes `/api/quotes`, `/api/fundamentals`, `/api/portfolio`, caches quotes ~15s and
-fundamentals ~6h, handles the Yahoo cookie+crumb, and falls back to an embedded `SEED` snapshot for
-the 25 core names when Yahoo is unreachable.
+map), exposes `/api/quotes`, `/api/fundamentals` (with the ~21 E2 catalog fields),
+`/api/statements` (E3, over Yahoo `fundamentals-timeseries`, per-symbol cache + warm-holdings daemon),
+`/api/search` and `/api/peers` (E1), and `/api/portfolio`. Caches quotes ~15s and fundamentals ~6h,
+handles the Yahoo cookie+crumb, and falls back to an embedded `SEED` snapshot for the core names when
+Yahoo is unreachable. `PB_DB` / `PB_PORT` env vars override the data file + port (dev isolation);
+`PB_SEC_CONTACT` opts into the SEC ticker cache used by search.

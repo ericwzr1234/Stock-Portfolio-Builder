@@ -82,9 +82,12 @@ Join the **Apple Developer Program ($99/yr)**. Then:
 ---
 
 ## How data works on iOS (no server involved)
-- **Prices & fundamentals:** fetched directly from Yahoo Finance on the device via the
+- **Prices, fundamentals & statements:** fetched directly from Yahoo Finance on the device via the
   `CapacitorHttp` plugin (enabled in `capacitor.config.json`), which bypasses browser CORS. The
-  parsing mirrors `server.py` exactly.
+  parsing mirrors `server.py` for quotes, statements (`nativeStatements`, E3), search and peers.
+  **Open parity gap:** `nativeFundamentals` does not yet return the ~21 extended E2 catalog fields the
+  web server does, so the E2 catalog / E3 pulled metrics are blank on-device until it's extended — see
+  [`APP_MIGRATION.md`](APP_MIGRATION.md) (this is the main remaining app-dev task).
 - **Your portfolio:** by default stored on-device in `localStorage` (key `pb_portfolio_v1`). You can
   instead **sync with your computer over Wi-Fi** so the phone and the web version share one
   `portfolio.json` — see "Sync with the web version" below.

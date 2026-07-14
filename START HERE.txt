@@ -30,14 +30,17 @@ ONE-CLICK SHORTCUT (optional, nice to have)
 ------------------------------------------------------------
 THE TABS
   Prices .......... live prices grouped by theme
-  Fundamentals .... PEG / EV-EBITDA / market-cap weights and
-                    the resulting target % for each theme
+  Fundamentals .... pick your metrics + weights; it scores each
+                    theme and shows the target % (values computed
+                    from the financial statements). Edit your
+                    themes here too, and click any stock to see
+                    its statements.
   Calculator ...... build your $80k start, then each month
                     type the cash you are adding and rebalance
                     (it tells you exactly what to buy and sell)
-  Screener ........ top ~50 stocks by market cap in each theme;
-                    tap one to SWAP it in for a same-theme
-                    holding, then rebalance automatically
+  Screener ........ search any stock and add it to a watchlist;
+                    when ready, add it to a theme or SWAP it for
+                    a holding - it rebalances automatically
   History ......... undo / redo / revert to any past point
 
 ------------------------------------------------------------

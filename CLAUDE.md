@@ -9,8 +9,9 @@
 > iOS/Xcode work is **Mac only**.
 
 ## What this is
-A free, no-API-key tool that **builds and rebalances** a 5-theme, market-cap-weighted stock
-portfolio. It runs in two forms from **one codebase** (`www/`):
+A free, no-API-key tool that **builds and rebalances** a themed, market-cap-weighted stock portfolio
+from a **user-defined fundamentals model** (pick your themes, pick your metrics, computed from live
+data or straight from the financial statements). It runs in two forms from **one codebase** (`www/`):
 
 1. **Web app** — `server.py` (Python standard library only) serves `www/` and proxies Yahoo
    Finance; data persists in `portfolio.json`. This is the dev path and works on Windows + Mac.
@@ -18,8 +19,16 @@ portfolio. It runs in two forms from **one codebase** (`www/`):
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-## The 5 themes (each 5 "core" names, equal-weight within a theme)
-| key | name | core tickers |
+**Status (2026-07-13):** the web app is feature-complete — Epics **E1** (user-defined themes),
+**E2** (user-defined metrics), **E3** (statement-driven data), and **E4/E4.5** (Fundamentals/Screener
+redesign) are all shipped to `main`/prod (`a3353ae`). Current phase = **iOS app parity** (board epic
+`APP`; see [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md)).
+
+## The default themes (user-editable since E1)
+Themes and their names are no longer hardcoded — the user can create/rename/recolour/delete themes and
+add/remove any ticker (E1). The tool **starts** with five themes of five "core" names each:
+
+| key | name | default core tickers |
 |---|---|---|
 | `stablecoin` | Stablecoin | CRCL, MA, V, COIN, JPM |
 | `personalai` | Personal AI | AAPL, AMZN, META, GOOGL, IBM |
@@ -27,10 +36,16 @@ portfolio. It runs in two forms from **one codebase** (`www/`):
 | `robotics` | Robotics | ISRG, ROK, NVDA, SYM, TSLA |
 | `data` | Data Providers | SNOW, SPGI, MCO, MSCI, RDDT |
 
-Allocation model (unchanged from the original): per theme, a market-cap-weighted blend of **PEG,
-EV/EBITDA, Debt/FCF, P/E** (TTM, cheaper ⇒ higher) + **log avg market cap** + **momentum**,
-normalized across the 5 themes, with a per-theme cap (default 30%) and equal weight within a theme.
-Full spec is in [`README.md`](README.md) ("The strategy, precisely") and the code comments.
+## The allocation model
+Per theme, a **market-cap-weighted** blend of the active metrics, normalized across the themes, with a
+per-theme cap (default 30%, auto-scaling `1.5 / N`) and equal weight within a theme. The metric set is
+**user-defined** (E2): six on by default — **PEG, EV/EBITDA, Debt/FCF, P/E** (TTM, cheaper ⇒ higher) +
+**log avg market cap** + **momentum** (default weights 20/20/20/15/10/15) — plus a **catalog of 21
+more** (ROE/ROA/margins/P·S/P·B/current·quick/D·E/growth/div-yield/payout/beta/fwd-P·E/EV·Rev/P·FCF/
+net-cash…), each with an auto-assigned direction and a per-metric bad-data policy (penalize / carry-over
+/ ignore). By default every metric is **computed from the three financial statements** (E3, TTM from the
+last 4 quarters); forward/market metrics stay pulled, with a toggle + source-compare + a stock-detail
+page. Full spec is in [`README.md`](README.md) ("The strategy, precisely") and the code comments.
 
 ## Repo layout
 ```
@@ -44,6 +59,7 @@ docs/
   features/                   ← one spec per feature (design → impl notes → iOS migration)
   ARCHITECTURE.md             ← how the code is organized; the web↔iOS split
   IOS_BUILD.md                ← step-by-step: build & run the iOS app (free, private)
+  APP_MIGRATION.md            ← web→iOS parity status + the app-dev checklist (current focus)
 dashboard.html                ← visual project-board kanban (double-click; reads docs/board.js)
 server.py                     ← Python stdlib server: serves www/ + Yahoo proxy + portfolio.json
                                  (PB_DB / PB_PORT env override the db file + port for dev)
@@ -77,8 +93,8 @@ This is now a managed, git-synced project. **Before developing, read
   is [`docs/board.json`](docs/board.json); regenerate the views with `tools/render_dashboard.py`.
 - **Each feature** has a spec in `docs/features/<id>_<name>.md`; its **iOS migration notes** are what
   the Mac session reads to replicate the web feature natively.
-- **Current focus:** Epic **E1 — User-Defined Themes** (create/rename/delete themes, add any ticker
-  incl. via search, similar-stock recommendations). Foundation card **E1.1** is in design.
+- **Current focus:** the **iOS app** (epic `APP`, ticket `APP1`) — bring the native app to parity with
+  the web. Web epics E1–E4.5 are all shipped to prod. Plan: [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
 
 ## How to run
 
@@ -98,13 +114,29 @@ npx cap sync ios      # after any change to www/ or plugins
 npx cap open ios      # opens Xcode; set Signing team, pick a simulator/device, Run
 ```
 
-## The two added features (vs. the original tool)
-1. **Screener tab** — for each theme, the top 50 stocks by **live market cap**, **mutually
-   exclusive** across themes (a name shown under one theme never appears under another; the 25 core
-   tickers are pinned to their theme). Data: `www/data/universe.json`.
-2. **Swap** — tap any screener stock → a modal asks which **same-theme** holding to replace →
-   membership updates → the Calculator shows a full realign (sell the removed name to $0, buy the
-   new one, rebalance the book) → **Apply & save** records a normal version checkpoint (undoable).
+## Feature epics (all shipped to prod)
+The original tool (core 6-factor model, calculator/rebalance, version history, Prices tab) has been
+extended by four epics — each with specs under `docs/features/`:
+1. **E1 — User-defined themes.** Themes are data-driven: create/rename/recolour/delete, restore
+   defaults, add/remove any ticker (search any listed name incl. ADRs), a staging watchlist, and the
+   flat Screener → peers recommendations.
+2. **E2 — User-defined metrics.** A 27-metric model (6 default + 21 catalog) via a metric picker, with
+   auto-direction, three bad-data policies (penalize/carry/ignore), and savable presets. `server.py`
+   forwards ~21 extra Yahoo fields for the catalog.
+3. **E3 — Statement-driven data.** Metrics computed from the 3 financial statements (Yahoo
+   `fundamentals-timeseries`) instead of pre-computed fields; a TTM engine; a stock-detail page (3
+   statements × 4 quarters + computed-metrics panel); a compute-from-statements toggle + source
+   compare; foreign-ADR currency handling. On iOS, `nativeStatements` mirrors the server — but
+   `nativeFundamentals` still needs the E2 fields (the one open parity gap; see `docs/APP_MIGRATION.md`).
+4. **E4 / E4.5 — Fundamentals & Screener redesign.** The allocation panel split into ① Metrics /
+   ② Exception handling / ③ Max weight; per-theme actions in each theme card; the **Screener is now
+   search + watchlist** (look up a name → watchlist → add-as-new or swap-for-a-holding → rebalance);
+   the two-card Fundamentals layout (Target-vs-current | Theme-allocation-model).
+
+**Swap** (still core, now driven from the watchlist): choosing a theme for a watchlisted name asks
+whether to add it or replace a **same-theme** holding → the Calculator shows a full realign (sell the
+removed name to $0, buy the new one, rebalance) → **Apply & save** is a normal, undoable version
+checkpoint that also restores the prior membership on undo.
 
 ## Architecture you must know before editing (details in docs/ARCHITECTURE.md)
 - **Dynamic theme membership.** Theme tickers are no longer hardcoded. `THEMES[].tickers` are only
@@ -112,10 +144,14 @@ npx cap open ios      # opens Xcode; set Signing team, pick a simulator/device, 
   every version snapshot). Always read membership through `tickersOf(key)` / `membership()`, never a
   static `ALL`. Held-but-unthemed names (a swapped-out position to liquidate) come from
   `tradeUniverse()` = `membership() ∪ holdings`.
-- **Platform-agnostic data layer.** Code calls `loadQuotes` / `loadFundamentals` / `loadPortfolio` /
-  `savePortfolio` / `dsLoadUniverse`. Internally these branch on `NATIVE` (Capacitor): web → the
-  Python server; iOS → Yahoo via `CapacitorHttp` + `localStorage`. The Yahoo parsing on iOS mirrors
-  `server.py` exactly (crumb dance, PEG/EV/PE derivations, momentum).
+- **Platform-agnostic data layer.** Code calls `loadQuotes` / `loadFundamentals` / `loadStatements` /
+  `loadPortfolio` / `savePortfolio` over the platform-branching `ds*` layer (`dsQuotes` /
+  `dsFundamentals` / `dsStatements` / `dsSearch` / `dsPeers` / `dsLoadUniverse`). These branch on
+  `NATIVE` (Capacitor): web → the Python server; iOS → Yahoo via `CapacitorHttp` + `localStorage`. The
+  iOS parsing mirrors `server.py` for quotes, **statements** (`nativeStatements` ↔ server `_STMT_FIELDS`),
+  search, peers, and the six core factors (crumb dance, PEG/EV/PE derivations, momentum). **One open
+  parity gap:** `nativeFundamentals` doesn't yet emit the ~21 extended E2 catalog fields the server does
+  — see [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
 - **LAN sync (iOS ↔ web share one database).** On iOS you can set a **server URL** (History → Data
   sync sheet, stored as `localStorage["pb_server_url"]`). When set (`useRemote()`),
   `loadPortfolio`/`savePortfolio` read/write the **same `portfolio.json`** as the web via the home

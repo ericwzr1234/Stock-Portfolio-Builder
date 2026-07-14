@@ -1,7 +1,7 @@
-# E3 — Statement-Driven Data & Metrics  *(epic · design)*
+# E3 — Statement-Driven Data & Metrics  *(epic · shipped)*
 
 - **Epic:** E3 · Statement-Driven Data
-- **Stage:** design  *(expanded into cards 2026-07-13; data source + formulas validated live against Yahoo)*
+- **Stage:** done  *(all cards E3.1–E3.5 shipped to `main` 2026-07-13)*
 - **Platform:** web (then iOS)
 - **Relates to:** **E2** (defines the selectable metrics) — E3 changes *how those metrics are sourced*.
 
@@ -61,5 +61,5 @@ quirks), and it makes E2's rich metric catalog credible (compute each metric fro
   committed/test-written, and the client fetches through the **same server/LAN-sync indirection** so iOS works.
 
 ## Status
-Per-card specs `docs/features/E3.{1..5}_*.md`. Implemented on `dev` this session; **held for user testing before
-merge to `main`.**
+Per-card specs `docs/features/E3.{1..5}_*.md`. **All cards E3.1–E3.5 tested (see `E3_TEST_PLAN.md`) and
+merged `dev` → `main` on 2026-07-13.** (iOS parity gap for the E2 fundamentals fields tracked in `APP_MIGRATION.md`.)
