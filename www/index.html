@@ -305,18 +305,22 @@
   /* (B) theme-card actions: + ticker / edit / delete become a tidy, uniform icon group that wraps onto
      its own right-aligned line — not tiny mismatched buttons crammed next to the name. The per-theme
      metrics keep the ORIGINAL horizontally-scrollable table (with the frozen ticker column). */
-  .native .theme .head{ padding:12px 14px; align-items:flex-start; column-gap:8px; }
-  .native .theme .head .lhs{ flex:1 1 auto; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
-  .native .theme .head h3{ font-size:16px; }
-  .native .theme .head .pill{ font-size:12px; padding:5px 11px; white-space:nowrap; flex:0 0 auto; }
-  .native .addname-btn{ margin:0; min-height:38px; padding:9px 12px; font-size:13px; font-weight:550; line-height:1;
-    display:inline-flex; align-items:center; justify-content:flex-start; gap:7px; border-radius:10px; color:var(--ink); }
-  .native .addname-btn::after{ content:attr(data-lbl); }        /* explicit label spelled out next to each icon (phone only) */
+  .native .theme .head{ position:relative; padding:12px 14px; align-items:flex-start; }
+  /* lhs takes the FULL card width so the action row below the title can span it (equal thirds fit
+     the "Add ticker"/"Edit name"/"Delete" labels); the target-% pill floats to the top-right corner
+     out of flow so it doesn't steal that width. */
+  .native .theme .head .lhs{ flex:1 1 100%; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
+  .native .theme .head h3{ font-size:16px; max-width:calc(100% - 112px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .native .theme .head > .pill{ position:absolute; top:12px; right:14px; font-size:12px; padding:5px 11px; white-space:nowrap; }
+  .native .addname-btn{ margin:0; flex:1 1 0; min-width:0; white-space:nowrap; min-height:38px; padding:9px 6px;
+    font-size:13px; font-weight:550; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+    gap:6px; border-radius:10px; color:var(--ink); }
+  .native .addname-btn::after{ content:attr(data-lbl); overflow:hidden; text-overflow:ellipsis; }   /* explicit label next to each icon (phone only) */
   .native .addname-btn:active{ background:#F1F5FA; }
   .native .addname-btn .lbl{ display:none; }                    /* hide the web "ticker" text; the data-lbl label replaces it */
   .native .addname-btn[data-addticker]{ color:var(--teal); }
-  /* the labeled actions sit on their own line, left-aligned under the theme title */
-  .native .theme-acts{ display:flex; flex-wrap:wrap; gap:8px; flex-basis:100%; margin:6px 0 0; }
+  /* the labeled actions share ONE row as equal thirds, left-aligned under the theme title */
+  .native .theme-acts{ display:flex; gap:6px; flex-basis:100%; margin:6px 0 0; }
 
   /* Model-tab control buttons (choose metrics, presets, restore/reset, refresh, compare, new theme):
      one consistent, comfortable pill size so they read as a tidy toolbar, not cramped mismatched chips. */
