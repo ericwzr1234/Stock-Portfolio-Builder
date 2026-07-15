@@ -3,8 +3,9 @@
 > **The shared record of what's been built on the web side and what the iOS app still needs.**
 > The Windows machine builds features on the web (`www/index.html` + `server.py`); the Mac brings the
 > **native iOS app** (Capacitor) to parity. Both machines share **one** project board — see §5.
-> Board card: **APP1** (epic `APP`, now **testing**). Last synced **2026-07-15** (web `main` = E1–E4.5 shipped;
-> iOS parity implemented on `dev`, awaiting on-device try + `dev→main` integration).
+> Board card: **APP1** (epic `APP`, now **done** — merged `dev→main`). Last synced **2026-07-15** (web `main` =
+> E1–E4.5 shipped; iOS parity + a phone-first native pass shipped to prod). Remaining is operational only:
+> install on a physical iPhone via Xcode free signing (see §4 / `IOS_BUILD.md`).
 
 ---
 
