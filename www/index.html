@@ -309,17 +309,31 @@
   .native .theme .head .lhs{ flex:1 1 auto; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
   .native .theme .head h3{ font-size:16px; }
   .native .theme .head .pill{ font-size:12px; padding:5px 11px; white-space:nowrap; flex:0 0 auto; }
-  .native .addname-btn{ margin:0; height:34px; min-width:34px; padding:0 9px; font-size:15px; line-height:1;
-    display:inline-flex; align-items:center; justify-content:center; border-radius:9px; color:var(--muted); }
+  .native .addname-btn{ margin:0; min-height:38px; padding:9px 12px; font-size:13px; font-weight:550; line-height:1;
+    display:inline-flex; align-items:center; justify-content:flex-start; gap:7px; border-radius:10px; color:var(--ink); }
+  .native .addname-btn::after{ content:attr(data-lbl); }        /* explicit label spelled out next to each icon (phone only) */
   .native .addname-btn:active{ background:#F1F5FA; }
-  .native .addname-btn .lbl{ display:none; }                    /* "+ ticker" shows just "+" on the phone */
+  .native .addname-btn .lbl{ display:none; }                    /* hide the web "ticker" text; the data-lbl label replaces it */
   .native .addname-btn[data-addticker]{ color:var(--teal); }
-  .native .theme-acts{ display:flex; gap:6px; align-items:center; margin-left:auto; }   /* keep the 3 icons together, wrapping to their own right-aligned line */
+  /* the labeled actions sit on their own line, left-aligned under the theme title */
+  .native .theme-acts{ display:flex; flex-wrap:wrap; gap:8px; flex-basis:100%; margin:6px 0 0; }
 
   /* Model-tab control buttons (choose metrics, presets, restore/reset, refresh, compare, new theme):
      one consistent, comfortable pill size so they read as a tidy toolbar, not cramped mismatched chips. */
   .native .btn.sm{ font-size:13px; padding:9px 13px; border-radius:10px; }
   .native #view-fundamentals .section-title{ flex-wrap:wrap; gap:8px 10px; }
+
+  /* ② Exception handling: a clean, aligned block per metric — the metric name on its own line, then the
+     policy dropdown full-width with its penalty value tucked neatly to the right (no more ragged wrapping). */
+  .native .cfg-grid{ display:block; }
+  .native .cfg-row{ display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "control pen";
+    gap:6px 9px; align-items:center; margin:0 0 13px; }
+  .native .cfg-row .cfg-name{ grid-area:name; white-space:normal; font-size:12px; font-weight:600; color:var(--ink); }
+  .native .cfg-row select{ grid-area:control; width:100%; max-width:100%; }
+  .native .cfg-row .cfg-val{ grid-area:pen; }
+  .native .cfg-row .cfg-val label{ margin:0; display:block; }
+  .native .cfg-row .cfg-val input{ width:74px; }
+  .native .cfg-head{ display:none; }   /* redundant column header on mobile — every row is self-labeled */
 
   /* (C) theme editor / create sheets: never overflow; roomy inputs; colour swatches as a responsive grid */
   /* the sheet is a flex child; WebKit won't shrink it below its content's intrinsic width unless
@@ -1473,9 +1487,9 @@ function renderFundamentals(){
       <div class="card theme">
         <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
           <h3>${t.name}</h3>${srcTag}
-          <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" title="Add a ticker to ${t.name}">＋<span class="lbl"> ticker</span></button>
-          <button class="addname-btn" data-editth="${t.key}" title="Rename / recolour ${t.name}">✎</button>
-          <button class="addname-btn" data-delth="${t.key}" title="Delete ${t.name}">✕</button></span></div>
+          <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" data-lbl="Add ticker" title="Add a ticker to ${t.name}">＋<span class="lbl"> ticker</span></button>
+          <button class="addname-btn" data-editth="${t.key}" data-lbl="Edit name" title="Rename / recolour ${t.name}">✎</button>
+          <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${t.name}">✕</button></span></div>
           <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
         <table><thead>${thead}</thead>
         <tbody>${body}</tbody>
