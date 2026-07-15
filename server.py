@@ -306,7 +306,9 @@ def fetch_quotes_live(symbols):
         return {}
     fields = ("regularMarketPrice,regularMarketChange,regularMarketChangePercent,"
               "regularMarketPreviousClose,marketCap,shortName,longName,marketState,"
-              "currency,regularMarketTime")
+              "currency,regularMarketTime,"
+              "fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume,"
+              "averageDailyVolume3Month,averageDailyVolume10Day")
     qs = urllib.parse.urlencode({"symbols": ",".join(symbols), "fields": fields, "crumb": crumb})
     out = {}
     for attempt in range(2):
@@ -327,6 +329,11 @@ def fetch_quotes_live(symbols):
                     "marketState": r.get("marketState"),
                     "currency": r.get("currency"),
                     "time": _rv(r, "regularMarketTime"),
+                    # watchlist table (Screener): 52-week range + volume
+                    "high52": _rv(r, "fiftyTwoWeekHigh"),
+                    "low52": _rv(r, "fiftyTwoWeekLow"),
+                    "vol": _rv(r, "regularMarketVolume"),
+                    "avgVol": _rv(r, "averageDailyVolume3Month") or _rv(r, "averageDailyVolume10Day"),
                     "source": "live",
                 }
             if out:

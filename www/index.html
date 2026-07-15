@@ -189,7 +189,10 @@
   .ts-row .sym{ font-weight:600 }
   .ts-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
   .ts-row .ts-ex{ flex:0 0 auto }
-  .wl-row td{ padding:7px 6px; border-bottom:1px solid #EDE8DB; vertical-align:middle }
+  .wl-row td{ padding:7px 8px; border-bottom:1px solid #EDE8DB; vertical-align:middle; white-space:nowrap }
+  .wl-table thead th{ padding:6px 8px; font-size:10.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); font-weight:600; white-space:nowrap; border-bottom:1px solid var(--line2) }
+  .wl-co{ color:var(--muted); max-width:190px; overflow:hidden; text-overflow:ellipsis }
+  .wl-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch }   /* the wide watchlist scrolls sideways on web too (theme tables unchanged) */
   .wl-add{ padding:4px 6px; border:1px solid #DDD6C6; border-radius:6px; font-size:12px }
   .th-chip{ display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:999px; border:1px solid; background:#fff; white-space:nowrap }
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
@@ -277,6 +280,11 @@
   .native #view-screener table td:first-child, .native #view-screener table th:first-child{ display:none; }
   .native #view-screener td.sym, .native #view-screener thead th:nth-child(2){ text-align:left; }  /* stock name reads left after rank is hidden */
   .native .screener-row td{ padding-top:13px; padding-bottom:13px; }
+  /* the Watchlist is a real data table whose FIRST column is the ticker — opt it out of the flat-
+     Screener's rank-hiding rule above so the (frozen) ticker column shows and the rest scrolls sideways. */
+  .native #view-screener table.wl-table td:first-child, .native #view-screener table.wl-table th:first-child{ display:table-cell; }
+  .native .wl-table th, .native .wl-table td{ font-size:12.5px; padding:9px 9px; }
+  .native .wl-table .wl-add{ font-size:16px; padding:8px 10px; }   /* 16px so focusing it never triggers iOS zoom */
 
   /* freeze the first (label/ticker) column while a wide table scrolls sideways */
   .native .tscroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -557,6 +565,7 @@ function num(v,dp=2){ return isNum(v)?v.toLocaleString("en-US",{minimumFractionD
 function pct(v,dp=1){ return isNum(v)?(v*100).toFixed(dp)+"%":"—"; }
 function signed(v,dp=2){ if(!isNum(v))return "—"; return (v>=0?"+":"")+v.toFixed(dp); }
 function bil(v){ if(!isNum(v))return "—"; if(v>=1e12)return "$"+(v/1e12).toFixed(2)+"T"; if(v>=1e9)return "$"+(v/1e9).toFixed(1)+"B"; return "$"+(v/1e6).toFixed(0)+"M"; }
+function volFmt(v){ if(!isNum(v))return "—"; const a=Math.abs(v); if(a>=1e9)return (v/1e9).toFixed(2)+"B"; if(a>=1e6)return (v/1e6).toFixed(1)+"M"; if(a>=1e3)return (v/1e3).toFixed(1)+"K"; return String(Math.round(v)); }  // share counts (no $): 12.3M, 1.2B
 function median(arr){ const a=arr.filter(isNum).slice().sort((x,y)=>x-y); if(!a.length)return null;
   const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200); }
@@ -938,13 +947,15 @@ function jsMomentum(price,ma50,ma200){ if(!(isNum(price)&&price>0))return null; 
   if(!parts.length)return null; return parts.reduce((a,p)=>a+p[0]*p[1],0)/parts.reduce((a,p)=>a+p[0],0); }
 async function nativeQuotes(syms){
   const crumb=await yEnsureCrumb(); const out={};
-  const fields="regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency,regularMarketTime";
+  const fields="regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency,regularMarketTime,fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day";
   for(let i=0;i<syms.length;i+=40){
     const chunk=syms.slice(i,i+40);
     try{
       const r=await yGet("https://query1.finance.yahoo.com/v7/finance/quote",{symbols:chunk.join(","), fields, crumb:crumb||""});
       const results=((jsonOf(r.data)||{}).quoteResponse||{}).result||[];
-      results.forEach(q=>{ const sym=q.symbol; if(!sym)return; out[sym]={price:rv(q,"regularMarketPrice"),change:rv(q,"regularMarketChange"),changePct:rv(q,"regularMarketChangePercent"),prevClose:rv(q,"regularMarketPreviousClose"),marketCap:rv(q,"marketCap"),name:q.shortName||q.longName||sym,marketState:q.marketState,currency:q.currency,time:rv(q,"regularMarketTime"),source:"live"}; });
+      results.forEach(q=>{ const sym=q.symbol; if(!sym)return; out[sym]={price:rv(q,"regularMarketPrice"),change:rv(q,"regularMarketChange"),changePct:rv(q,"regularMarketChangePercent"),prevClose:rv(q,"regularMarketPreviousClose"),marketCap:rv(q,"marketCap"),name:q.shortName||q.longName||sym,marketState:q.marketState,currency:q.currency,time:rv(q,"regularMarketTime"),
+        high52:rv(q,"fiftyTwoWeekHigh"),low52:rv(q,"fiftyTwoWeekLow"),vol:rv(q,"regularMarketVolume"),avgVol:rv(q,"averageDailyVolume3Month")||rv(q,"averageDailyVolume10Day"),   // watchlist table (Screener)
+        source:"live"}; });
     }catch(e){ console.error("yahoo quotes",e); await yEnsureCrumb(true); }
   }
   return {quotes:out, asOf:Math.floor(Date.now()/1000)};
@@ -2274,18 +2285,37 @@ function renderWatchlist(){
   const opt=tk=>themes().map(t=>`<option value="${t.key}"${t.key===tk?" selected":""}>${t.name}</option>`).join("");
   el.innerHTML=`<div class="card pad" style="margin-bottom:14px">
     <h3 style="font-size:14px;margin:0 0 4px">⭐ Watchlist (${list.length})</h3>
-    <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Pick a theme to add one; you'll review the rebalance before it applies.</p>
-    <div class="tscroll"><table style="width:100%"><tbody>
+    <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Swipe the table sideways for the full quote; pick a theme to add one (you'll review the rebalance first).</p>
+    <div class="tscroll wl-scroll"><table class="wl-table" style="width:100%">
+      <thead><tr>
+        <th style="text-align:left">Ticker</th>
+        <th style="text-align:left">Company</th>
+        <th class="num">Last</th>
+        <th class="num">Chg&nbsp;%</th>
+        <th class="num">52W&nbsp;High</th>
+        <th class="num">52W&nbsp;Low</th>
+        <th class="num">Volume</th>
+        <th class="num">Avg&nbsp;Vol</th>
+        <th class="num">Add&nbsp;to&nbsp;theme</th>
+        <th class="num"></th>
+      </tr></thead>
+      <tbody>
     ${list.map(w=>{ const s=w.sym, q=state.quotes[s]||{}, p=price(s), ch=q.changePct;
       const cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
       return `<tr class="wl-row">
-        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<span class="co">${nameOf(s)}</span></td>
+        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>
+        <td class="wl-co" title="${nameOf(s)}">${nameOf(s)}</td>
         <td class="num">${money(p,2)}</td>
         <td class="num ${cls}">${isNum(ch)?arrow+" "+Math.abs(ch).toFixed(2)+"%":"—"}</td>
+        <td class="num">${money(q.high52,2)}</td>
+        <td class="num">${money(q.low52,2)}</td>
+        <td class="num">${volFmt(q.vol)}</td>
+        <td class="num">${volFmt(q.avgVol)}</td>
         <td class="num"><select class="wl-add" data-sym="${s}"><option value="">＋ Add to theme…</option>${opt(w.theme)}</select></td>
         <td class="num"><button class="rmv-tkr wl-del" data-wlsym="${s}" title="Remove ${s} from watchlist">✕</button></td>
       </tr>`;}).join("")}
-    </tbody></table></div>
+      </tbody>
+    </table></div>
   </div>`;
 }
 
