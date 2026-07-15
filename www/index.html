@@ -291,6 +291,13 @@
     padding:18px 18px calc(18px + env(safe-area-inset-bottom)); animation:pbSheet .26s cubic-bezier(.2,.8,.2,1); }
   @keyframes pbSheet{ from{ transform:translateY(100%); } to{ transform:none; } }
   .native .swap-opt{ padding:13px 12px; }
+
+  /* E3 stock-detail statement tables (.mono): scroll each table on its own — not the whole sheet —
+     and freeze the "Line item" column so labels stay put when swiping to later quarters / TTM. */
+  .native .modal-card{ overflow-x:hidden; overflow-y:auto; }
+  .native .modal-card table.mono{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; }
+  .native .modal-card table.mono th:first-child, .native .modal-card table.mono td:first-child{
+    position:sticky; left:0; background:var(--paper); z-index:1; box-shadow:6px 0 6px -6px rgba(30,42,42,.18); }
 </style>
 <script src="data/universe.js"></script>
 <script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
@@ -854,8 +861,11 @@ function jsonOf(d){ return typeof d==="string"?JSON.parse(d):d; }
 function rv(d,k){ const x=d&&d[k]; return (x&&typeof x==="object"&&("raw" in x))?x.raw:x; }
 async function yGet(url, params){
   const Http=capHttp();
-  if(Http){ return Http.request({url, method:"GET", params:params||{}, headers:{"User-Agent":YUA, "Accept":"application/json,text/plain,*/*"}}); }
-  const qs=params?("?"+new URLSearchParams(params).toString()):""; const r=await fetch(url+qs); return {status:r.status, data:await r.text()};
+  // CapacitorHttp requires string param values; a number (e.g. E3 period1/period2, search counts)
+  // crashes the native layer ("NSCFNumber cannot be cast to NSString"). Coerce everything to string.
+  const sp={}; if(params){ for(const k in params){ if(params[k]!=null) sp[k]=String(params[k]); } }
+  if(Http){ return Http.request({url, method:"GET", params:sp, headers:{"User-Agent":YUA, "Accept":"application/json,text/plain,*/*"}}); }
+  const qs=Object.keys(sp).length?("?"+new URLSearchParams(sp).toString()):""; const r=await fetch(url+qs); return {status:r.status, data:await r.text()};
 }
 async function yEnsureCrumb(force){
   if(_crumb && !force) return _crumb;
@@ -894,8 +904,20 @@ async function nativeFundamentals(syms){
       let pe=rv(sd,"trailingPE"), peCalc=false; if(pe==null){ const ni=rv(ks,"netIncomeToCommon"); if(mc&&isNum(ni)&&ni>0){pe=mc/ni;peCalc=true;} }
       let ev=rv(ks,"enterpriseToEbitda"), evCalc=false; if(ev==null){ const ebitda=rv(fd,"ebitda"); if(mc&&isNum(ebitda)&&ebitda!==0){ev=(mc+td-cash)/ebitda;evCalc=true;} }
       const mom=jsMomentum(price, rv(sd,"fiftyDayAverage"), rv(sd,"twoHundredDayAverage"));
+      let fwdpe=rv(sd,"forwardPE"); if(fwdpe==null)fwdpe=rv(ks,"forwardPE");
+      let dyield=rv(sd,"dividendYield"); if(dyield==null)dyield=rv(sd,"trailingAnnualDividendYield");
+      let beta=rv(sd,"beta"); if(beta==null)beta=rv(ks,"beta");
       out[sym]={peg, ev, evCalc, dfcf, pe, peCalc, mom, marketCap:mc, price, name:pr.shortName||pr.longName||sym, source:"live",
-        financialCurrency:rv(fd,"financialCurrency"), currency:rv(pr,"currency")};   // E3: currency mismatch (ADR) gate
+        financialCurrency:rv(fd,"financialCurrency"), currency:rv(pr,"currency"),   // E3: currency mismatch (ADR) gate
+        // ---- E2.2 extended catalog fields — mirror server.py._fetch_one_fundamental (same Yahoo keys) ----
+        forwardPE:fwdpe, evRev:rv(ks,"enterpriseToRevenue"), ps:rv(sd,"priceToSalesTrailing12Months"), pb:rv(ks,"priceToBook"),
+        grossMargin:rv(fd,"grossMargins"), opMargin:rv(fd,"operatingMargins"), netMargin:rv(fd,"profitMargins"),
+        roe:rv(fd,"returnOnEquity"), roa:rv(fd,"returnOnAssets"), debtToEquity:rv(fd,"debtToEquity"),   // Yahoo % (152.3=1.523x); JS getter ÷100
+        currentRatio:rv(fd,"currentRatio"), quickRatio:rv(fd,"quickRatio"),
+        revGrowth:rv(fd,"revenueGrowth"), earnGrowth:rv(fd,"earningsGrowth"),
+        divYield:dyield, payout:rv(sd,"payoutRatio"), beta:beta,
+        // raw TTM operands for JS-derived metrics (pfcf, ebitdaMargin, fcfMargin, netCashPct) — RAW, not the ||0 locals
+        fcf:fcf, ebitda:rv(fd,"ebitda"), revenue:rv(fd,"totalRevenue"), cash:rv(fd,"totalCash"), debt:rv(fd,"totalDebt")};
     }catch(e){ /* leave missing -> median/seed fallback handles it */ }
   }));
   return out;

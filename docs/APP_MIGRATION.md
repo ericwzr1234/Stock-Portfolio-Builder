@@ -3,7 +3,8 @@
 > **The shared record of what's been built on the web side and what the iOS app still needs.**
 > The Windows machine builds features on the web (`www/index.html` + `server.py`); the Mac brings the
 > **native iOS app** (Capacitor) to parity. Both machines share **one** project board — see §5.
-> Board card: **APP1** (epic `APP`). Last synced **2026-07-13** (web `main` = E1–E4.5 shipped).
+> Board card: **APP1** (epic `APP`, now **testing**). Last synced **2026-07-15** (web `main` = E1–E4.5 shipped;
+> iOS parity implemented on `dev`, awaiting on-device try + `dev→main` integration).
 
 ---
 
@@ -50,12 +51,21 @@ optional Wi-Fi sync to the computer's `portfolio.json` (see [IOS_BUILD.md](IOS_B
 | `dsSearch` | `nativeSearch` | Yahoo search v1 | ✅ done (E1.3) |
 | `dsPeers` | inline native branch (Yahoo `recommendationsbysymbol`) | peers | ✅ done (E1.7–E1.9) |
 | `dsStatements` | `nativeStatements` | **yes** — same `fundamentals-timeseries` endpoint + `STMT_FIELD_MAP` (= server `_STMT_FIELDS`, 31 keys) | ✅ done (E3) |
-| `dsFundamentals` | `nativeFundamentals` | **NO** — returns only the 6 original factors | ❌ **gap** (blocks E2 + E3 pulled/market metrics) |
+| `dsFundamentals` | `nativeFundamentals` | **yes** — now mirrors `_fetch_one_fundamental` (6 factors + the 21 catalog/market fields) | ✅ **done (2026-07-15)** |
 | portfolio load/save | `nativeLoadPortfolio`/`nativeSavePortfolio` (localStorage) + Wi-Fi sync | n/a | ✅ done |
 
-### The one real gap: `nativeFundamentals`
+### The one real gap: `nativeFundamentals` — ✅ RESOLVED (2026-07-15)
+> `nativeFundamentals` now returns all the fields below, mirroring `server.py._fetch_one_fundamental`
+> (same Yahoo keys, `debtToEquity` %, raw operands). Verified on the iPhone 17 simulator with live data
+> (stock-detail shows the extended metrics populated). **Two iOS-only bugs found & fixed on-device while
+> migrating:** (a) a native crash — CapacitorHttp received *numeric* params (E3 `period1/period2`, search
+> counts) and cast-crashed (`NSCFNumber → NSString`); now every param is stringified in `yGet`. (b) E3
+> stock-detail statement tables scrolled the whole sheet sideways and lost their labels; added
+> `.native`-scoped CSS so each `table.mono` scrolls independently with a frozen "Line item" column (web
+> unchanged). Below is the field list that was added, for reference:
+
 `server.py._fetch_one_fundamental` returns ~21 extra fields the web app relies on for the E2 catalog and
-the E3 "stays-pulled" metrics. `nativeFundamentals` (≈ `www/index.html:884`) does **not** yet return them:
+the E3 "stays-pulled" metrics. `nativeFundamentals` (≈ `www/index.html:884`) now returns them:
 
 ```
 forwardPE, evRev, ps, pb, grossMargin, opMargin, netMargin, roe, roa,

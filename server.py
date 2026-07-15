@@ -35,6 +35,16 @@ import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+# macOS/python.org Python often ships without CA certificates, so verifying Yahoo's TLS fails
+# and prices fall back to the offline "seed". If certifi is available, point urllib at its CA
+# bundle (no-op on machines whose system certs already work, e.g. Windows). Set at import time
+# so urllib's SSL contexts pick it up. Override with SSL_CERT_FILE if you want a specific bundle.
+try:
+    import certifi
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+except Exception:
+    pass
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Portfolio DB path. Defaults to portfolio.json; set PB_DB to use an isolated file
 # (e.g. a dev/test database so development never overwrites real holdings). A relative

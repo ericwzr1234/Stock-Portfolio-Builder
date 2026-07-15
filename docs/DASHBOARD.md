@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 0 |
-| Design | 1 |
+| Design | 0 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 34 |
@@ -23,24 +23,25 @@ _A half-baked idea; can be pushed further down once fleshed out._
 
 - _(none)_
 
-## Design  (1)
+## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **APP1** · _APP · iOS app parity_ — **Bring the iOS app to parity with web (E1–E4.5)** _(ios)_ · [spec](APP_MIGRATION.md)
-  - One codebase (www/index.html) wrapped by Capacitor. Most web work reaches iOS just by running `npx cap sync ios` + rebuilding in Xcode — all UI (E1 themes, E4/E4.5 layout, E2/E3 panels, stock-detail) needs NO native code.
-  - CRITICAL native gap: nativeFundamentals() (www/index.html ~L884) returns only the 6 original factors; it does NOT mirror the ~21 E2 extended pulled fields server.py returns (forwardPE, evRev, ps, pb, grossMargin/opMargin/netMargin, roe, roa, debtToEquity[%], currentRatio, quickRatio, revGrowth, earnGrowth, divYield, payout, beta + raw fcf/ebitda/revenue/cash/debt). Without this, E2 catalog metrics and the pulled/market metrics are blank on-device.
-  - Already native: nativeStatements() mirrors server _STMT_FIELDS (E3), plus nativeQuotes/nativeSearch/dsPeers. Verify on-device: E3 compute-from-statements toggle, ADR currency handling, and the stock-detail page.
-  - Then `npm install` (Node 20) -> `npx cap sync ios` -> open in Xcode -> run; on-device regression of E1–E4.5 + calculator + history + Wi-Fi sync. Full checklist in docs/APP_MIGRATION.md.
+- _(none)_
 
 ## Implementation  (0)
 _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **APP1** · _APP · iOS app parity_ — **Bring the iOS app to parity with web (E1–E4.5)** _(ios)_ · [spec](APP_MIGRATION.md)
+  - IMPLEMENTED 2026-07-15 (on dev; awaiting on-device try + dev→main integration): (1) nativeFundamentals extended with all 21 E2/E3 catalog+market fields — the critical native gap is CLOSED; (2) fixed a native crash — CapacitorHttp received numeric params (E3 period1/period2, search counts) and cast-crashed on-device; now stringified in yGet; (3) added native CSS so E3 stock-detail statement tables scroll independently with a frozen 'Line item' column (web unchanged). Built + verified on the iPhone 17 simulator with live on-device data; metric picker / theme editor / stock-detail all render as native bottom sheets. Env: Mac now builds from a git clone OUTSIDE OneDrive (~/Developer/portfolio-builder) — OneDrive locked the folder from the toolchain; server.py Yahoo TLS fixed via SSL_CERT_FILE=certifi.
+  - One codebase (www/index.html) wrapped by Capacitor. Most web work reaches iOS just by running `npx cap sync ios` + rebuilding in Xcode — all UI (E1 themes, E4/E4.5 layout, E2/E3 panels, stock-detail) needs NO native code.
+  - CRITICAL native gap: nativeFundamentals() (www/index.html ~L884) returns only the 6 original factors; it does NOT mirror the ~21 E2 extended pulled fields server.py returns (forwardPE, evRev, ps, pb, grossMargin/opMargin/netMargin, roe, roa, debtToEquity[%], currentRatio, quickRatio, revGrowth, earnGrowth, divYield, payout, beta + raw fcf/ebitda/revenue/cash/debt). Without this, E2 catalog metrics and the pulled/market metrics are blank on-device.
+  - Already native: nativeStatements() mirrors server _STMT_FIELDS (E3), plus nativeQuotes/nativeSearch/dsPeers. Verify on-device: E3 compute-from-statements toggle, ADR currency handling, and the stock-detail page.
+  - Then `npm install` (Node 20) -> `npx cap sync ios` -> open in Xcode -> run; on-device regression of E1–E4.5 + calculator + history + Wi-Fi sync. Full checklist in docs/APP_MIGRATION.md.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
