@@ -298,6 +298,58 @@
   .native .modal-card table.mono{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; }
   .native .modal-card table.mono th:first-child, .native .modal-card table.mono td:first-child{
     position:sticky; left:0; background:var(--paper); z-index:1; box-shadow:6px 0 6px -6px rgba(30,42,42,.18); }
+
+  /* ===== phone-first redesigns for the E1/E2/E4.5 UI (native only; the web layout is untouched) ===== */
+
+  /* (B) theme-card header: roomier, wraps cleanly; real tap targets for + ticker / edit / delete */
+  .native .theme .head{ padding:12px 14px; align-items:flex-start; gap:8px; }
+  .native .theme .head .lhs{ flex:1 1 auto; flex-wrap:wrap; align-items:center; gap:7px 8px; min-width:0; }
+  .native .theme .head h3{ font-size:16px; }
+  .native .theme .head .pill{ font-size:12px; padding:5px 11px; white-space:nowrap; flex:0 0 auto; }
+  .native .addname-btn{ font-size:13px; padding:7px 11px; border-radius:9px; margin-left:0; line-height:1; }
+
+  /* (A) Model tab per-theme metrics: one stacked card per stock (ticker + metric chips) instead of a
+     cramped wide table you must scroll sideways. Column headers move onto each chip via data-label. */
+  .native #view-fundamentals .theme{ overflow:visible; }
+  .native #view-fundamentals .theme table,
+  .native #view-fundamentals .theme thead,
+  .native #view-fundamentals .theme tbody,
+  .native #view-fundamentals .theme tfoot,
+  .native #view-fundamentals .theme tr,
+  .native #view-fundamentals .theme td{ display:block; }
+  .native #view-fundamentals .theme thead{ display:none; }
+  .native #view-fundamentals .theme tbody tr{ display:flex; flex-wrap:wrap; align-items:baseline;
+    gap:5px 14px; padding:11px 14px; border-bottom:1px solid var(--line2); }
+  .native #view-fundamentals .theme tbody tr:last-child{ border-bottom:none; }
+  .native #view-fundamentals .theme tbody td{ display:inline-flex; align-items:baseline; gap:4px;
+    padding:0; border:none; font-size:13px; position:static; box-shadow:none; }
+  .native #view-fundamentals .theme tbody td::before{ content:attr(data-label); color:var(--muted);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+  .native #view-fundamentals .theme tbody td.sym{ flex:0 0 100%; font-size:15px; font-weight:700;
+    margin-bottom:2px; color:var(--ink); }
+  .native #view-fundamentals .theme tbody td.sym::before{ content:none; }
+  /* the "Theme" aggregate row → a highlighted summary card */
+  .native #view-fundamentals .theme tfoot tr{ display:flex; flex-wrap:wrap; gap:5px 14px;
+    padding:11px 14px; background:#FBF9F3; border-top:1px solid var(--line); }
+  .native #view-fundamentals .theme tfoot td{ display:inline-flex; align-items:baseline; gap:4px;
+    padding:0; border:none; font-size:13px; font-weight:650; position:static; box-shadow:none; background:transparent; }
+  .native #view-fundamentals .theme tfoot td::before{ content:attr(data-label); color:var(--muted);
+    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+  .native #view-fundamentals .theme tfoot td:first-child{ flex:0 0 100%; font-size:11px; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--muted); }
+
+  /* (C) theme editor / create sheets: never overflow; roomy inputs; colour swatches as a responsive grid */
+  /* the sheet is a flex child; WebKit won't shrink it below its content's intrinsic width unless
+     min-width:0, so wide content pushed it past the screen. Pin it to the viewport, hard. */
+  .native .modal-backdrop{ overflow-x:hidden; }
+  .native .modal-card{ min-width:0; width:100%; max-width:100vw; box-sizing:border-box; }
+  .native .modal-card > *{ max-width:100%; }
+  .native .modal-card input[type=text], .native .modal-card input[type=url]{ width:100%; box-sizing:border-box;
+    font-size:16px; padding:12px; }
+  .native .ct-swatches{ display:grid; grid-template-columns:repeat(auto-fill,minmax(38px,1fr)); gap:9px; }
+  .native .ct-sw{ width:100%; height:40px; border-radius:10px; }
+  .native .modal-card .row{ flex-wrap:wrap; }
+  .native .modal-card .row .btn{ min-height:44px; }
 </style>
 <script src="data/universe.js"></script>
 <script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
@@ -1428,12 +1480,12 @@ function renderFundamentals(){
     const t=r.theme;
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num" data-label="Cap">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy).replace('<td class=','<td data-label="'+String(m.header||'').replace(/"/g,'')+'" class=')).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
     const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
-    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
+    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" data-label="Cap" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r).replace('<td class=','<td data-label="'+String(m.header||'').replace(/"/g,'')+'" class=')).join("")}</tr>`;
     grid.insertAdjacentHTML("beforeend",`
       <div class="card theme">
         <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
