@@ -7,10 +7,10 @@ compute target weights from live data (or straight from the companies' financial
 Nothing here costs money. No accounts, no keys. Data comes from Yahoo Finance's free endpoints; your
 portfolio lives in a plain `portfolio.json` file next to this README (or on-device in the iOS app).
 
-> **Project status (2026-07-13):** the **web app is feature-complete** — user-defined themes,
+> **Project status (2026-07-15):** the **web app is feature-complete** — user-defined themes,
 > user-defined metrics, statement-driven data, and the redesigned Fundamentals/Screener are all
-> shipped. The native **iOS app is in progress** (bringing the on-device data layer to parity). Live
-> progress board: [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
+> shipped. The native **iOS app now runs on a physical iPhone** — free, private, with data fetched
+> and stored on-device. Live progress board: [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
 
 ---
 
@@ -30,7 +30,10 @@ you do is saved to `portfolio.json` in this folder. To stop, close the window (o
 
 ### iPhone (private, free)
 The same tool builds as a private, free iOS app via Capacitor — it fetches data on-device and stores
-your portfolio on the phone, with optional Wi-Fi sync to share the computer's `portfolio.json`. See
+your portfolio on the phone, with optional Wi-Fi sync to share the computer's `portfolio.json`. It now
+runs on a real iPhone: install it onto your own device from Xcode using free personal-team signing (the
+cert expires after 7 days, so re-run from Xcode about weekly to refresh). Your data stays private
+on-device, and the app does no background activity — it only fetches while you have it open. See
 [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md). Developing across two machines? Read [`CLAUDE.md`](CLAUDE.md)
 and [`docs/DEV_WORKFLOW.md`](docs/DEV_WORKFLOW.md) first.
 

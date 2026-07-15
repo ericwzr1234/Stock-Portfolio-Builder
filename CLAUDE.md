@@ -19,10 +19,14 @@ data or straight from the financial statements). It runs in two forms from **one
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-**Status (2026-07-13):** the web app is feature-complete — Epics **E1** (user-defined themes),
+**Status (2026-07-15):** the web app is feature-complete — Epics **E1** (user-defined themes),
 **E2** (user-defined metrics), **E3** (statement-driven data), and **E4/E4.5** (Fundamentals/Screener
-redesign) are all shipped to `main`/prod (`a3353ae`). Current phase = **iOS app parity** (board epic
-`APP`; see [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md)).
+redesign) are all shipped to `main`/prod (`a3353ae`). The **iOS-parity phase is complete**: the
+Capacitor app is now built, installed, and **running on a real iPhone** (not just the simulator) with
+live on-device Yahoo data, and board ticket **APP1** (epic `APP`) is **done** and merged to prod. The
+only ongoing maintenance is the **weekly re-run from Xcode** to refresh the free (personal-team)
+signing cert, which expires every 7 days. See [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md) and
+[`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
 ## The default themes (user-editable since E1)
 Themes and their names are no longer hardcoded — the user can create/rename/recolour/delete themes and
@@ -59,7 +63,7 @@ docs/
   features/                   ← one spec per feature (design → impl notes → iOS migration)
   ARCHITECTURE.md             ← how the code is organized; the web↔iOS split
   IOS_BUILD.md                ← step-by-step: build & run the iOS app (free, private)
-  APP_MIGRATION.md            ← web→iOS parity status + the app-dev checklist (current focus)
+  APP_MIGRATION.md            ← web→iOS parity status + the app-dev checklist (parity complete)
 dashboard.html                ← visual project-board kanban (double-click; reads docs/board.js)
 server.py                     ← Python stdlib server: serves www/ + Yahoo proxy + portfolio.json
                                  (PB_DB / PB_PORT env override the db file + port for dev)
@@ -93,8 +97,9 @@ This is now a managed, git-synced project. **Before developing, read
   is [`docs/board.json`](docs/board.json); regenerate the views with `tools/render_dashboard.py`.
 - **Each feature** has a spec in `docs/features/<id>_<name>.md`; its **iOS migration notes** are what
   the Mac session reads to replicate the web feature natively.
-- **Current focus:** the **iOS app** (epic `APP`, ticket `APP1`) — bring the native app to parity with
-  the web. Web epics E1–E4.5 are all shipped to prod. Plan: [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
+- **Current focus:** none active — the **iOS app** (epic `APP`, ticket `APP1`) reached web parity and
+  is **shipped to a physical device**; web epics E1–E4.5 are all in prod. Ongoing maintenance is the
+  weekly free-signing re-run (below). History: [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
 
 ## How to run
 
@@ -105,14 +110,29 @@ This is now a managed, git-synced project. **Before developing, read
 - Everything you do saves to `portfolio.json`.
 
 ### iOS (Mac only) — see [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) for the full walkthrough
-Prerequisites this Mac is currently **missing**: **Xcode** (free, App Store) and **Node 18+**
-(it has Node 10, too old for Capacitor 6). Once those are installed:
+Prerequisites are now **satisfied** on this Mac (Xcode 26.5, Node 24, CocoaPods 1.16.2). The app is
+already installed on the iPhone; the everyday task is just the **weekly update/refresh** flow:
 ```
-npm install
-npx cap add ios       # first time only — generates ios/
-npx cap sync ios      # after any change to www/ or plugins
-npx cap open ios      # opens Xcode; set Signing team, pick a simulator/device, Run
+git pull
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8   # CocoaPods needs UTF-8 or pod install errors
+npx cap sync ios                             # after any change to www/ or plugins
+npx cap open ios                             # Xcode → pick the iPhone → Run
 ```
+First-time-on-a-device gotchas (free Apple ID, **no** paid Developer account — full detail in
+[`docs/IOS_BUILD.md`](docs/IOS_BUILD.md)):
+- **Unique bundle id** — a free personal team can't claim a bundle id another team owns, so the app
+  uses `com.ericwzr.portfoliobuilder123453` (team `5F48K52NKV`; matched in `capacitor.config.json`).
+- **Connect the device once** before signing, or the team has no device to generate a profile.
+- **Developer Mode ON** (Settings → Privacy & Security → Developer Mode → restart), then **trust the
+  cert** (Settings → General → VPN & Device Management → your Apple ID → Trust) on first launch.
+- **Free signing certs expire after 7 days** → re-run from Xcode ~weekly. Re-running is an in-place
+  update that **preserves on-device data**; only deleting the app icon wipes it.
+- Skip Xcode's "Update to recommended settings" prompt (User Script Sandboxing breaks the Capacitor
+  build scripts); the WKProcessPool / Embed-Pods yellow warnings are harmless.
+
+On-device the portfolio lives in the app's private WebKit **localStorage** (`pb_portfolio_v1`) — no
+cloud — and the app fetches **only while foregrounded** (no background refresh). Optional Wi-Fi/LAN
+sync (History → Data sync) shares the home computer's `portfolio.json`.
 
 ## Feature epics (all shipped to prod)
 The original tool (core 6-factor model, calculator/rebalance, version history, Prices tab) has been
@@ -126,8 +146,8 @@ extended by four epics — each with specs under `docs/features/`:
 3. **E3 — Statement-driven data.** Metrics computed from the 3 financial statements (Yahoo
    `fundamentals-timeseries`) instead of pre-computed fields; a TTM engine; a stock-detail page (3
    statements × 4 quarters + computed-metrics panel); a compute-from-statements toggle + source
-   compare; foreign-ADR currency handling. On iOS, `nativeStatements` mirrors the server — but
-   `nativeFundamentals` still needs the E2 fields (the one open parity gap; see `docs/APP_MIGRATION.md`).
+   compare; foreign-ADR currency handling. On iOS both `nativeStatements` and `nativeFundamentals`
+   now mirror the server (the E2 catalog fields were added in `8437b93`), closing the last parity gap.
 4. **E4 / E4.5 — Fundamentals & Screener redesign.** The allocation panel split into ① Metrics /
    ② Exception handling / ③ Max weight; per-theme actions in each theme card; the **Screener is now
    search + watchlist** (look up a name → watchlist → add-as-new or swap-for-a-holding → rebalance);
@@ -149,9 +169,9 @@ checkpoint that also restores the prior membership on undo.
   `dsFundamentals` / `dsStatements` / `dsSearch` / `dsPeers` / `dsLoadUniverse`). These branch on
   `NATIVE` (Capacitor): web → the Python server; iOS → Yahoo via `CapacitorHttp` + `localStorage`. The
   iOS parsing mirrors `server.py` for quotes, **statements** (`nativeStatements` ↔ server `_STMT_FIELDS`),
-  search, peers, and the six core factors (crumb dance, PEG/EV/PE derivations, momentum). **One open
-  parity gap:** `nativeFundamentals` doesn't yet emit the ~21 extended E2 catalog fields the server does
-  — see [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
+  search, peers, and the six core factors (crumb dance, PEG/EV/PE derivations, momentum). As of
+  `8437b93`, `nativeFundamentals` also emits the ~21 extended E2 catalog fields the server does, so the
+  data layer is at full parity — see [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
 - **LAN sync (iOS ↔ web share one database).** On iOS you can set a **server URL** (History → Data
   sync sheet, stored as `localStorage["pb_server_url"]`). When set (`useRemote()`),
   `loadPortfolio`/`savePortfolio` read/write the **same `portfolio.json`** as the web via the home
@@ -186,8 +206,10 @@ checkpoint that also restores the prior membership on undo.
   don't load on device, that's the first thing to check — see `docs/IOS_BUILD.md` troubleshooting.
 - iOS portfolio defaults to on-device; **LAN sync** (History → Data sync) makes it share the web's
   `portfolio.json` over Wi-Fi (see `docs/IOS_BUILD.md`).
-- **macOS web prices show `seed`/offline** while Windows works: the Mac's python.org Python can't
-  verify Yahoo's TLS cert — run `/Applications/Python 3.xx/Install Certificates.command` once. Only
-  affects the web server's price proxy on the Mac; the iOS app and LAN sync are unaffected.
+- **macOS web prices used to show `seed`/offline** while Windows worked: the Mac's python.org Python
+  couldn't verify Yahoo's TLS cert. `server.py` now **auto-uses `certifi`** (falls back silently if it
+  isn't installed), so Mac prices fetch live out of the box; the old manual fix
+  (`/Applications/Python 3.xx/Install Certificates.command`) is only a fallback. Only ever affected the
+  web server's price proxy on the Mac; the iOS app and LAN sync are unaffected.
 - Don't let `node_modules/` and `ios/` bloat OneDrive — they're Mac-only build artifacts (a
   `.gitignore` lists them; consider excluding them from OneDrive sync).

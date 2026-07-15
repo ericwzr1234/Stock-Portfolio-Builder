@@ -1,11 +1,14 @@
 # Web → iOS app migration — status & checklist
 
-> **The shared record of what's been built on the web side and what the iOS app still needs.**
-> The Windows machine builds features on the web (`www/index.html` + `server.py`); the Mac brings the
-> **native iOS app** (Capacitor) to parity. Both machines share **one** project board — see §5.
+> **The shared record of what's been built on the web side and how the iOS app reached parity — now complete.**
+> The Windows machine builds features on the web (`www/index.html` + `server.py`); the Mac brought the
+> **native iOS app** (Capacitor) to parity and shipped it to a physical device. Both machines share **one**
+> project board — see §5.
 > Board card: **APP1** (epic `APP`, now **done** — merged `dev→main`). Last synced **2026-07-15** (web `main` =
-> E1–E4.5 shipped; iOS parity + a phone-first native pass shipped to prod). Remaining is operational only:
-> install on a physical iPhone via Xcode free signing (see §4 / `IOS_BUILD.md`).
+> E1–E4.5 shipped; iOS parity + a phone-first native pass shipped to prod). **Parity is complete: the app is
+> now built, installed, and running on a real iPhone** (iPhone 16 Pro Max, iOS 26.5.2) via Xcode free
+> personal-team signing, with live on-device Yahoo data confirmed. What remains is operational only — a
+> weekly re-run to refresh the 7-day free-signing cert (see §4 / `IOS_BUILD.md`).
 
 ---
 
@@ -31,16 +34,34 @@ optional Wi-Fi sync to the computer's `portfolio.json` (see [IOS_BUILD.md](IOS_B
 
 ---
 
-## 2. Web progress — shipped to prod (`main`)
+## 2. Web progress — shipped to prod (`main`), all live on device
+
+Every web epic below is now not just synced into the app but **verified running on a physical iPhone** with
+live on-device Yahoo data. iOS parity is **complete**.
 
 | Epic | What shipped | iOS reach |
 |------|--------------|-----------|
 | **Core** (C1–C10) | 6-factor allocation model, bad-data handling, Yahoo data layer, calculator/rebalance, version history, Prices/Screener tabs, swap, dynamic membership, cross-platform shell | ✅ native (built cross-platform from day one) |
-| **E1** User-defined themes | data-driven theme list, add/remove ticker, ticker search+validate, create/rename/recolour/delete theme, restore defaults, peers recommendations, flat screener | ✅ **UI only** → `cap sync`. Data: `nativeQuotes`/`nativeSearch`/`dsPeers` native branches all exist |
-| **E2** User-defined metrics | metric catalog (6 default + 21 catalog), picker, auto-direction + 3 bad-data policies, presets/reset | ⚠️ **UI only → `cap sync`, BUT the 21 catalog metrics need `nativeFundamentals` extended** — see §3/§4 |
-| **E3** Statement-driven data | `/api/statements` (fundamentals-timeseries), computed-metric engine (TTM), stock-detail page, compute-from-statements toggle, ADR currency handling | ✅ data done natively (`nativeStatements` mirrors the server); ⚠️ verify on-device |
-| **E4** Fundamentals/Screener redesign | declutter allocation panel, per-theme actions, split add-vs-watchlist flow, screener = search+watchlist | ✅ **UI only** → `cap sync` |
-| **E4.5** Allocation-panel layout | equal-width split cards, inline direction cue, aligned exception grid | ✅ **UI only** → `cap sync` |
+| **E1** User-defined themes | data-driven theme list, add/remove ticker, ticker search+validate, create/rename/recolour/delete theme, restore defaults, peers recommendations, flat screener | ✅ on-device. Data: `nativeQuotes`/`nativeSearch`/`dsPeers` native branches all verified |
+| **E2** User-defined metrics | metric catalog (6 default + 21 catalog), picker, auto-direction + 3 bad-data policies, presets/reset | ✅ on-device — `nativeFundamentals` extended with the 21 catalog/market fields (`8437b93`); catalog columns populate |
+| **E3** Statement-driven data | `/api/statements` (fundamentals-timeseries), computed-metric engine (TTM), stock-detail page, compute-from-statements toggle, ADR currency handling | ✅ on-device (`nativeStatements` mirrors the server; stock-detail tables scroll with a frozen "Line item" column) |
+| **E4** Fundamentals/Screener redesign | declutter allocation panel, per-theme actions, split add-vs-watchlist flow, screener = search+watchlist | ✅ on-device (native skin polished this session — see below) |
+| **E4.5** Allocation-panel layout | equal-width split cards, inline direction cue, aligned exception grid | ✅ on-device |
+
+### Shipped this session (2026-07-15) — native-only UI polish (`html.native` skin; web/desktop look unchanged)
+- **One-row Model-tab theme actions.** Per-theme actions now sit on a single full-width row with text
+  labels ("+ Add ticker", "Edit name", "Delete"), left-aligned under the theme title, with the target-%
+  pill floated to the card's top-right; the Exception-handling sub-section was tidied into an aligned grid.
+- **iOS auto-zoom fix.** WKWebView magnified the whole page whenever a focused field had font-size < 16px
+  (some inputs were an inline 14px), throwing pop-ups oversized and off-screen. Fixed by pinning all native
+  form fields to 16px (`.native input`/`textarea`/`select`, excluding checkbox/radio).
+- **Scrollable Screener watchlist quote table** with a frozen ticker column (Ticker, Company, Last, Chg%,
+  52W High, 52W Low, Volume, Avg Vol, add-to-theme, remove). Root cause of the old broken look: the flat-
+  screener rank-hiding rule was also hiding the watchlist's ticker column; the new `wl-table` opts out via a
+  higher-specificity override. To populate it, **52-week high/low + today's volume + average volume were
+  added to BOTH data layers** — `server.py` `fetch_quotes_live` and on-device `nativeQuotes` — using Yahoo v7
+  fields `fiftyTwoWeekHigh`/`fiftyTwoWeekLow`/`regularMarketVolume`/`averageDailyVolume3Month` (fallback
+  `…10Day`), stored as `high52`/`low52`/`vol`/`avgVol`, with a `volFmt()` helper (12.3M / 1.2B).
 
 ---
 
@@ -57,8 +78,9 @@ optional Wi-Fi sync to the computer's `portfolio.json` (see [IOS_BUILD.md](IOS_B
 
 ### The one real gap: `nativeFundamentals` — ✅ RESOLVED (2026-07-15)
 > `nativeFundamentals` now returns all the fields below, mirroring `server.py._fetch_one_fundamental`
-> (same Yahoo keys, `debtToEquity` %, raw operands). Verified on the iPhone 17 simulator with live data
-> (stock-detail shows the extended metrics populated). **Two iOS-only bugs found & fixed on-device while
+> (same Yahoo keys, `debtToEquity` %, raw operands). Verified first on the iPhone 17 simulator and now on a
+> **physical iPhone 16 Pro Max (iOS 26.5.2)** with live data (stock-detail shows the extended metrics
+> populated). **Two iOS-only bugs found & fixed on-device while
 > migrating:** (a) a native crash — CapacitorHttp received *numeric* params (E3 `period1/period2`, search
 > counts) and cast-crashed (`NSCFNumber → NSString`); now every param is stringified in `yGet`. (b) E3
 > stock-detail statement tables scrolled the whole sheet sideways and lost their labels; added
@@ -84,21 +106,48 @@ pulled and are **blank on iOS until this is done.**
 
 ---
 
-## 4. App-development checklist (the APP1 ticket)
+## 4. App-development checklist (the APP1 ticket) — ✅ COMPLETE
 
-1. **Prereqs on the Mac** (one-time): Xcode, Node ≥ 18 (use 20), CocoaPods. See [IOS_BUILD.md](IOS_BUILD.md) §0.
-2. **Pull prod:** `git checkout main && git pull`.
-3. **Extend `nativeFundamentals`** to return the ~21 fields in §3, mirroring `server.py._fetch_one_fundamental`
-   exactly (same Yahoo keys, same `debtToEquity` %, same raw operands). This is the only required native code.
-4. **`npm install` → `npx cap sync ios` → `npx cap open ios`** → run on the simulator, then a device.
-5. **On-device verification** (the parts that can't be proven on web):
-   - E2: add a catalog metric (e.g. ROE, gross margin, P/B) → its column populates (not blank).
-   - E3: compute-from-statements toggle on/off flips values; stock-detail shows 3 statements + TTM;
-     open a foreign ADR (TSM) → currency note + valuation stays pulled.
-   - E4/E4.5: the two allocation cards render side-by-side (and stack acceptably) in the native skin.
-   - Regression: E1 theme CRUD, calculator/rebalance, history undo/redo, Wi-Fi sync to `portfolio.json`.
-6. **Log any coverage caps** you hit on-device (e.g. Yahoo throttling the crumb) in this doc + the board.
-7. On success, set **APP1 → done** on the board and update this file's status table.
+All build, install, and on-device verification steps are done; APP1 is `done` and merged `dev→main`.
+
+1. ✅ **Prereqs on the Mac** (one-time): Xcode 26.5, Node 24, CocoaPods 1.16.2 (Homebrew at `/opt/homebrew`).
+   See [IOS_BUILD.md](IOS_BUILD.md) §0. (CocoaPods needs `LANG`/`LC_ALL=en_US.UTF-8` exported or `pod install`
+   throws a Unicode error; build from the git clone **outside** OneDrive at `~/Developer/portfolio-builder`.)
+2. ✅ **Pull prod:** `git checkout main && git pull`.
+3. ✅ **`nativeFundamentals` extended** to return the ~21 fields in §3 (`8437b93`) — mirrors
+   `server.py._fetch_one_fundamental` (same Yahoo keys, `debtToEquity` %, raw operands).
+4. ✅ **`npm install` → `npx cap sync ios` → `npx cap open ios`** → ran on the simulator, then installed on a
+   **physical iPhone 16 Pro Max (iOS 26.5.2)** via Xcode free personal-team signing.
+5. ✅ **On-device verification** (the parts that can't be proven on web):
+   - E2: catalog-metric columns (ROE, gross margin, P/B, …) populate, not blank.
+   - E3: compute-from-statements toggle flips values; stock-detail shows 3 statements + TTM with a frozen
+     "Line item" column; foreign ADRs keep the currency note + pulled valuation.
+   - E4/E4.5: the two allocation cards render in the native skin; watchlist quote table scrolls with a
+     frozen ticker column and live 52-week/volume fields.
+   - Regression: E1 theme CRUD, calculator/rebalance, history undo/redo, live prices — all confirmed.
+
+### Ongoing operational reality (free Apple ID, no paid Developer account)
+- **Weekly re-run.** Free personal-team signing certs **expire after 7 days** — re-run from Xcode about weekly
+  to refresh. Re-running is an **in-place update that preserves on-device data**; only deleting the app icon
+  wipes it.
+- **Update flow (pull latest → phone):** `git pull` → `export PATH` + `LANG`/`LC_ALL=en_US.UTF-8` →
+  `npx cap sync ios` → `npx cap open ios` → pick the iPhone → **Run**.
+- **Signing gotchas** (see [IOS_BUILD.md](IOS_BUILD.md) / session facts): a free team can't reuse a bundle id
+  another team owns, so `appId` is `com.ericwzr.portfoliobuilder123453` (`DEVELOPMENT_TEAM 5F48K52NKV`); the
+  device must be connected once to mint a profile; Developer Mode must be ON; **skip** Xcode's "Update to
+  recommended settings" (User Script Sandboxing breaks the Capacitor build scripts).
+
+### Operational notes (what the running app actually does)
+- **Data lives on-device.** The portfolio (holdings/themes/watchlist/versions/settings) persists in the app's
+  private WebKit `localStorage` (`pb_portfolio_v1`) — not in any cloud. Deleting the app wipes it. Optional
+  Wi-Fi/LAN sync (History → Data sync) shares the home computer's `portfolio.json` over the local network.
+- **No background refresh.** The app fetches data only while foregrounded — no `UIBackgroundModes`/background-
+  fetch; iOS suspends the webview when backgrounded/closed. No background battery or data use.
+- **Free.** Reads Yahoo Finance's free public endpoints on-device — no API key, no subscription, no server.
+- **Security posture.** The user's own sandboxed code with minimal permissions (only Local Network, for the
+  optional LAN sync); outbound HTTPS to Yahoo only; loads **no remote code** (runs the bundled `www/`).
+  Developer Mode's only added exposure is physical-access (needs the unlocked phone + passcode); it opens no
+  remote hole and can't be enabled remotely.
 
 ---
 

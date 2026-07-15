@@ -38,13 +38,19 @@ points that branch on `NATIVE`:
 
 The native Yahoo client mirrors `server.py` for the cookie+crumb handshake (`yEnsureCrumb`), quotes,
 statements (`nativeStatements` ↔ server `_STMT_FIELDS`, byte-identical), search, and peers — plus the
-original fundamentals derivations (Total Debt/FCF, the `P/E = mcap ÷ net income` and
+fundamentals derivations (Total Debt/FCF, the `P/E = mcap ÷ net income` and
 `EV/EBITDA = (mcap + debt − cash) ÷ EBITDA` fallbacks, and the 50/200-day momentum blend).
-**One open parity gap (E2):** `nativeFundamentals` still returns only the six original factors — it has
-**not** yet been extended to the ~21 extra E2 catalog fields that `server.py._fetch_one_fundamental`
-returns (forwardPE, ps, pb, evRev, margins, roe, roa, debtToEquity, current/quick, growth, divYield,
-payout, beta, raw operands). Until it is, the E2 catalog + E3 pulled/market metrics are blank on-device.
-Tracked in [`APP_MIGRATION.md`](APP_MIGRATION.md).
+**Data-layer parity is complete (as of `8437b93`):** `nativeFundamentals` now also emits the ~21 extra
+E2 catalog / E3 market fields that `server.py._fetch_one_fundamental` returns (forwardPE, ps, pb, evRev,
+margins, roe, roa, debtToEquity, current/quick, growth, divYield, payout, beta, raw operands) — so the
+E2 catalog and the E3 pulled/market metrics populate on-device. The old gap is closed and verified on a
+physical iPhone (see [`APP_MIGRATION.md`](APP_MIGRATION.md)).
+
+Quotes now also carry **52-week high/low, today's volume, and average volume** (Yahoo v7 fields
+`fiftyTwoWeekHigh` / `fiftyTwoWeekLow` / `regularMarketVolume` / `averageDailyVolume3Month`, falling
+back to `averageDailyVolume10Day`; stored under keys `high52` / `low52` / `vol` / `avgVol`). This is
+mirrored in **both** data layers — `server.py.fetch_quotes_live` and the on-device `nativeQuotes` — and
+consumed by the Screener watchlist table (`volFmt` renders the share counts, e.g. `12.3M` / `1.2B`).
 
 `CapacitorHttp` is enabled in `capacitor.config.json`, which (a) guarantees `window.CapacitorHttp`
 exists and (b) routes `fetch`/`XHR` through native HTTP. Local assets are intentionally **not**
@@ -115,6 +121,14 @@ The iOS app is mobile-redesigned purely with CSS scoped to `html.native`:
 - `capacitor.config.json` uses `ios.contentInset: "never"` + `viewport-fit=cover`; safe areas are
   handled in CSS. **Gotcha:** a `position:fixed` bottom bar is trapped if any ancestor establishes a
   containing block, so `.native header.top` clears the inherited `backdrop-filter`.
+- **Gotcha (focus-zoom):** WKWebView auto-zooms the *whole page* whenever a focused field has
+  `font-size < 16px` (some inputs carried an inline 14px), which made every pop-up render oversized and
+  pushed its left edge off-screen. All native form fields are therefore pinned to 16px —
+  `.native input` (excluding checkbox/radio), `.native textarea`, `.native select { font-size:16px !important }`.
+- **Gotcha (watchlist ticker column):** the flat-Screener rank-hiding rule
+  `.native #view-screener table td:first-child { display:none }` also hid the watchlist's first
+  (ticker) column. The watchlist table is tagged `.wl-table` and opts out via a higher-specificity
+  override so its frozen ticker column stays visible.
 - Rule: never restyle base selectors for mobile; only add `.native …` overrides. Rebuild with
   `npx cap sync ios` after CSS changes.
 
