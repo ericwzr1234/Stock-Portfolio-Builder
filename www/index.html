@@ -182,6 +182,7 @@
   .ct-sw.sel{outline:2px solid #1E2A2A;outline-offset:1px}
   .addname-btn{ border:1px solid #DDD6C6; background:transparent; color:#3A6EA5; border-radius:6px; font-size:11px; padding:1px 7px; cursor:pointer; margin-left:4px }
   .addname-btn:hover{ border-color:#3A6EA5; background:#F1F5FA }
+  .theme-acts{ display:contents }   /* web: no box (buttons stay inline as before); native restyles it into a group */
   .ts-results{ margin-top:8px; max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:4px }
   .ts-row{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid #E6E0D2; background:#fff; border-radius:8px; padding:8px 10px; cursor:pointer }
   .ts-row:hover{ border-color:#13605C; background:#FBF9F3 }
@@ -301,42 +302,24 @@
 
   /* ===== phone-first redesigns for the E1/E2/E4.5 UI (native only; the web layout is untouched) ===== */
 
-  /* (B) theme-card header: roomier, wraps cleanly; real tap targets for + ticker / edit / delete */
-  .native .theme .head{ padding:12px 14px; align-items:flex-start; gap:8px; }
-  .native .theme .head .lhs{ flex:1 1 auto; flex-wrap:wrap; align-items:center; gap:7px 8px; min-width:0; }
+  /* (B) theme-card actions: + ticker / edit / delete become a tidy, uniform icon group that wraps onto
+     its own right-aligned line — not tiny mismatched buttons crammed next to the name. The per-theme
+     metrics keep the ORIGINAL horizontally-scrollable table (with the frozen ticker column). */
+  .native .theme .head{ padding:12px 14px; align-items:flex-start; column-gap:8px; }
+  .native .theme .head .lhs{ flex:1 1 auto; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
   .native .theme .head h3{ font-size:16px; }
   .native .theme .head .pill{ font-size:12px; padding:5px 11px; white-space:nowrap; flex:0 0 auto; }
-  .native .addname-btn{ font-size:13px; padding:7px 11px; border-radius:9px; margin-left:0; line-height:1; }
+  .native .addname-btn{ margin:0; height:34px; min-width:34px; padding:0 9px; font-size:15px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:9px; color:var(--muted); }
+  .native .addname-btn:active{ background:#F1F5FA; }
+  .native .addname-btn .lbl{ display:none; }                    /* "+ ticker" shows just "+" on the phone */
+  .native .addname-btn[data-addticker]{ color:var(--teal); }
+  .native .theme-acts{ display:flex; gap:6px; align-items:center; margin-left:auto; }   /* keep the 3 icons together, wrapping to their own right-aligned line */
 
-  /* (A) Model tab per-theme metrics: one stacked card per stock (ticker + metric chips) instead of a
-     cramped wide table you must scroll sideways. Column headers move onto each chip via data-label. */
-  .native #view-fundamentals .theme{ overflow:visible; }
-  .native #view-fundamentals .theme table,
-  .native #view-fundamentals .theme thead,
-  .native #view-fundamentals .theme tbody,
-  .native #view-fundamentals .theme tfoot,
-  .native #view-fundamentals .theme tr,
-  .native #view-fundamentals .theme td{ display:block; }
-  .native #view-fundamentals .theme thead{ display:none; }
-  .native #view-fundamentals .theme tbody tr{ display:flex; flex-wrap:wrap; align-items:baseline;
-    gap:5px 14px; padding:11px 14px; border-bottom:1px solid var(--line2); }
-  .native #view-fundamentals .theme tbody tr:last-child{ border-bottom:none; }
-  .native #view-fundamentals .theme tbody td{ display:inline-flex; align-items:baseline; gap:4px;
-    padding:0; border:none; font-size:13px; position:static; box-shadow:none; }
-  .native #view-fundamentals .theme tbody td::before{ content:attr(data-label); color:var(--muted);
-    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
-  .native #view-fundamentals .theme tbody td.sym{ flex:0 0 100%; font-size:15px; font-weight:700;
-    margin-bottom:2px; color:var(--ink); }
-  .native #view-fundamentals .theme tbody td.sym::before{ content:none; }
-  /* the "Theme" aggregate row → a highlighted summary card */
-  .native #view-fundamentals .theme tfoot tr{ display:flex; flex-wrap:wrap; gap:5px 14px;
-    padding:11px 14px; background:#FBF9F3; border-top:1px solid var(--line); }
-  .native #view-fundamentals .theme tfoot td{ display:inline-flex; align-items:baseline; gap:4px;
-    padding:0; border:none; font-size:13px; font-weight:650; position:static; box-shadow:none; background:transparent; }
-  .native #view-fundamentals .theme tfoot td::before{ content:attr(data-label); color:var(--muted);
-    font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
-  .native #view-fundamentals .theme tfoot td:first-child{ flex:0 0 100%; font-size:11px; text-transform:uppercase;
-    letter-spacing:.5px; color:var(--muted); }
+  /* Model-tab control buttons (choose metrics, presets, restore/reset, refresh, compare, new theme):
+     one consistent, comfortable pill size so they read as a tidy toolbar, not cramped mismatched chips. */
+  .native .btn.sm{ font-size:13px; padding:9px 13px; border-radius:10px; }
+  .native #view-fundamentals .section-title{ flex-wrap:wrap; gap:8px 10px; }
 
   /* (C) theme editor / create sheets: never overflow; roomy inputs; colour swatches as a responsive grid */
   /* the sheet is a flex child; WebKit won't shrink it below its content's intrinsic width unless
@@ -1480,19 +1463,19 @@ function renderFundamentals(){
     const t=r.theme;
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num" data-label="Cap">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy).replace('<td class=','<td data-label="'+String(m.header||'').replace(/"/g,'')+'" class=')).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
     const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
-    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" data-label="Cap" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r).replace('<td class=','<td data-label="'+String(m.header||'').replace(/"/g,'')+'" class=')).join("")}</tr>`;
+    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
     grid.insertAdjacentHTML("beforeend",`
       <div class="card theme">
         <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
           <h3>${t.name}</h3>${srcTag}
-          <button class="addname-btn" data-addticker="${t.key}" title="Add a ticker to ${t.name}">＋ ticker</button>
+          <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" title="Add a ticker to ${t.name}">＋<span class="lbl"> ticker</span></button>
           <button class="addname-btn" data-editth="${t.key}" title="Rename / recolour ${t.name}">✎</button>
-          <button class="addname-btn" data-delth="${t.key}" title="Delete ${t.name}">✕</button></div>
+          <button class="addname-btn" data-delth="${t.key}" title="Delete ${t.name}">✕</button></span></div>
           <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
         <table><thead>${thead}</thead>
         <tbody>${body}</tbody>
