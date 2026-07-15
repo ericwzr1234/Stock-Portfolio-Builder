@@ -257,8 +257,13 @@
   /* bigger, comfier controls (16px inputs prevent iOS focus-zoom) */
   .native .btn{ padding:11px 16px; font-size:15px; border-radius:11px; }
   .native .btn.sm{ padding:7px 12px; font-size:13px; border-radius:9px; }
-  .native input[type=number]{ font-size:16px; padding:10px 12px; border-radius:10px; }
-  .native select{ font-size:15px; padding:10px 12px; border-radius:10px; }
+  /* EVERY focusable field must be >=16px or iOS auto-zooms the WHOLE page on focus — it magnifies
+     and shoves the left edge off-screen, which reads as an oversized, mis-placed pop-up. !important
+     beats the inline font-sizes a few fields set in shared markup we can't change for web. Exclude
+     checkbox/radio (font-size changes their box size in WebKit). */
+  .native input:not([type=checkbox]):not([type=radio]), .native textarea, .native select{ font-size:16px !important; }
+  .native input[type=number]{ padding:10px 12px; border-radius:10px; }
+  .native select{ padding:10px 12px; border-radius:10px; }
 
   /* stat band: 2-up */
   .native .band{ grid-template-columns:repeat(2,1fr); gap:10px; }
