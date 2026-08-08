@@ -10,8 +10,8 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 |---|---:|
 | Ideation | 5 |
 | Design | 0 |
-| Implementation | 1 |
-| Testing | 3 |
+| Implementation | 0 |
+| Testing | 4 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 35 |
@@ -45,13 +45,12 @@ _Detailed requirements captured; a spec exists in docs/features/._
 
 - _(none)_
 
-## Implementation  (1)
+## Implementation  (0)
 _Being built on the dev branch._
 
-- **E5.3** · _E5 · Web UI overhaul_ — **Rebalance tab (replaces Calculator)** _(depends E5.0, web)_
-  - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
+- _(none)_
 
-## Testing  (3)
+## Testing  (4)
 _Built; waiting for you to try it._
 
 - **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
@@ -62,6 +61,8 @@ _Built; waiting for you to try it._
   - Hero portfolio value + scrubable value-over-time area chart across the version timeline; theme breakdown donut; holdings table with per-row sparklines and live day-change.
 - **E5.2** · _E5 · Web UI overhaul_ — **Model tab (replaces Fundamentals & Allocation)** _(depends E5.0, web)_
   - The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page.
+- **E5.3** · _E5 · Web UI overhaul_ — **Rebalance tab (replaces Calculator)** _(depends E5.0, web)_
+  - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

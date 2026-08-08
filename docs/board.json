@@ -259,7 +259,7 @@
       "title": "Model tab (replaces Fundamentals & Allocation)", "notes": [
       "The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page." ] },
 
-    { "id": "E5.3", "epic": "E5", "stage": "implementation", "platform": "web", "depends": "E5.0",
+    { "id": "E5.3", "epic": "E5", "stage": "testing", "platform": "web", "depends": "E5.0",
       "title": "Rebalance tab (replaces Calculator)", "notes": [
       "Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint." ] },
 

@@ -66,16 +66,51 @@ E5 settles, starting from a verification that every E5 capability exists on-devi
 
 | # | Card | Replaces | Status |
 |---|------|----------|--------|
-| 0 | **E5.0 Shell** — rail, context bar, theme tokens | — | design |
-| 1 | **E5.1 Overview** | Prices | ideation |
-| 2 | **E5.2 Model** (3 sub-steps) | Fundamentals & Allocation | ideation |
-| 3 | **E5.3 Rebalance** | Calculator | ideation |
-| 4 | **E5.4 Research** | Screener | ideation |
-| 5 | **E5.5 History** | History | ideation |
+| 0 | **E5.0 Shell** — rail, context bar, theme tokens | — | **built ✅ testing** |
+| 1 | **E5.1 Overview** | Prices | **built ✅ testing** |
+| 2 | **E5.2 Model** | Fundamentals & Allocation | **built ✅ testing** |
+| 3 | **E5.3 Rebalance** | Calculator | **built ✅ testing** |
+| 4 | **E5.4 Research** | Screener | **NEXT — not started** |
+| 5 | **E5.5 History** | History | not started |
 | — | **APP2** iOS redesign | — | ideation (after E5) |
 
 Each card must be working and verified in the browser before the next one starts. `dev` is frozen as the
 archive of the legacy UI; `dev-newUI` is the working branch and becomes the path to prod.
+
+## 6b. Progress log — resume point (2026-08-08)
+
+**Branch `dev-newUI` @ `38e2536`. `main` and `dev` are still at `e5ceb39` — E5 has NOT been merged to
+prod.** Nothing is half-finished; each commit below is working and verified.
+
+| Commit | What |
+|---|---|
+| `9482751` | **E5.0** shell — rail, sticky context bar, light/dark tokens |
+| `c5cc03a` | **E5.1** Overview — hero, real value history, donut |
+| `a974133` | **E5.1 rework** — two-column, theme accordion, bigger donut *(user feedback)* |
+| `55af2a5` | **E5.2** Model — collapsible per-theme metrics, readable target pills |
+| `2b0849f` | **E5.2b** fill the window — dropped the 1180px cap *(user feedback)* |
+| `38e2536` | **E5.3** Rebalance — plan left, holdings right, contained scrolling |
+
+### Conventions established (follow these in E5.4 / E5.5)
+- **Two-column**: charts / controls on the left, detail on the right.
+- **Detail collapses**: long per-theme or per-row content is an accordion, collapsed by default, with
+  open state kept in module state so an auto-refresh re-render doesn't collapse it.
+- **Contain, don't stretch**: long lists scroll inside their own card; never bury a commit button
+  (e.g. *Apply & save*) inside a nested scroll.
+- **Fill the window**: no fixed max-width; adapt at `>=1500px` / `>=1800px` instead of stretching.
+- **Never hardcode a colour** — tokens or `color-mix()` only, or dark mode breaks.
+- **Theme colours are user data** and don't adapt: mix them toward `--paper` / `--ink` before using
+  them as text, or contrast fails in dark mode.
+- **Wide-screen media queries must be LAST in the stylesheet** — they override base rules of equal
+  specificity and silently lose otherwise.
+- **Test against the dev DB** (`portfolio-dev`, port 8766, `portfolio.dev.json`), never the real book,
+  and check `portfolio.json`'s md5 against `C:\dev\portfolio-builder-backups\` afterwards.
+
+### Known open points
+- The **five-lens adversarial review of E5.0/E5.1 was stopped mid-run** (it was hammering OneDrive with
+  file reads). Worth re-running against the whole E5 diff before the merge to prod.
+- **E5.4 Research** and **E5.5 History** are still the legacy layout.
+- Merge to `main` only once the user has clicked through the whole epic.
 
 ## 7. Acceptance (epic-level)
 
