@@ -2,14 +2,14 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
-| Ideation | 0 |
-| Design | 0 |
+| Ideation | 6 |
+| Design | 1 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
@@ -18,15 +18,31 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (0)
+## Ideation  (6)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- _(none)_
+- **E5.1** · _E5 · Web UI overhaul_ — **Overview tab (replaces Prices)** _(depends E5.0, web)_
+  - Hero portfolio value + scrubable value-over-time area chart across the version timeline; theme breakdown donut; holdings table with per-row sparklines and live day-change.
+- **E5.2** · _E5 · Web UI overhaul_ — **Model tab (replaces Fundamentals & Allocation)** _(depends E5.0, web)_
+  - The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page.
+- **E5.3** · _E5 · Web UI overhaul_ — **Rebalance tab (replaces Calculator)** _(depends E5.0, web)_
+  - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
+- **E5.4** · _E5 · Web UI overhaul_ — **Research tab (replaces Screener)** _(depends E5.0, web)_
+  - Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow.
+- **E5.5** · _E5 · Web UI overhaul_ — **History tab** _(depends E5.0, web)_
+  - Checkpoint timeline, undo / redo / revert-to-here with the fork behaviour, value-at-checkpoint chart, reset portfolio, and the data-sync sheet.
+- **APP2** · _APP · iOS app parity_ — **Redesign the iOS app against the new feature set** _(depends E5.5, ios)_
+  - DECISION (2026-08-08): the iPhone app does NOT have to copy the web UI — platform/Xcode constraints make a shared pixel-level design a poor fit. It MUST carry the same CONTENT and FEATURES.
+  - So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).
+  - Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone.
 
-## Design  (0)
+## Design  (1)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- _(none)_
+- **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
+  - Approved from the clickable prototype (www/proto/newui.html): persistent left rail + a sticky context bar that keeps total value / today / invested / max drift on screen on EVERY page (today that context is lost the moment you leave Prices).
+  - ONE design in TWO themes — ☀ Light / ☾ Dark (defaults to the OS setting, remembers the choice). Everything theme-dependent is a CSS token; no layout rule branches on the theme.
+  - Gotchas already proven in the prototype: transition the `background-color` LONGHAND (the shorthand over a var() sticks at the old colour on a theme swap), and clear the transition-suppression class on a TIMER, not requestAnimationFrame (rAF is paused in background tabs and would disable all motion permanently).
 
 ## Implementation  (0)
 _Being built on the dev branch._
