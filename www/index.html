@@ -162,7 +162,14 @@
   .thm-stats i{font-style:normal;font-size:9.5px;color:var(--muted);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   .thm-stats b{font-size:12.5px;font-weight:620;font-variant-numeric:tabular-nums}
-  .thm-body{border-top:1px solid var(--line2);padding:2px 12px 6px}
+  /* E5.2: Model-tab variant — header is a div (it contains buttons), so restate the basics */
+  .fund-gridhead{display:flex;align-items:center;gap:8px;margin:4px 0 9px;flex-wrap:wrap}
+  .thm-head[role="button"]{display:flex;align-items:center;gap:9px}
+  .thm-head[role="button"]:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .thm-head .nm{flex:1}
+  .thm-head .theme-acts{display:inline-flex;gap:4px;flex:none}
+  .thm-head .pill{flex:none}
+  .thm-body{border-top:1px solid var(--line2);padding:2px 12px 6px;overflow-x:auto}
   .thm-body table{width:100%;border-collapse:collapse}
   @media(max-width:520px){ .thm-stats{grid-template-columns:repeat(3,1fr)} }
 
@@ -639,7 +646,12 @@
         </details>
       </div>
     </div>
-    <div class="theme-grid" id="fundGrid"></div>
+    <div class="fund-gridhead">
+      <span class="ov-k">Per-theme metrics</span>
+      <span class="xs muted">— click a theme to see its names, or edit any value inline</span>
+      <button class="btn sm ghost" id="fundExpandAll" data-mode="expand" style="margin-left:auto">⌄ Expand all</button>
+    </div>
+    <div id="fundGrid"></div>
   </section>
 
   <!-- ============ CALCULATOR / REBALANCE ============ -->
@@ -1692,6 +1704,31 @@ function toggleTheme(key){
   if(body) body.hidden=!open;
   if(head) head.setAttribute("aria-expanded",String(open));
 }
+/* E5.2: the same, for the Model tab's per-theme metric tables (#fundGrid) */
+const OPEN_FTHEMES=new Set();
+function toggleFTheme(key){
+  if(OPEN_FTHEMES.has(key)) OPEN_FTHEMES.delete(key); else OPEN_FTHEMES.add(key);
+  applyFThemeOpen(key);
+  syncFThemeAllBtn();
+}
+function applyFThemeOpen(key){
+  const box=document.querySelector(`.thm[data-fthmkey="${CSS.escape(key)}"]`); if(!box) return;
+  const open=OPEN_FTHEMES.has(key), body=box.querySelector(".thm-body"), head=box.querySelector(".thm-head");
+  box.classList.toggle("open",open);
+  if(body) body.hidden=!open;
+  if(head) head.setAttribute("aria-expanded",String(open));
+}
+function syncFThemeAllBtn(){
+  const b=$("#fundExpandAll"); if(!b) return;
+  const all=themes().length && themes().every(t=>OPEN_FTHEMES.has(t.key));
+  b.textContent = all ? "⌃ Collapse all" : "⌄ Expand all";
+  b.dataset.mode = all ? "collapse" : "expand";
+}
+function toggleAllFThemes(){
+  const b=$("#fundExpandAll"), expand=!b||b.dataset.mode!=="collapse";
+  themes().forEach(t=>{ if(expand) OPEN_FTHEMES.add(t.key); else OPEN_FTHEMES.delete(t.key); applyFThemeOpen(t.key); });
+  syncFThemeAllBtn();
+}
 
 /* ======================================================================
    Render: FUNDAMENTALS view
@@ -1841,18 +1878,26 @@ function renderFundamentals(){
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
     const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
     const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
+    // E5.2: same collapsible pattern as Overview — the old equal-height grid left dead space
+    // under shorter themes. The header is a DIV, not a <button>, because it contains the
+    // add/rename/delete buttons and nested buttons are invalid HTML.
+    const fopen=OPEN_FTHEMES.has(t.key);
     grid.insertAdjacentHTML("beforeend",`
-      <div class="card theme">
-        <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
-          <h3>${t.name}</h3>${srcTag}
+      <div class="thm ${fopen?"open":""}" data-fthmkey="${t.key}">
+        <div class="thm-head" data-fthmtoggle="${t.key}" role="button" tabindex="0"
+             aria-expanded="${fopen}" title="Show / hide ${t.name}'s metric table">
+          <span class="chev">▶</span><span class="sw" style="background:${t.color}"></span>
+          <span class="nm">${t.name}</span>${srcTag}
           <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" data-lbl="Add ticker" title="Add a ticker to ${t.name}">＋<span class="lbl"> ticker</span></button>
           <button class="addname-btn" data-editth="${t.key}" data-lbl="Edit name" title="Rename / recolour ${t.name}">✎</button>
-          <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${t.name}">✕</button></span></div>
-          <span class="pill" style="background:${t.color}18;color:${t.color}">target ${pct(r.alloc)}</span></div>
-        <table><thead>${thead}</thead>
-        <tbody>${body}</tbody>
-        <tfoot>${tfoot}</tfoot>
-        </table>
+          <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${t.name}">✕</button></span>
+          <span class="pill" style="background:color-mix(in srgb,${t.color} 18%,var(--paper));color:color-mix(in srgb,${t.color} 50%,var(--ink))">target ${pct(r.alloc)}</span></div>
+        <div class="thm-body" ${fopen?"":"hidden"}>
+          <table><thead>${thead}</thead>
+          <tbody>${body}</tbody>
+          <tfoot>${tfoot}</tfoot>
+          </table>
+        </div>
       </div>`);
   });
   // wire inline editors
@@ -2856,6 +2901,16 @@ function setupEvents(){
   // so it survives every re-render of its children.
   if($("#priceGrid")) $("#priceGrid").addEventListener("click",e=>{
     const b=e.target.closest("[data-thmtoggle]"); if(b) toggleTheme(b.dataset.thmtoggle); });
+  // E5.2: same for the Model tab. The header holds the add/rename/delete buttons and the
+  // inline editors, so only toggle when the click wasn't on one of those.
+  if($("#fundGrid")) $("#fundGrid").addEventListener("click",e=>{
+    if(e.target.closest(".theme-acts,button,.editable,.reset")) return;
+    const h=e.target.closest("[data-fthmtoggle]"); if(h) toggleFTheme(h.dataset.fthmtoggle); });
+  if($("#fundGrid")) $("#fundGrid").addEventListener("keydown",e=>{        // header is a div: keyboard-operable
+    if(e.key!=="Enter"&&e.key!==" ") return;
+    const h=e.target.closest("[data-fthmtoggle]"); if(!h) return;
+    e.preventDefault(); toggleFTheme(h.dataset.fthmtoggle); });
+  if($("#fundExpandAll")) $("#fundExpandAll").addEventListener("click",toggleAllFThemes);
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });

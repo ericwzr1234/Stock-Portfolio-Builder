@@ -8,23 +8,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 8 |
+| Ideation | 6 |
 | Design | 0 |
-| Implementation | 0 |
-| Testing | 1 |
+| Implementation | 1 |
+| Testing | 2 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 35 |
 
 ---
 
-## Ideation  (8)
+## Ideation  (6)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E5.1** · _E5 · Web UI overhaul_ — **Overview tab (replaces Prices)** _(depends E5.0, web)_
-  - Hero portfolio value + scrubable value-over-time area chart across the version timeline; theme breakdown donut; holdings table with per-row sparklines and live day-change.
-- **E5.2** · _E5 · Web UI overhaul_ — **Model tab (replaces Fundamentals & Allocation)** _(depends E5.0, web)_
-  - The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page.
 - **E5.3** · _E5 · Web UI overhaul_ — **Rebalance tab (replaces Calculator)** _(depends E5.0, web)_
   - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
 - **E5.4** · _E5 · Web UI overhaul_ — **Research tab (replaces Screener)** _(depends E5.0, web)_
@@ -51,18 +47,21 @@ _Detailed requirements captured; a spec exists in docs/features/._
 
 - _(none)_
 
-## Implementation  (0)
+## Implementation  (1)
 _Being built on the dev branch._
 
-- _(none)_
+- **E5.2** · _E5 · Web UI overhaul_ — **Model tab (replaces Fundamentals & Allocation)** _(depends E5.0, web)_
+  - The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page.
 
-## Testing  (1)
+## Testing  (2)
 _Built; waiting for you to try it._
 
 - **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
   - Approved from the clickable prototype (www/proto/newui.html): persistent left rail + a sticky context bar that keeps total value / today / invested / max drift on screen on EVERY page (today that context is lost the moment you leave Prices).
   - ONE design in TWO themes — ☀ Light / ☾ Dark (defaults to the OS setting, remembers the choice). Everything theme-dependent is a CSS token; no layout rule branches on the theme.
   - Gotchas already proven in the prototype: transition the `background-color` LONGHAND (the shorthand over a var() sticks at the old colour on a theme swap), and clear the transition-suppression class on a TIMER, not requestAnimationFrame (rAF is paused in background tabs and would disable all motion permanently).
+- **E5.1** · _E5 · Web UI overhaul_ — **Overview tab (replaces Prices)** _(depends E5.0, web)_
+  - Hero portfolio value + scrubable value-over-time area chart across the version timeline; theme breakdown donut; holdings table with per-row sparklines and live day-change.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
