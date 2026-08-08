@@ -18,7 +18,8 @@
     { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" },
     { "key": "E4",   "name": "E4 · Fundamentals & Screener workflow", "color": "#4D7C6F" },
     { "key": "APP",  "name": "APP · iOS app parity",       "color": "#B0403A" },
-    { "key": "E5",   "name": "E5 · Web UI overhaul",       "color": "#0E7C6B" }
+    { "key": "E5",   "name": "E5 · Web UI overhaul",       "color": "#0E7C6B" },
+    { "key": "E6",   "name": "E6 · Multi-user platform",   "color": "#5B6B8C" }
   ],
   "items": [
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
@@ -274,6 +275,20 @@
       "title": "Redesign the iOS app against the new feature set", "notes": [
       "DECISION (2026-08-08): the iPhone app does NOT have to copy the web UI — platform/Xcode constraints make a shared pixel-level design a poor fit. It MUST carry the same CONTENT and FEATURES.",
       "So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).",
-      "Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone." ] }
+      "Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone." ] },
+
+    { "id": "E6.0", "epic": "E6", "stage": "ideation", "platform": "web + ios", "spec": "docs/features/E6_multi-user-platform.md",
+      "title": "Keep Phase 1 on the multi-user path (no build)", "notes": [
+      "ROADMAP (2026-08-08): Phase 1 = solo sandbox, everything free (WE ARE HERE). Phase 2 = me + a handful of INVITED friends for feedback, centralised + secured + per-account, still free tier. Phase 3 = commercial launch, then discuss paid/licensed data APIs.",
+      "Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.",
+      "Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.",
+      "NOT being built now. No accounts, no backend, no database, no paid services in Phase 1." ] },
+
+    { "id": "E6.1", "epic": "E6", "stage": "ideation", "platform": "web + ios", "depends": "E6.0", "spec": "docs/features/E6_multi-user-platform.md",
+      "title": "Phase 2: accounts + hosted sync (free tier)", "notes": [
+      "The five gaps to close: identity (managed provider - never hand-roll password storage), server-side authorisation scoped to the authenticated user, HTTPS everywhere, conflict resolution via a monotonic revision + optimistic concurrency (one account editing on phone AND web), and a per-user storage row instead of one whole-file rewrite.",
+      "Add a FOURTH adapter behind the existing loadPortfolio/savePortfolio seam - the engine and UI should need no changes.",
+      "Includes a migration that imports the existing local portfolio.json into an account.",
+      "Starts only after E5 ships and the user explicitly opens Phase 2." ] }
   ]
 }

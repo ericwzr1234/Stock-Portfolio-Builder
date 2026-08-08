@@ -2,13 +2,13 @@
 
 _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
-| Ideation | 6 |
+| Ideation | 8 |
 | Design | 0 |
 | Implementation | 0 |
 | Testing | 1 |
@@ -18,7 +18,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (6)
+## Ideation  (8)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E5.1** · _E5 · Web UI overhaul_ — **Overview tab (replaces Prices)** _(depends E5.0, web)_
@@ -35,6 +35,16 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - DECISION (2026-08-08): the iPhone app does NOT have to copy the web UI — platform/Xcode constraints make a shared pixel-level design a poor fit. It MUST carry the same CONTENT and FEATURES.
   - So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).
   - Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone.
+- **E6.0** · _E6 · Multi-user platform_ — **Keep Phase 1 on the multi-user path (no build)** _(web + ios)_ · [spec](features/E6_multi-user-platform.md)
+  - ROADMAP (2026-08-08): Phase 1 = solo sandbox, everything free (WE ARE HERE). Phase 2 = me + a handful of INVITED friends for feedback, centralised + secured + per-account, still free tier. Phase 3 = commercial launch, then discuss paid/licensed data APIs.
+  - Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.
+  - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
+  - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
+- **E6.1** · _E6 · Multi-user platform_ — **Phase 2: accounts + hosted sync (free tier)** _(depends E6.0, web + ios)_ · [spec](features/E6_multi-user-platform.md)
+  - The five gaps to close: identity (managed provider - never hand-roll password storage), server-side authorisation scoped to the authenticated user, HTTPS everywhere, conflict resolution via a monotonic revision + optimistic concurrency (one account editing on phone AND web), and a per-user storage row instead of one whole-file rewrite.
+  - Add a FOURTH adapter behind the existing loadPortfolio/savePortfolio seam - the engine and UI should need no changes.
+  - Includes a migration that imports the existing local portfolio.json into an account.
+  - Starts only after E5 ships and the user explicitly opens Phase 2.
 
 ## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
