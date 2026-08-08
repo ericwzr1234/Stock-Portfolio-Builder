@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-skin="fintech">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -7,12 +7,12 @@
 <style>
 /* ============================================================
    PROTOTYPE ONLY — not wired to the real app.
-   Two skins share ONE layout so the structural/IA proposal is
-   held constant and only the visual language changes.
+   ONE design, TWO themes. Everything theme-dependent is a token
+   below — no layout or component rule branches on the theme.
    ============================================================ */
 
-/* ---------- Skin A: Modern fintech (light) ---------- */
-[data-skin="fintech"]{
+/* ---------- Light theme ---------- */
+[data-theme="light"]{
   --bg:#F5F7F8; --panel:#FFFFFF; --panel2:#FBFCFC;
   --ink:#0E1B1A; --ink2:#334744; --muted:#6E817E;
   --line:#E7ECEA; --line2:#F1F4F3;
@@ -26,8 +26,8 @@
   --mono:"SF Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
   --num-font:var(--font); --row-pad:13px; --panel-pad:20px; --label-tt:none; --label-ls:0;
 }
-/* ---------- Skin B: Terminal (dark, dense) ---------- */
-[data-skin="terminal"]{
+/* ---------- Dark theme ---------- */
+[data-theme="dark"]{
   --bg:#070A09; --panel:#0D1211; --panel2:#111817;
   --ink:#DCE8E4; --ink2:#A8BAB5; --muted:#6F8480;
   --line:#1B2523; --line2:#151E1C;
@@ -43,7 +43,11 @@
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;
-  -webkit-font-smoothing:antialiased;transition:background .35s ease,color .35s ease}
+  -webkit-font-smoothing:antialiased;transition:background-color .35s ease,color .35s ease}
+/* Theme flips are instant: transitions are suppressed for one frame while the tokens swap.
+   (Transitioning a property whose value comes from a var() can otherwise stick at the old colour.) */
+html.theme-switching *,html.theme-switching *::before,html.theme-switching *::after{
+  transition:none!important;animation-duration:0s!important}
 .num{font-family:var(--num-font);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .pos{color:var(--pos)} .neg{color:var(--neg)}
 .muted{color:var(--muted)}
@@ -54,20 +58,20 @@ button{font-family:inherit;font-size:inherit;cursor:pointer}
 @media(max-width:900px){ .app{grid-template-columns:1fr} .rail{display:none} }
 
 .rail{background:var(--panel);border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh;
-  transition:background .35s ease,border-color .35s ease}
+  transition:background-color .35s ease,border-color .35s ease}
 .brand{display:flex;align-items:center;gap:9px;padding:4px 10px 18px}
 .brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent2),var(--accent));
   display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none}
-[data-skin="terminal"] .brand .dot{border-radius:3px;color:#04100C}
+[data-theme="dark"] .brand .dot{border-radius:3px;color:#04100C}
 .brand b{font-size:14px;letter-spacing:-.01em}
 .brand span{display:block;font-size:10.5px;color:var(--muted);text-transform:var(--label-tt);letter-spacing:var(--label-ls)}
 
 .navlink{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;
   padding:10px 11px;border-radius:var(--radius-sm);color:var(--ink2);margin-bottom:2px;position:relative;
-  transition:background .16s ease,color .16s ease}
+  transition:background-color .16s ease,color .16s ease}
 .navlink:hover{background:var(--panel2);color:var(--ink)}
 .navlink.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
-[data-skin="terminal"] .navlink.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
+[data-theme="dark"] .navlink.on{background:var(--accent-soft);box-shadow:inset 2px 0 0 var(--accent)}
 .navlink .ic{width:17px;height:17px;flex:none;opacity:.85}
 .navlink .kbd{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.75}
 .railsec{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:16px 11px 7px}
@@ -75,20 +79,20 @@ button{font-family:inherit;font-size:inherit;cursor:pointer}
 /* ---------- Sticky context bar: total value ALWAYS visible ---------- */
 .ctx{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--panel) 88%,transparent);
   backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 22px;
-  display:flex;align-items:center;gap:26px;flex-wrap:wrap;transition:background .35s ease}
+  display:flex;align-items:center;gap:26px;flex-wrap:wrap;transition:background-color .35s ease}
 .ctx .kpi{display:flex;flex-direction:column;gap:1px}
 .ctx .kpi .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .ctx .kpi .v{font-size:17px;font-weight:650;letter-spacing:-.02em}
 .ctx .spacer{margin-left:auto}
 .pill{border:1px solid var(--line);background:var(--panel2);color:var(--ink2);border-radius:99px;
   padding:6px 12px;font-size:12px;transition:.16s}
-[data-skin="terminal"] .pill{border-radius:3px}
+[data-theme="dark"] .pill{border-radius:3px}
 .pill:hover{border-color:var(--accent);color:var(--accent)}
 .skinsw{display:flex;gap:0;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--panel2)}
-[data-skin="terminal"] .skinsw{border-radius:3px}
+[data-theme="dark"] .skinsw{border-radius:3px}
 .skinsw button{border:0;background:none;padding:6px 13px;font-size:12px;color:var(--muted);transition:.16s}
 .skinsw button.on{background:var(--accent);color:#fff;font-weight:600}
-[data-skin="terminal"] .skinsw button.on{color:#04100C}
+[data-theme="dark"] .skinsw button.on{color:#04100C}
 
 .wrap{padding:22px}
 .view{display:none;animation:fade .32s cubic-bezier(.22,1,.36,1)}
@@ -100,7 +104,7 @@ p.sub{margin:0 0 15px;color:var(--muted);font-size:12.5px}
 
 /* ---------- Panels & grids ---------- */
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:var(--panel-pad);
-  box-shadow:var(--shadow);transition:box-shadow .22s ease,transform .22s ease,background .35s ease,border-color .35s ease}
+  box-shadow:var(--shadow);transition:box-shadow .22s ease,transform .22s ease,background-color .35s ease,border-color .35s ease}
 .panel.hoverable:hover{box-shadow:var(--shadow-lift);transform:translateY(-2px)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -111,10 +115,10 @@ p.sub{margin:0 0 15px;color:var(--muted);font-size:12.5px}
 
 /* ---------- Big hero number ---------- */
 .hero .big{font-size:38px;font-weight:680;letter-spacing:-.03em;line-height:1.05;margin:2px 0 5px}
-[data-skin="terminal"] .hero .big{font-weight:600}
+[data-theme="dark"] .hero .big{font-weight:600}
 .chg{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;
   background:var(--accent-soft);color:var(--pos);padding:4px 10px;border-radius:99px}
-[data-skin="terminal"] .chg{border-radius:3px;background:transparent;border:1px solid var(--pos)}
+[data-theme="dark"] .chg{border-radius:3px;background:transparent;border:1px solid var(--pos)}
 
 /* ---------- Tables ---------- */
 table{width:100%;border-collapse:collapse}
@@ -123,7 +127,7 @@ th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08
 th:first-child{text-align:left}
 td{padding:var(--row-pad) 0;border-bottom:1px solid var(--line2);text-align:right;font-size:13px}
 td:first-child{text-align:left;font-weight:560}
-tbody tr{transition:background .14s ease}
+tbody tr{transition:background-color .14s ease}
 tbody tr:hover{background:var(--panel2)}
 tbody tr:hover td:first-child{color:var(--accent)}
 .tick{display:flex;align-items:center;gap:9px}
@@ -139,7 +143,7 @@ tbody tr:hover td:first-child{color:var(--accent)}
 
 /* ---------- Allocation bar / legend ---------- */
 .abar{display:flex;height:11px;border-radius:99px;overflow:hidden;gap:2px;margin:4px 0 12px}
-[data-skin="terminal"] .abar{border-radius:2px;height:9px}
+[data-theme="dark"] .abar{border-radius:2px;height:9px}
 .abar i{display:block;transition:flex-grow .6s cubic-bezier(.22,1,.36,1),opacity .16s}
 .abar i:hover{opacity:.72}
 .legend{display:flex;flex-wrap:wrap;gap:11px 18px;font-size:12px}
@@ -150,10 +154,10 @@ tbody tr:hover td:first-child{color:var(--accent)}
 /* ---------- Drift bars ---------- */
 .drift{display:grid;grid-template-columns:110px 1fr 62px;gap:11px;align-items:center;margin:11px 0}
 .dtrack{height:7px;background:var(--line2);border-radius:99px;position:relative;overflow:visible}
-[data-skin="terminal"] .dtrack{border-radius:2px}
+[data-theme="dark"] .dtrack{border-radius:2px}
 .dtrack .mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:var(--line)}
 .dtrack i{position:absolute;top:0;bottom:0;border-radius:99px;transition:width .7s cubic-bezier(.22,1,.36,1),left .7s cubic-bezier(.22,1,.36,1)}
-[data-skin="terminal"] .dtrack i{border-radius:2px}
+[data-theme="dark"] .dtrack i{border-radius:2px}
 
 /* ---------- Metric weight chips ---------- */
 .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px 16px}
@@ -162,10 +166,10 @@ tbody tr:hover td:first-child{color:var(--accent)}
 .mrow .nm{flex:1;font-size:12.5px;color:var(--ink2)}
 .mrow .arr{font-size:10px;color:var(--muted);width:10px}
 .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--panel2)}
-[data-skin="terminal"] .stepper{border-radius:3px}
+[data-theme="dark"] .stepper{border-radius:3px}
 .stepper button{border:0;background:none;color:var(--muted);padding:3px 9px;line-height:1.2;transition:.14s}
 .stepper button:hover{background:var(--accent);color:#fff}
-[data-skin="terminal"] .stepper button:hover{color:#04100C}
+[data-theme="dark"] .stepper button:hover{color:#04100C}
 .stepper .val{font-family:var(--num-font);font-size:12.5px;min-width:34px;text-align:center;font-weight:600}
 
 /* ---------- Trade plan ---------- */
@@ -188,7 +192,7 @@ tbody tr:hover td:first-child{color:var(--accent)}
 /* ---------- Search ---------- */
 .search{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel2);
   border-radius:99px;padding:10px 15px;margin-bottom:14px;transition:.18s}
-[data-skin="terminal"] .search{border-radius:3px}
+[data-theme="dark"] .search{border-radius:3px}
 .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .search input{border:0;background:none;outline:0;flex:1;color:var(--ink);font-size:13.5px;font-family:inherit}
 
@@ -246,9 +250,9 @@ svg .axis{fill:var(--muted);font-size:9.5px;font-family:var(--num-font)}
       <div class="kpi"><span class="k">Invested</span><span class="v num">$95,000</span></div>
       <div class="kpi"><span class="k">Max drift</span><span class="v num" style="color:var(--warn)">8.1pp</span></div>
       <div class="spacer"></div>
-      <div class="skinsw">
-        <button id="sFin" class="on">Fintech</button>
-        <button id="sTerm">Terminal</button>
+      <div class="skinsw" role="group" aria-label="Colour theme">
+        <button id="tLight" class="on" aria-pressed="true">☀ Light</button>
+        <button id="tDark" aria-pressed="false">☾ Dark</button>
       </div>
       <button class="pill" id="simBtn">▸ Simulate live ticks</button>
     </div>
@@ -441,15 +445,33 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const cvar=k=>getComputedStyle(document.documentElement).getPropertyValue("--"+k).trim();
 const money=n=>"$"+Math.round(n).toLocaleString();
 
-/* ================= skin switching ================= */
-function setSkin(sk){
-  document.documentElement.setAttribute("data-skin",sk);
-  $("#sFin").classList.toggle("on",sk==="fintech");
-  $("#sTerm").classList.toggle("on",sk==="terminal");
-  requestAnimationFrame(drawAll);            // recolour every SVG from the new tokens
+/* ================= theme switching (light / dark) ================= */
+const THEME_KEY="pb_theme";
+function setTheme(t,persist){
+  const el=document.documentElement;
+  el.classList.add("theme-switching");
+  el.setAttribute("data-theme",t);
+  void el.offsetWidth;                                    // flush the restyle while transitions are off
+  // timer, not rAF: rAF is paused in background/non-compositing tabs, which would leave
+  // transitions disabled forever. 60ms is well past the one frame we actually need.
+  clearTimeout(setTheme._t);
+  setTheme._t=setTimeout(()=>el.classList.remove("theme-switching"),60);
+  const light=t==="light";
+  $("#tLight").classList.toggle("on",light);  $("#tLight").setAttribute("aria-pressed",light);
+  $("#tDark").classList.toggle("on",!light);  $("#tDark").setAttribute("aria-pressed",!light);
+  if(persist){ try{ localStorage.setItem(THEME_KEY,t); }catch(e){} }
+  setTimeout(drawAll,0);                     // re-lay geometry; colours are var()-bound already
 }
-$("#sFin").onclick=()=>setSkin("fintech");
-$("#sTerm").onclick=()=>setSkin("terminal");
+$("#tLight").onclick=()=>setTheme("light",true);
+$("#tDark").onclick=()=>setTheme("dark",true);
+/* first visit follows the OS; after that, the saved choice wins */
+(function initTheme(){
+  let saved=null; try{ saved=localStorage.getItem(THEME_KEY); }catch(e){}
+  const os=matchMedia("(prefers-color-scheme: dark)");
+  setTheme(saved || (os.matches?"dark":"light"), false);
+  os.addEventListener("change",e=>{ let s=null; try{ s=localStorage.getItem(THEME_KEY); }catch(err){}
+    if(!s) setTheme(e.matches?"dark":"light",false); });   // only auto-follow until they pick
+})();
 
 /* ================= navigation ================= */
 function go(id){
