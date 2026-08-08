@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 6 |
-| Design | 1 |
+| Design | 0 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 35 |
@@ -36,23 +36,23 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).
   - Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone.
 
-## Design  (1)
+## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
-  - Approved from the clickable prototype (www/proto/newui.html): persistent left rail + a sticky context bar that keeps total value / today / invested / max drift on screen on EVERY page (today that context is lost the moment you leave Prices).
-  - ONE design in TWO themes — ☀ Light / ☾ Dark (defaults to the OS setting, remembers the choice). Everything theme-dependent is a CSS token; no layout rule branches on the theme.
-  - Gotchas already proven in the prototype: transition the `background-color` LONGHAND (the shorthand over a var() sticks at the old colour on a theme swap), and clear the transition-suppression class on a TIMER, not requestAnimationFrame (rAF is paused in background tabs and would disable all motion permanently).
+- _(none)_
 
 ## Implementation  (0)
 _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
+  - Approved from the clickable prototype (www/proto/newui.html): persistent left rail + a sticky context bar that keeps total value / today / invested / max drift on screen on EVERY page (today that context is lost the moment you leave Prices).
+  - ONE design in TWO themes — ☀ Light / ☾ Dark (defaults to the OS setting, remembers the choice). Everything theme-dependent is a CSS token; no layout rule branches on the theme.
+  - Gotchas already proven in the prototype: transition the `background-color` LONGHAND (the shorthand over a var() sticks at the old colour on a theme swap), and clear the transition-suppression class on a TIMER, not requestAnimationFrame (rAF is paused in background tabs and would disable all motion permanently).
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

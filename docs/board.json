@@ -244,7 +244,7 @@
       "Already native: nativeStatements() mirrors server _STMT_FIELDS (E3), plus nativeQuotes/nativeSearch/dsPeers. Verify on-device: E3 compute-from-statements toggle, ADR currency handling, and the stock-detail page.",
       "Then `npm install` (Node 20) -> `npx cap sync ios` -> open in Xcode -> run; on-device regression of E1–E4.5 + calculator + history + Wi-Fi sync. Full checklist in docs/APP_MIGRATION.md." ] },
 
-    { "id": "E5.0", "epic": "E5", "stage": "design", "platform": "web", "spec": "docs/features/E5_web-ui-overhaul.md",
+    { "id": "E5.0", "epic": "E5", "stage": "testing", "platform": "web", "spec": "docs/features/E5_web-ui-overhaul.md",
       "title": "App shell — rail, context bar, theme tokens", "notes": [
       "Approved from the clickable prototype (www/proto/newui.html): persistent left rail + a sticky context bar that keeps total value / today / invested / max drift on screen on EVERY page (today that context is lost the moment you leave Prices).",
       "ONE design in TWO themes — ☀ Light / ☾ Dark (defaults to the OS setting, remembers the choice). Everything theme-dependent is a CSS token; no layout rule branches on the theme.",
