@@ -15,19 +15,33 @@ We use **GitHub as the single sync mechanism**: each machine `clone`s the repo, 
 That gives proper history, branches, and a path to sharing — things OneDrive can't.
 
 **The one hazard to avoid:** do **not** let OneDrive *and* git both sync the same `.git` folder. Two
-sync engines fighting over the same files corrupts the repo ("conflict copies" inside `.git`). The
-Windows working copy currently still lives under `OneDrive\Desktop\Portfolio Builder`; that's fine
-for a single machine, but the **clean end-state is: work from a `git clone` *outside* OneDrive on
-both machines.**
+sync engines fighting over the same files corrupts the repo ("conflict copies" inside `.git`).
+**Both machines now work from a clone OUTSIDE OneDrive — this is done, do not move either back.**
 
-- **Mac setup (do this):** clone to a normal path, e.g.
-  ```
-  cd ~/dev && git clone https://github.com/ericwzr1234/Stock-Portfolio-Builder.git portfolio-builder
-  ```
-  Work there. **Do not** keep using the OneDrive copy of the project on the Mac — git is the sync now.
-- **Windows (eventually):** move the working copy out of OneDrive (e.g. `C:\dev\portfolio-builder`)
-  or exclude the folder from OneDrive sync. Until then, commit/push often; `.gitignore` keeps the
-  churny dirs (`node_modules/`, `ios/` build output, `portfolio.json`) out so OneDrive isn't thrashing.
+| Machine | Working copy |
+|---|---|
+| **Windows** | `C:\dev\portfolio-builder`  *(moved out of OneDrive 2026-08-08)* |
+| **Mac** | `~/Developer/portfolio-builder` |
+
+- **Mac setup:** `cd ~/dev && git clone https://github.com/ericwzr1234/Stock-Portfolio-Builder.git portfolio-builder`
+- **Windows:** already at `C:\dev\portfolio-builder`; a **desktop shortcut** points at its
+  `Start Portfolio Builder.bat`, so launching is unchanged.
+
+### Why Windows was moved (2026-08-08)
+Beyond the `.git` corruption hazard, OneDrive's **Files On-Demand** kept the project's files as
+cloud-only placeholders. Any tool that reads them (a recursive `grep`, an editor, a build) forces
+OneDrive to re-download each file and Windows raises an *"Automatic file downloads — grep is
+downloading…"* notification. A recursive search over `node_modules` (1,575 files) produced a flood of
+them. Moving out of OneDrive ends that permanently, and — importantly — **stops `portfolio.json`
+(real holdings and cost basis) from being synced to Microsoft's cloud.**
+
+`node_modules/` was also deleted on Windows: it is a **Mac/iOS-only build artifact** (Capacitor), it
+is gitignored, and Windows only ever runs `server.py` (Python stdlib). Regenerate it on the Mac with
+`npm install`. This took the working copy from 17.9 MB to 4.8 MB.
+
+> **Backup note:** the project is no longer in OneDrive, so it is no longer backed up by it. Code is
+> safe on GitHub, but **`portfolio.json` is gitignored and now exists only on this machine** — copy it
+> somewhere safe periodically if you care about the version history it holds.
 
 ## 2. Branch model
 - **`main`** = **prod**: only finished, approved, integrated features. The Mac migrates iOS from here.
