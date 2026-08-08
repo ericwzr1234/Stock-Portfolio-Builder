@@ -497,6 +497,19 @@
   .native .modal-card .row{ flex-wrap:wrap; }
   .native .modal-card .row .btn{ min-height:44px; }
 
+  /* ===== E5.3 Rebalance: plan left, holdings right ===== */
+  .calc-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;align-items:start}
+  @media(max-width:1040px){ .calc-layout{grid-template-columns:1fr} }
+  .calc-controls{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+  .calc-hhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  /* the holdings list is long (one row per name + a row per theme) — contain it so the page
+     stays roughly one screen and the list scrolls inside its own card instead */
+  .calc-holdings .tscroll{max-height:calc(100vh - 250px);overflow:auto}
+  .calc-plan #rebOut{margin-top:12px}
+  /* Scroll only the TRADE TABLE, not the whole output: the summary stays visible and the
+     "Apply & save" button stays reachable instead of being buried in a nested scroll. */
+  .calc-plan #rebOut .tscroll{max-height:44vh;overflow:auto}
+
   /* ===== E5.2b: wide-screen adaptation — LAST in the sheet on purpose.
      These override base rules of equal specificity, so source order is what makes them win.
      Spend reclaimed width on content rather than stretching two columns into long lines. ===== */
@@ -2141,45 +2154,45 @@ function buildTxn(type,mode,cashIn,valueBefore,plan){
 
 function renderCalcMain(){
   const total=curTotal(), A=computeAllocation();
+  // E5.3: plan on the left, holdings on the right. The old 4-tile stat band is gone — the
+  // context bar now keeps value / invested / gain on screen at all times, so it was duplication.
+  const cost=totalCostBasis(), unreal=total-cost;
+  const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n),0);
   $("#calcMain").innerHTML=`
-    <div class="band">
-      <div class="card stat"><div class="k">Current value</div><div class="v num">${money(total,0)}</div>
-        <div class="d muted">cost ${money(totalCostBasis(),0)}</div></div>
-      <div class="card stat"><div class="k">Unrealized gain</div><div class="v num ${total-totalCostBasis()>=0?'up':'down'}">${signed(total-totalCostBasis(),0).replace(/^([+-])/,'$1$')}</div>
-        <div class="d muted">${pct(totalCostBasis()>0?(total-totalCostBasis())/totalCostBasis():0)}</div></div>
-      <div class="card stat"><div class="k">Total invested</div><div class="v num">${money(totalContributed(),0)}</div>
-        <div class="d muted">${versions().length} version${versions().length===1?'':'s'}</div></div>
-      <div class="card stat"><div class="k">Started</div><div class="v num" style="font-size:18px">${state.portfolio.createdAt||"—"}</div>
-        <div class="d muted">themed PEG/EV model</div></div>
-    </div>
-
-    <div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:16px">
+    <div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:12px">
       <div>Last saved: <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' · '+currentVersion().date):''}${canRedo()?(' &nbsp;·&nbsp; <b>'+(versions().length-1-head())+'</b> newer version(s) redoable'):''}</div>
       <div class="row" style="gap:8px">${undoRedoButtons()}</div>
     </div>
 
-    <div class="card pad" style="margin-bottom:16px">
-      <div class="section-title"><h2>Rebalance</h2></div>
-      <div class="row" style="align-items:flex-end">
-        <div class="field"><label>Add capital (USD)</label>
-          <input type="number" id="addCash" value="4000" step="500"></div>
-        <div class="field"><label>Mode</label>
-          <select id="mode">
-            <option value="full">Full rebalance (buys &amp; sells)</option>
-            <option value="cash">Deploy new cash only (no sells)</option>
-          </select></div>
-        <button id="calcRebBtn" class="btn primary">Calculate →</button>
-        <button id="realignBtn" class="btn" title="Rebalance to today's target weights at the current value, adding no new capital">Realign only (no new $)</button>
-        <div class="spacer"></div>
-        <div class="small muted" style="max-width:340px">Full rebalance moves every position to its model target —
-          it will tell you what to <b>sell</b> as well as buy. Cash-only just steers the new $ into underweight names.</div>
+    <div class="calc-layout">
+      <div class="card pad calc-plan">
+        <div class="ov-k" style="margin-bottom:8px">Plan a rebalance</div>
+        <div class="calc-controls">
+          <div class="field"><label>Add capital (USD)</label>
+            <input type="number" id="addCash" value="4000" step="500"></div>
+          <div class="field"><label>Mode</label>
+            <select id="mode">
+              <option value="full">Full rebalance (buys &amp; sells)</option>
+              <option value="cash">Deploy new cash only (no sells)</option>
+            </select></div>
+          <button id="calcRebBtn" class="btn primary">Calculate →</button>
+          <button id="realignBtn" class="btn" title="Rebalance to today's target weights at the current value, adding no new capital">Realign only (no new $)</button>
+        </div>
+        <p class="xs muted" style="margin:8px 0 0">A <b>full rebalance</b> moves every position to its model
+          target, so it tells you what to <b>sell</b> as well as buy. <b>Cash-only</b> just steers the new money
+          into the most underweight names. Nothing is saved until you press <b>Apply</b>.</p>
+        <div id="rebOut"></div>
       </div>
-      <div id="rebOut"></div>
-    </div>
 
-    <div class="card pad">
-      <h2 style="font-size:16px">Current holdings</h2>
-      ${holdingsTable()}
+      <div class="card pad calc-holdings">
+        <div class="calc-hhead">
+          <span class="ov-k">Current holdings</span>
+          <span class="xs muted">cost basis ${money(cost,0)} · unrealised
+            <span class="${unreal>=0?'up':'down'}">${sgn(unreal)}</span>
+            (${cost>0?pct(unreal/cost):"—"})</span>
+        </div>
+        ${holdingsTable()}
+      </div>
     </div>`;
   $("#calcRebBtn").addEventListener("click",doCalcRebalance);
   $("#realignBtn").addEventListener("click",()=>{ $("#addCash").value="0"; $("#mode").value="full"; doCalcRebalance(); });
