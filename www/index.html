@@ -57,7 +57,7 @@
 
   header.top{position:sticky;top:0;z-index:30;background:var(--header-bg);
     backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid var(--line)}
-  .top-in{max-width:1180px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .top-in{max-width:none;margin:0;padding:12px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
   .brand{display:flex;align-items:baseline;gap:10px}
   .brand .mark{font-weight:750;font-size:18px;color:var(--teal)}
   .brand .sub{color:var(--muted);font-size:12px}
@@ -181,7 +181,10 @@
     nav.tabs{display:flex}
   }
 
-  main{max-width:1180px;margin:0 auto;padding:16px 22px 24px}
+  /* E5.2b: fill the window. The old 1180px cap left ~520px of dead margin on a 1920 screen.
+     Content now spans the full width beside the rail; anything too wide scrolls inside its own
+     container (.thm-body, tables) rather than stretching the page. */
+  main{max-width:none;margin:0;padding:16px 24px 24px}
   .view{display:none}.view.active{display:block;animation:fade .18s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -493,6 +496,18 @@
   .native .ct-sw{ width:100%; height:40px; border-radius:10px; }
   .native .modal-card .row{ flex-wrap:wrap; }
   .native .modal-card .row .btn{ min-height:44px; }
+
+  /* ===== E5.2b: wide-screen adaptation — LAST in the sheet on purpose.
+     These override base rules of equal specificity, so source order is what makes them win.
+     Spend reclaimed width on content rather than stretching two columns into long lines. ===== */
+  @media(min-width:1500px){
+    .metric-grid{grid-template-columns:repeat(3,minmax(96px,1fr) auto)}   /* 2 metric pairs -> 3 */
+    .ov-donut{width:190px;height:190px}
+    .ov-chart{height:150px}
+  }
+  @media(min-width:1800px){
+    .thm-stats{grid-template-columns:repeat(5,minmax(0,230px)) 1fr}       /* keep stats legible, not stretched */
+  }
 </style>
 <script src="data/universe.js"></script>
 <script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
