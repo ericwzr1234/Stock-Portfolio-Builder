@@ -117,26 +117,54 @@
     font-family:inherit;transition:background-color .15s ease,color .15s ease}
   .themesw button.on{background:var(--teal);color:var(--on-accent);font-weight:650}
 
-  /* ===== E5.1 Overview hero ===== */
-  .ov-hero{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:16px}
-  @media(max-width:980px){ .ov-hero{grid-template-columns:1fr} }
+  /* ===== E5.1 Overview — charts+totals LEFT, holdings RIGHT, fits one screen ===== */
+  .ov-layout{display:grid;grid-template-columns:1.02fr .98fr;gap:14px;align-items:start}
+  .ov-left{display:flex;flex-direction:column;gap:10px;min-width:0}
+  .ov-right{min-width:0}
+  @media(max-width:1040px){ .ov-layout{grid-template-columns:1fr} }
   .ov-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
   .ov-k{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
-  .ov-big{font-size:33px;font-weight:680;letter-spacing:-.025em;line-height:1.1;margin:2px 0 3px}
-  .ov-chart{width:100%;height:170px;margin-top:10px;overflow:visible}
+  .ov-big{font-size:26px;font-weight:680;letter-spacing:-.025em;line-height:1.1;margin:2px 0 3px}
+  .ov-chart{width:100%;height:104px;margin-top:6px;overflow:visible}
   .ov-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
   .ov-legend i{display:inline-block;width:14px;height:0;border-top-width:2px;margin-right:5px;vertical-align:middle}
-  .ov-donutwrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-  .ov-donut{width:150px;height:150px;flex:none}
-  .ov-dlegend{display:flex;flex-direction:column;gap:7px;font-size:12px;min-width:150px;flex:1}
-  .ov-dlegend .r{display:flex;align-items:center;gap:7px}
+  /* donut: bigger, with the legend laid out horizontally UNDER it so names never truncate */
+  .ov-donutwrap{display:flex;justify-content:center;padding:0 0 4px}
+  .ov-donut{width:158px;height:158px;flex:none}
+  .ov-dlegend{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center}
+  .ov-dlegend .r{display:flex;align-items:center;gap:7px;font-size:12px}
   .ov-dlegend .sw{width:9px;height:9px;border-radius:3px;flex:none}
-  .ov-dlegend .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ov-dlegend .dv{font-size:11px;color:var(--muted)}
+  .ov-dlegend .nm{white-space:nowrap}
+  .ov-dlegend .dv{font-size:10.5px;color:var(--muted);white-space:nowrap}
   .ov-seg{transition:opacity .15s ease}
   .ov-seg:hover{opacity:.75;cursor:default}
   #ovChart .gl{stroke:var(--line2)}
   #ovChart .dot{fill:var(--teal);stroke:var(--paper);stroke-width:2.5}
+  /* compact stat band inside the left column */
+  .ov-left .band{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .ov-left .band .stat{padding:8px 9px}
+  .ov-left .band .stat .v{font-size:16px}
+  .ov-left .band .stat .k{font-size:9px}
+  .ov-left .band .stat .d{display:none}          /* sub-caption dropped: the numbers repeat in the context bar */
+
+  /* ===== theme accordion (right column) ===== */
+  .thm{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--paper);overflow:hidden}
+  .thm-head{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;
+    padding:10px 12px;cursor:pointer;color:var(--ink);font-size:13.5px;font-weight:600;
+    transition:background-color .14s ease}
+  .thm-head:hover{background:var(--surface2)}
+  .thm-head .chev{color:var(--muted);font-size:10px;transition:transform .18s ease;display:inline-block;width:9px}
+  .thm.open .thm-head .chev{transform:rotate(90deg)}
+  .thm-head .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .thm-head .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .thm-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:4px 8px;padding:0 12px 10px}
+  .thm-stats>span{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .thm-stats i{font-style:normal;font-size:9.5px;color:var(--muted);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .thm-stats b{font-size:12.5px;font-weight:620;font-variant-numeric:tabular-nums}
+  .thm-body{border-top:1px solid var(--line2);padding:2px 12px 6px}
+  .thm-body table{width:100%;border-collapse:collapse}
+  @media(max-width:520px){ .thm-stats{grid-template-columns:repeat(3,1fr)} }
 
   .native .app{display:block}
   .native .rail{display:none}
@@ -146,7 +174,7 @@
     nav.tabs{display:flex}
   }
 
-  main{max-width:1180px;margin:0 auto;padding:20px 22px 80px}
+  main{max-width:1180px;margin:0 auto;padding:16px 22px 24px}
   .view{display:none}.view.active{display:block;animation:fade .18s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -526,33 +554,39 @@
 <main>
   <!-- ============ PRICES ============ -->
   <section id="view-prices" class="view active">
-    <!-- ===== E5.1 Overview hero ===== -->
-    <div class="ov-hero">
-      <div class="card pad">
-        <div class="ov-head">
-          <div>
-            <div class="ov-k">Portfolio value</div>
-            <div class="ov-big num" id="ovValue">—</div>
-            <div id="ovSub" class="small muted">—</div>
+    <!-- ===== E5.1 Overview — charts + totals LEFT, holdings RIGHT ===== -->
+    <div class="ov-layout">
+      <div class="ov-left">
+        <div class="card pad">
+          <div class="ov-head">
+            <div>
+              <div class="ov-k">Portfolio value</div>
+              <div class="ov-big num" id="ovValue">—</div>
+              <div id="ovSub" class="small muted">—</div>
+            </div>
+            <div class="ov-legend" id="ovChartLegend"></div>
           </div>
-          <div class="ov-legend" id="ovChartLegend"></div>
+          <svg id="ovChart" class="ov-chart"
+               role="img" aria-label="Portfolio value and invested capital at each checkpoint"></svg>
+          <div id="ovChartNote" class="xs muted"></div>
         </div>
-        <svg id="ovChart" class="ov-chart" viewBox="0 0 620 170" preserveAspectRatio="none"
-             role="img" aria-label="Portfolio value and invested capital at each checkpoint"></svg>
-        <div id="ovChartNote" class="xs muted"></div>
-      </div>
-      <div class="card pad">
-        <div class="ov-k" style="margin-bottom:6px">Allocation</div>
-        <div class="ov-donutwrap">
-          <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by theme"></svg>
+        <div class="card pad">
+          <div class="ov-k" style="margin-bottom:4px">Allocation</div>
+          <div class="ov-donutwrap">
+            <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by theme"></svg>
+          </div>
           <div class="ov-dlegend" id="ovDonutLegend"></div>
         </div>
+        <div class="band" id="priceBand"></div>
+      </div>
+      <div class="ov-right card pad">
+        <div class="ov-k" style="margin-bottom:8px">Holdings by theme
+          <span class="xs muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a theme to expand</span></div>
+        <div id="priceGrid"></div>
+        <p class="note" style="margin-top:12px">Prices via Yahoo Finance (free, delayed up to ~15 min for some
+          tickers). Nothing here costs money and no key is used.</p>
       </div>
     </div>
-    <div class="band" id="priceBand"></div>
-    <div class="theme-grid" id="priceGrid"></div>
-    <p class="note">Prices via Yahoo Finance (free, delayed up to ~15 min for some tickers). Market-cap from the
-      same feed. Nothing here costs money and no key is used.</p>
   </section>
 
   <!-- ============ FUNDAMENTALS & ALLOCATION ============ -->
@@ -1605,10 +1639,11 @@ function renderPrices(){
       <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
     <div class="card stat"><div class="k">Themes / tickers</div><div class="v num">${themes().length} / ${membership().length}</div>
       <div class="d muted">equal-weight within theme</div></div>`;
-  // theme cards
+  // ===== E5.1: collapsible theme accordion (open state survives the auto-refresh re-render) =====
   const grid=$("#priceGrid"); grid.innerHTML="";
   themes().forEach(t=>{
-    const rows=tickersOf(t.key).map(s=>{
+    const syms=tickersOf(t.key);
+    const rows=syms.map(s=>{
       const q=state.quotes[s]||{}, p=price(s), ch=q.change, cp=q.changePct;
       const h=holdings()[s]; const val=(h&&isNum(p))?h.shares*p:null;
       const cls=isNum(ch)?(ch>=0?"up":"down"):"";
@@ -1619,18 +1654,43 @@ function renderPrices(){
         <td class="num ${cls}">${isNum(cp)?arrow+" "+Math.abs(cp).toFixed(2)+"%":"—"}</td>
         <td class="num">${init&&isNum(val)?money(val,0):"<span class='muted'>—</span>"}</td>
       </tr>`;}).join("");
-    const w=total>0?cvt[t.key]/total:0;
+    const val=cvt[t.key]||0, w=total>0?val/total:0;
+    const cost=syms.reduce((a,s)=>{ const h=holdings()[s]; return a+((h&&isNum(h.costBasis))?h.costBasis:0); },0);
+    const pl=val-cost, plPct=cost>0?(pl/cost*100):null;
+    const cl=n=>n>=0?"up":"down";
+    const stat=(label,value)=>`<span><i>${label}</i><b>${value}</b></span>`;
+    const open=OPEN_THEMES.has(t.key);
     grid.insertAdjacentHTML("beforeend",`
-      <div class="card theme">
-        <div class="head"><div class="lhs"><span class="swatch" style="background:${t.color}"></span>
-          <h3>${t.name}</h3></div>
-          <span class="pill">${init?pct(w,1)+" of book":tickersOf(t.key).length+" names"}</span></div>
-        <table><thead><tr><th>Ticker</th><th>Price</th><th>Day</th><th>Value</th></tr></thead>
-        <tbody>${rows||`<tr><td colspan="4" class="muted xs" style="padding:10px">No names yet — add from the Screener.</td></tr>`}</tbody>
-        ${init?`<tfoot><tr><td>Theme value</td><td></td><td></td><td class="num">${money(cvt[t.key],0)}</td></tr></tfoot>`:""}
-        </table>
+      <div class="thm ${open?"open":""}" data-thmkey="${t.key}">
+        <button class="thm-head" data-thmtoggle="${t.key}" aria-expanded="${open}">
+          <span class="chev">▶</span>
+          <span class="sw" style="background:${t.color}"></span>
+          <span class="nm">${t.name}</span>
+          <span class="muted xs">${syms.length} name${syms.length===1?"":"s"}</span>
+        </button>
+        <div class="thm-stats">
+          ${stat("% of book", init?pct(w,1):"—")}
+          ${stat("Market value", init?money(val,0):"—")}
+          ${stat("Cost basis", init?money(cost,0):"—")}
+          ${stat("Profit / loss", init&&cost>0?`<span class="${cl(pl)}">${(pl>=0?"+":"−")+money(Math.abs(pl),0)}</span>`:"—")}
+          ${stat("Return", init&&plPct!=null?`<span class="${cl(pl)}">${signed(plPct,1)}%</span>`:"—")}
+        </div>
+        <div class="thm-body" ${open?"":"hidden"}>
+          <table><thead><tr><th>Ticker</th><th>Price</th><th>Day</th><th>Value</th></tr></thead>
+          <tbody>${rows||`<tr><td colspan="4" class="muted xs" style="padding:10px">No names yet — add from the Screener.</td></tr>`}</tbody></table>
+        </div>
       </div>`);
   });
+}
+/* which theme sections are expanded — module state so a price refresh doesn't collapse them */
+const OPEN_THEMES=new Set();
+function toggleTheme(key){
+  if(OPEN_THEMES.has(key)) OPEN_THEMES.delete(key); else OPEN_THEMES.add(key);
+  const box=document.querySelector(`.thm[data-thmkey="${CSS.escape(key)}"]`); if(!box) return;
+  const open=OPEN_THEMES.has(key), body=box.querySelector(".thm-body"), head=box.querySelector(".thm-head");
+  box.classList.toggle("open",open);
+  if(body) body.hidden=!open;
+  if(head) head.setAttribute("aria-expanded",String(open));
 }
 
 /* ======================================================================
@@ -2792,6 +2852,10 @@ function setupEvents(){
   if($("#computeStmtToggle")) $("#computeStmtToggle").addEventListener("change",async e=>{   // E3.4: data-source toggle
     state.computeFromStatements=e.target.checked; rebuildFundamentals(); renderAll(); if(state.portfolio)await savePortfolio(); });
   if($("#srcCompareBtn")) $("#srcCompareBtn").addEventListener("click",openSourceCompare);   // E3.4: computed-vs-pulled compare
+  // E5.1: expand/collapse a theme. Delegated on #priceGrid, which is never itself replaced,
+  // so it survives every re-render of its children.
+  if($("#priceGrid")) $("#priceGrid").addEventListener("click",e=>{
+    const b=e.target.closest("[data-thmtoggle]"); if(b) toggleTheme(b.dataset.thmtoggle); });
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
