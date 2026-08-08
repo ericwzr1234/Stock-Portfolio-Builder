@@ -117,6 +117,27 @@
     font-family:inherit;transition:background-color .15s ease,color .15s ease}
   .themesw button.on{background:var(--teal);color:var(--on-accent);font-weight:650}
 
+  /* ===== E5.1 Overview hero ===== */
+  .ov-hero{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:16px}
+  @media(max-width:980px){ .ov-hero{grid-template-columns:1fr} }
+  .ov-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .ov-k{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+  .ov-big{font-size:33px;font-weight:680;letter-spacing:-.025em;line-height:1.1;margin:2px 0 3px}
+  .ov-chart{width:100%;height:170px;margin-top:10px;overflow:visible}
+  .ov-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+  .ov-legend i{display:inline-block;width:14px;height:0;border-top-width:2px;margin-right:5px;vertical-align:middle}
+  .ov-donutwrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .ov-donut{width:150px;height:150px;flex:none}
+  .ov-dlegend{display:flex;flex-direction:column;gap:7px;font-size:12px;min-width:150px;flex:1}
+  .ov-dlegend .r{display:flex;align-items:center;gap:7px}
+  .ov-dlegend .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .ov-dlegend .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ov-dlegend .dv{font-size:11px;color:var(--muted)}
+  .ov-seg{transition:opacity .15s ease}
+  .ov-seg:hover{opacity:.75;cursor:default}
+  #ovChart .gl{stroke:var(--line2)}
+  #ovChart .dot{fill:var(--teal);stroke:var(--paper);stroke-width:2.5}
+
   .native .app{display:block}
   .native .rail{display:none}
   @media(max-width:900px){                     /* narrow web: fall back to the tab strip */
@@ -505,6 +526,29 @@
 <main>
   <!-- ============ PRICES ============ -->
   <section id="view-prices" class="view active">
+    <!-- ===== E5.1 Overview hero ===== -->
+    <div class="ov-hero">
+      <div class="card pad">
+        <div class="ov-head">
+          <div>
+            <div class="ov-k">Portfolio value</div>
+            <div class="ov-big num" id="ovValue">—</div>
+            <div id="ovSub" class="small muted">—</div>
+          </div>
+          <div class="ov-legend" id="ovChartLegend"></div>
+        </div>
+        <svg id="ovChart" class="ov-chart" viewBox="0 0 620 170" preserveAspectRatio="none"
+             role="img" aria-label="Portfolio value and invested capital at each checkpoint"></svg>
+        <div id="ovChartNote" class="xs muted"></div>
+      </div>
+      <div class="card pad">
+        <div class="ov-k" style="margin-bottom:6px">Allocation</div>
+        <div class="ov-donutwrap">
+          <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by theme"></svg>
+          <div class="ov-dlegend" id="ovDonutLegend"></div>
+        </div>
+      </div>
+    </div>
     <div class="band" id="priceBand"></div>
     <div class="theme-grid" id="priceGrid"></div>
     <p class="note">Prices via Yahoo Finance (free, delayed up to ~15 min for some tickers). Market-cap from the
@@ -1418,8 +1462,136 @@ function renderStatus(){
 /* ======================================================================
    Render: PRICES view
    ====================================================================== */
+/* ===== E5.1 Overview =====
+   Value history is RECONSTRUCTED FROM REAL DATA ONLY — never estimated:
+   each version snapshot holds the exact holdings + totalContributed at that
+   checkpoint, and each transaction records the actual traded price per symbol.
+   We carry the last traded price forward per symbol, and report a checkpoint's
+   value ONLY when every holding at that point has a known traded price
+   (otherwise the point is null and the line breaks). No interpolation, no
+   synthetic prices. Between checkpoints untraded positions are held at their
+   last traded price, which is why this is labelled "at traded prices". */
+function valueHistory(){
+  const vs=(typeof versions==="function")?versions():[];
+  const px={}, out=[];
+  vs.forEach(v=>{
+    (v.trades||[]).forEach(tr=>{ if(tr&&tr.sym&&isNum(tr.price)) px[tr.sym]=tr.price; });
+    const snap=v.snapshot||{}, h=snap.holdings||{};
+    let val=0, held=0, priced=0;
+    Object.keys(h).forEach(sym=>{
+      const sh=h[sym]?h[sym].shares:0; if(!isNum(sh)||sh<=0) return;
+      held++; if(isNum(px[sym])){ priced++; val+=sh*px[sym]; }
+    });
+    out.push({ label:v.date||("#"+v.id), type:v.type||"",
+      invested:isNum(snap.totalContributed)?snap.totalContributed:null,
+      value:(held>0&&priced===held)?val:null });
+  });
+  if(isInit()) out.push({ label:"now", type:"LIVE", invested:totalContributed(), value:curTotal(), live:true });
+  return out;
+}
+function renderOverview(){
+  const svg=$("#ovChart"); if(!svg) return;
+  const init=isInit(), total=curTotal();
+  // ---- hero numbers (all live/real) ----
+  const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s], q=state.quotes[s];
+    return a+((h&&q&&isNum(q.change))?h.shares*q.change:0); },0);
+  const inv=totalContributed(), gain=total-inv;
+  const setHero=(v,sub)=>{ $("#ovValue").textContent=v; $("#ovSub").innerHTML=sub; };
+  const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n),0);        // money() keeps thousands separators; signed() does not
+  const heroDefault=()=>setHero(init?money(total,0):"—",
+    init?`<span class="${dayPL>=0?'up':'down'}">${sgn(dayPL)} today</span> · `+
+         `<span class="${gain>=0?'up':'down'}">${sgn(gain)} (${inv>0?signed(gain/inv*100,1):"0.0"}%) all time</span>`
+        :`Build a portfolio on the <b>Rebalance</b> tab to start tracking value.`);
+  heroDefault();
+
+  // ---- value chart ----
+  const H=valueHistory();
+  const legend=$("#ovChartLegend"), note=$("#ovChartNote");
+  if(H.length<2){
+    svg.innerHTML=""; if(legend)legend.innerHTML="";
+    if(note)note.textContent=init?"One checkpoint so far — the curve appears once you have a second.":"";
+    renderOverviewDonut(); return;
+  }
+  const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=170, PB=18, PT=10;
+  svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
+  const vals=H.flatMap(p=>[p.value,p.invested]).filter(isNum);
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(!(isFinite(lo)&&isFinite(hi))||hi<=lo){ lo=(lo||0)*0.98; hi=(hi||1)*1.02+1; }
+  const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+  const X=i=>H.length<2?0:(i/(H.length-1))*(W-8)+4;
+  const Y=v=>Ht-PB-((v-lo)/(hi-lo))*(Ht-PB-PT);
+  const path=key=>{ let d="",pen=false;
+    H.forEach((p,i)=>{ const v=p[key];
+      if(!isNum(v)){ pen=false; return; }                 // gap: an unpriced checkpoint breaks the line
+      d+=(pen?"L":"M")+X(i).toFixed(1)+","+Y(v).toFixed(1)+" "; pen=true; });
+    return d.trim(); };
+  const vPath=path("value"), iPath=path("invested");
+  const lastV=[...H].reverse().find(p=>isNum(p.value));
+  const area=vPath?`${vPath} L${X(H.length-1).toFixed(1)},${(Ht-PB).toFixed(1)} L${X(0).toFixed(1)},${(Ht-PB).toFixed(1)} Z`:"";
+  svg.innerHTML=
+    `<defs><linearGradient id="ovg" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0%" stop-color="var(--teal)" stop-opacity=".22"/>
+       <stop offset="100%" stop-color="var(--teal)" stop-opacity="0"/></linearGradient></defs>`+
+    [0.25,0.5,0.75].map(f=>`<line class="gl" x1="0" y1="${(PT+(Ht-PB-PT)*f).toFixed(1)}" x2="${W}" y2="${(PT+(Ht-PB-PT)*f).toFixed(1)}" stroke-width="1"/>`).join("")+
+    (area?`<path d="${area}" fill="url(#ovg)"/>`:"")+
+    (iPath?`<path d="${iPath}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 4" stroke-linejoin="round"/>`:"")+
+    (vPath?`<path d="${vPath}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`:"")+
+    (lastV?`<circle class="dot" cx="${X(H.indexOf(lastV)).toFixed(1)}" cy="${Y(lastV.value).toFixed(1)}" r="4"/>`:"")+
+    `<rect id="ovHit" x="0" y="0" width="${W}" height="${Ht}" fill="transparent"/>`;
+  if(legend) legend.innerHTML=
+    `<span><i style="border-top:2.4px solid var(--teal)"></i>Value</span>`+
+    `<span><i style="border-top:1.6px dashed var(--muted)"></i>Invested</span>`;
+  const gaps=H.filter(p=>!isNum(p.value)).length;
+  if(note) note.textContent=`${H.length} checkpoints · positions marked at their last traded price`+
+    (gaps?` · ${gaps} checkpoint${gaps>1?"s":""} not fully priced (line breaks there)`:"");
+  // scrub
+  svg.onmousemove=e=>{
+    const r=svg.getBoundingClientRect(); if(!r.width) return;
+    let i=Math.round(((e.clientX-r.left)/r.width)*(H.length-1));
+    i=Math.max(0,Math.min(H.length-1,i)); const p=H[i];
+    setHero(isNum(p.value)?money(p.value,0):"—",
+      `<b>${p.label}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
+      (isNum(p.value)&&isNum(p.invested)?` · <span class="${p.value-p.invested>=0?'up':'down'}">${sgn(p.value-p.invested)}</span>`:""));
+  };
+  svg.onmouseleave=heroDefault;
+  renderOverviewDonut();
+}
+function renderOverviewDonut(){
+  const svg=$("#ovDonut"), leg=$("#ovDonutLegend"); if(!svg||!leg) return;
+  let A=null; try{ A=computeAllocation(); }catch(e){}
+  if(!A||!A.rows||!A.rows.length){ svg.innerHTML=""; leg.innerHTML='<span class="small muted">No themes yet.</span>'; return; }
+  const cvt=curValueByTheme(), total=curTotal(), init=isInit();
+  // the ring shows where the money IS today when there's a portfolio, else the model target
+  const seg=A.rows.map(r=>({ name:r.theme.name, color:r.theme.color, target:r.alloc,
+    current:(init&&total>0)?(cvt[r.theme.key]||0)/total:null }));
+  const useCur=init&&total>0;
+  const parts=seg.map(s=>useCur?(s.current||0):(s.target||0));
+  const sum=parts.reduce((a,b)=>a+b,0)||1;
+  const cx=100,cy=100,R=84,r0=54; let a0=-Math.PI/2, d="";
+  svg.innerHTML=seg.map((s,i)=>{
+    const frac=parts[i]/sum; if(frac<=0) return "";
+    const a1=a0+frac*Math.PI*2, big=(a1-a0)>Math.PI?1:0;
+    d=`M${(cx+R*Math.cos(a0)).toFixed(2)},${(cy+R*Math.sin(a0)).toFixed(2)} `+
+      `A${R},${R} 0 ${big} 1 ${(cx+R*Math.cos(a1)).toFixed(2)},${(cy+R*Math.sin(a1)).toFixed(2)} `+
+      `L${(cx+r0*Math.cos(a1)).toFixed(2)},${(cy+r0*Math.sin(a1)).toFixed(2)} `+
+      `A${r0},${r0} 0 ${big} 0 ${(cx+r0*Math.cos(a0)).toFixed(2)},${(cy+r0*Math.sin(a0)).toFixed(2)} Z`;
+    a0=a1;
+    return `<path class="ov-seg" d="${d}" fill="${s.color}"><title>${s.name} ${pct(parts[i]/sum)}</title></path>`;
+  }).join("")+
+   `<text x="100" y="96" text-anchor="middle" style="font-size:9.5px;fill:var(--muted);letter-spacing:.06em">${useCur?"CURRENT":"TARGET"}</text>`+
+   `<text x="100" y="114" text-anchor="middle" class="num" style="font-size:15px;font-weight:650;fill:var(--ink)">${themes().length} themes</text>`;
+  leg.innerHTML=seg.map(s=>{
+    const drift=(s.current!=null)?(s.current-s.target):null;
+    return `<div class="r"><span class="sw" style="background:${s.color}"></span>
+      <span class="nm">${s.name}</span>
+      <b class="num">${pct(useCur?(s.current||0):s.target)}</b>
+      <span class="dv num">${drift!=null?`(tgt ${pct(s.target)}, ${signed(drift*100,1)}pp)`:`target`}</span></div>`;
+  }).join("");
+}
+
 function renderPrices(){
   const cvt=curValueByTheme(), total=curTotal(), init=isInit();
+  try{ renderOverview(); }catch(e){ console.error("overview",e); }   // E5.1 hero: never block the price tables
   // summary band
   const band=$("#priceBand");
   const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s]; const q=state.quotes[s];
