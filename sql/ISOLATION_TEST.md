@@ -138,7 +138,7 @@ Delete user **A** in the dashboard, then check the table as **B** or via the SQL
 | 4 | Anonymous read refused — HTTP 401 | ✅ 2026-08-15 |
 | 5 | Stale write rejected — zero rows (the 409) | ✅ 2026-08-15 |
 | 5 | Revision cannot rewind — `400 revision must increase (have 2, got 1)` | ✅ 2026-08-15 |
-| 6 | Account deletion cascades | ◐ **partly evidenced 2026-08-15** — see below |
+| 6 | Account deletion cascades | ✅ 2026-08-15 — `portfolio_rows` 2 → 1 on deleting a user known to hold a row |
 
 **Run 2026-08-15: 12 automated checks, 12 passed, 0 failed.** Executed against the live project with two
 real accounts (`test-a@` / `test-b@`), not simulated.
@@ -232,15 +232,22 @@ accounts (`test-a`, `test-b`), each of which has a row. So we cannot tell whethe
 account ever *had* a row. If it never did, `orphaned_rows = 0` is trivially true rather than
 evidence that `on delete cascade` fired.
 
-**To close it definitively** — delete a user we KNOW has a row:
+**CLOSED DEFINITIVELY — 2026-08-15.** The owner ran the decisive version:
 
-1. `select u.email, p.revision from public.portfolios p join auth.users u on u.id = p.user_id;`
-   → confirms `test-b` has one.
-2. Delete `test-b@example.com` in Authentication → Users.
-3. Re-run the count query. **`portfolio_rows` must drop 2 → 1**, `orphaned_rows` must stay `0`.
+1. `select u.email, p.revision, jsonb_array_length(coalesce(p.data->'versions','[]'::jsonb)) as checkpoints
+    from public.portfolios p join auth.users u on u.id = p.user_id order by u.email;`
+   → returned **`test-a` (revision 19, 3 checkpoints)** and **`test-b` (revision 2, 4 checkpoints)**,
+   establishing that `test-b` genuinely held a row.
+2. Deleted `test-b@example.com` in Authentication → Users.
+3. Re-ran the count → **`portfolio_rows` dropped 2 → 1**, `orphaned_rows` still `0`.
 
-Only then is check 6 ✅. Until then it is ◐: deletion and non-orphaning are demonstrated; the
-cascade on a known-present row is not.
+That is `on delete cascade` actually firing on a row known to exist — not a vacuous zero. **Check 6
+passes.** The isolation gate is now **8 of 8**.
+
+> ⚠️ **Test-account note:** `test-b@example.com` no longer exists. Any future cross-account test
+> (checks 2, 3 and the application-level A/B marker run) needs a second account created again from
+> the dashboard — the assistant does not create accounts. `test-a@example.com` / `Test@1234`
+> survives and still holds the dev book.
 
 ### One related guarantee, already implemented
 

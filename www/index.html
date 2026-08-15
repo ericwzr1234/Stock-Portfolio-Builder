@@ -935,6 +935,12 @@ function themes(){
   return THEMES;
 }
 function isEmptyStart(){ return !!state.noDefaults && !themes().length; }
+/* `state.themes = null` means "use the built-in five" ONLY while noDefaults is false - so the two
+   must never be written apart. They were: restoreDefaultThemes() set themes=null and left
+   noDefaults true, which on a start-fresh account meant its "Restore default 5" button DELETED the
+   user's themes and restored nothing, while toasting success. Both writes now go through these. */
+function useDefaultThemes(){ state.noDefaults=false; state.themes=null; state.themeTickers=null; }
+function useNoThemes(){ state.noDefaults=true; state.themes=[]; state.themeTickers={}; }
 // N-adaptive default cap (1.5/N => 30% at five themes); guarded so an empty board cannot divide by zero.
 function defaultCap(){ const n=themes().length; return n>0 ? clamp(1.5/n, 1/n+1e-9, 1) : 0.3; }
 function themeByKey(k){ return themes().find(x=>x.key===k); }
@@ -1355,7 +1361,12 @@ async function webSavePortfolio(p){ await api("/api/portfolio",{method:"POST",he
 /* ---- native (Capacitor / on-device) ---- */
 const STORE_KEY="pb_portfolio_v1";
 function nativeLoadPortfolio(){ try{ const raw=localStorage.getItem(STORE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
-function nativeSavePortfolio(p){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }catch(e){ console.error("save failed",e); } }
+function nativeSavePortfolio(p){
+  // Must THROW: the native adapter's save is awaited by _savePortfolioInner, which would otherwise
+  // return true for a write that never landed (a full localStorage loses the whole rebalance).
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(p)); return true; }
+  catch(e){ console.error("save failed",e); throw new Error("this device's storage is full - the change was not saved"); }
+}
 
 /* E6 FIX - the cloud mirror must NOT share STORE_KEY. On native that key is the ONLY copy of the
    on-device book, so mirroring an account's portfolio into it could destroy the local one, and a
@@ -1374,6 +1385,17 @@ function cloudMirrorKey(uid){ const u=uid||sbUserId(); return u?("pb_cloud_mirro
    the other device's rebalance. The only thing that actually means "unsynced" is: this copy was
    written by a save that FAILED. */
 function mirrorDirtyKey(uid){ const u=uid||sbUserId(); return u?("pb_mirror_dirty_"+u):null; }
+/* DIRTY means "a save failed and this copy is newer than the server".
+   UNFILED means "we tried to put that copy in the stash and could not" (a full localStorage).
+   Round 6 reused the dirty bit for both, so an ordinary failed-then-retried save filed its own
+   ancestor as "unsaved work" - and restoring that prompt reverted the account to the older
+   document. Only an UNFILED copy may block the mirror from being overwritten. */
+function mirrorUnfiledKey(uid){ const u=uid||sbUserId(); return u?("pb_mirror_unfiled_"+u):null; }
+function mirrorUnfiled(uid){ try{ const k=mirrorUnfiledKey(uid); return !!k && localStorage.getItem(k)==="1"; }catch(e){ return false; } }
+function setMirrorUnfiled(uid,v){
+  try{ const k=mirrorUnfiledKey(uid); if(!k) return;
+       if(v) localStorage.setItem(k,"1"); else localStorage.removeItem(k); }catch(e){}
+}
 function mirrorIsDirty(uid){ try{ const k=mirrorDirtyKey(uid); return !!k && localStorage.getItem(k)==="1"; }catch(e){ return false; } }
 function setMirrorDirty(uid,dirty){
   try{ const k=mirrorDirtyKey(uid); if(!k) return;
@@ -1459,11 +1481,12 @@ function preserveDirtyMirror(uid){
 function dropMirror(uid){
   const u=uid||sbUserId(); if(!u) return;
   if(!preserveDirtyMirror(u)){
+    setMirrorUnfiled(u,true);
     console.error("keeping the mirror: the unsaved copy could not be filed");
     return;                                     // better a stale plaintext copy than a lost edit
   }
   try{ const k=cloudMirrorKey(u); if(k) localStorage.removeItem(k); }catch(e){}
-  setMirrorDirty(u,false);                      // the bit must not outlive what it describes
+  setMirrorDirty(u,false); setMirrorUnfiled(u,false);   // neither bit may outlive what it describes
 }
 /* The WHOLE document, minus the two fields that change without the user changing anything.
    Signing only (revision + holdings) meant a theme rename, a weight, the cap, the watchlist, a
@@ -1682,8 +1705,12 @@ function lockOut(msg){
   appLocked=true;
   /* E6 FIX - a modal open at lock-out used to SURVIVE behind the gate (z-index 400 vs 80) with
      live handlers closing over the previous account's data, and be revealed again by the next
-     showGate(false). The import modal's "Start fresh" would then overwrite the NEXT user's row. */
+     showGate(false). The import modal's "Start fresh" would then overwrite the NEXT user's row.
+     The guided tour had exactly the same problem: its elements live on <body>, so the gate hid
+     them without removing them, and the next user was shown the previous user's bubble mid-tour -
+     whose Done button then wrote "seen" against the NEW account. */
   try{ closeModal(); }catch(e){}
+  try{ coachEnd(false); }catch(e){}
   clearAccountState();
   stopAutoRefresh();
   try{ renderAll(); }catch(e){}        // wipe the previous account's numbers off the screen
@@ -2195,8 +2222,9 @@ async function loadPortfolio(){
         const kept=stashUnsyncedMirror(p,uid);
         if(kept==="failed"){
           // Do NOT overwrite: the mirror holds the only copy of work the server never took.
+          setMirrorUnfiled(uid,true);
           state.syncError="unsaved work on this device could not be filed - it is still in the local copy";
-        } else if(p) cloudMirrorSave(p,uid,false);
+        } else if(p){ cloudMirrorSave(p,uid,false); setMirrorUnfiled(uid,false); }
         if(!p) state.portfolio=null;                 // a CONFIRMED empty account - nothing to show
         // A confirmed read supersedes an earlier save failure: whatever it lost is in the stash,
         // and the badge must describe the state we are in NOW, not the one we were in.
@@ -2241,6 +2269,10 @@ async function loadPortfolio(){
    watchlist, metric list, per-metric config, presets, overrides, cap, weights and penalty - while
    the modal promised "its full history comes with it". */
 function hydrateFromDocument(p){
+  /* The document is being replaced wholesale, so a stash "put on screen" earlier is no longer what
+     is in front of the user - it must not be consumed by the next save. offerStashRecovery sets
+     these again straight after it calls us. */
+  state.pendingStashKey=null; state.pendingStashSig=null;
   { state.portfolio=p;
     /* Absent means "the default", never "keep whatever the last document left in memory". The
        leftover values were being written straight back into the next document on its first save. */
@@ -2375,8 +2407,16 @@ async function _savePortfolioInner(){
            about the fact that nothing retries automatically. */
         setTimeout(()=>toast("NOT saved to your account - kept on this device only. Reload when your connection is back."),400);
       }
-      if(sbEpoch!==_epoch0){                 // signed out (or switched) while this was in flight
-        console.warn("not writing a mirror for a session that has ended");
+      if(sbEpoch!==_epoch0){
+        /* The session ended while this save was in flight - a definitive 401/403 does exactly this,
+           via sbStoreSession(null). Round 6 skipped the rescue write here, which meant the commonest
+           way to lose a session (an expired refresh token) ALSO lost the edit, while the toast said
+           "kept on this device only". Keep the work in the OWNER's stash - that is whose data it is -
+           but do NOT re-create the plain mirror, which an explicit sign-out deliberately deleted. */
+        if(_owner){
+          try{ localStorage.setItem("pb_unsynced_"+_owner+"_"+Date.now(), JSON.stringify(_doc)); }
+          catch(err){ console.error("could not keep the unsaved change",err); }
+        }
       }
       else if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,true); else nativeSavePortfolio(_doc);
       renderSyncBadge();
@@ -2388,10 +2428,15 @@ async function _savePortfolioInner(){
          the stash (a full localStorage). loadPortfolio and dropMirror both honour that; this path
          did not, so the next successful save destroyed the copy the app had explicitly promised to
          keep. Try to file it once more, and refuse to overwrite if that still fails. */
-      if(mirrorIsDirty(_owner) && stashUnsyncedMirror(null,_owner)==="failed"){
+      if(mirrorUnfiled(_owner) && stashUnsyncedMirror(null,_owner)==="failed"){
         console.error("keeping the unfiled offline copy - not overwriting the mirror");
         state.syncError="an earlier offline change is still only in this device's copy";
-      } else cloudMirrorSave(_doc,_owner,false);
+      } else {
+        /* The mirror held an ancestor of what just saved; the server now has the newer document,
+           so the mirror is simply superseded - overwrite it rather than filing it as unsaved work. */
+        cloudMirrorSave(_doc,_owner,false);
+        setMirrorUnfiled(_owner,false);
+      }
     } else nativeSavePortfolio(_doc);
   } else {
     // E6 FIX: this branch used to THROW, so web-path callers got an unhandled rejection that
@@ -2406,11 +2451,14 @@ async function _savePortfolioInner(){
   /* The restored copy is now safely in the account - but only drop it if what just saved really
      IS that work. It used to be consumed by ANY successful save, so restoring a stash and then
      resetting the portfolio deleted the kept-aside book without ever storing it. */
-  /* Judge against _doc - the document this save actually wrote - not against whatever is on
-     screen by the time the network returns. And only forget the stash when it really was the
-     thing saved; clearing it either way meant a restored-then-edited document was re-offered
-     on every future sign-in. */
-  if(state.pendingStashKey && state.pendingStashSig && _preSig===state.pendingStashSig){
+  /* A restored stash is consumed by the first successful save after it was put on screen -
+     including one the user edited first, which is the flow the modal actually describes ("not
+     saved until you make a change"). Comparing signatures could only ever match a byte-identical
+     re-save, so the prompt came back on every future sign-in and kept inviting the user to revert.
+     Anything that replaces the document wholesale (a load, a conflict reload, Reset) clears the
+     pending key instead - see hydrateFromDocument - so this cannot consume work that was never
+     saved. */
+  if(state.pendingStashKey){
     stashDrop(state.pendingStashKey);
     state.pendingStashKey=null; state.pendingStashSig=null;
   }
@@ -2525,6 +2573,7 @@ function showGate(show){
     else    { app.removeAttribute("inert"); app.removeAttribute("aria-hidden"); }
   }
   // Only reset on the way IN. A second lockOut while the user is typing must not blank the form.
+  if(show){ try{ coachEnd(false); }catch(e){} }     // never leave a tour running behind the gate
   if(show && wasHidden){
     /* E6 FIX - the form is wiped on the way IN. It used to keep the previous user's email address
        on screen after a sign-out (disclosing who was last here on a shared machine), keep a stale
@@ -2824,8 +2873,7 @@ function openImportChoice(local,src){
     /* A BLANK board, not the five built-in themes with nothing in them. Leaving state.themes null
        MEANS "use the defaults", so "Start fresh" used to show the seed universe and a donut of
        target weights over themes the user had never chosen. */
-    state.themes=[]; state.themeTickers={}; state.watchlist=[];
-    state.noDefaults=true;
+    useNoThemes(); state.watchlist=[];
     // A fresh account starts on the DEFAULTS, not on whatever the previous session left in memory.
     state.presets=[]; state.metrics=null; state.metricCfg=null; state.overrides={};
     state.weights=Object.assign({},DEFAULT_CONFIG.weights);
@@ -3276,9 +3324,10 @@ function renderFundamentals(){
     const nt=$("#emptyNewTheme"), rs=$("#emptyRestore"), gd=$("#emptyGuide");
     if(nt) nt.addEventListener("click",()=>{ const b=$("#newThemeBtn"); if(b) b.click(); });
     if(rs) rs.addEventListener("click",async()=>{
-      state.noDefaults=false; state.themes=null; state.themeTickers=null;   // back to the built-in universe
-      rebuildThemeOf(); rebuildFundamentals(); renderAll();
-      const ok=await savePortfolio();
+      useDefaultThemes();
+      rebuildThemeOf(); rebuildFundamentals();
+      const ok=await savePortfolio();       // confirm the write BEFORE painting it as done
+      renderAll();
       toast(ok?"Loaded the five built-in themes":"Loaded them here, but the account could not be written - see the sync badge");
     });
     if(gd) gd.addEventListener("click",()=>coachStart("fundamentals",true));
@@ -3558,6 +3607,8 @@ function renderCalcInit(){
 async function doBuildInitial(){
   const cap=parseFloat($("#initCapital").value);
   if(!isNum(cap)||cap<=0){ toast("Enter a positive amount"); return; }
+  if(!membership().length){                       // themes exist but none has any names in it
+    toast("Add some tickers to your themes first - there is nothing to buy yet"); return; }
   if(membership().some(s=>!isNum(price(s)))){ toast("Waiting for prices… try Refresh"); return; }
   const plan=planTrades(cap,"full"); // from zero -> all buys
   const h={};
@@ -4051,18 +4102,27 @@ function markTourSeen(view){ try{ localStorage.setItem(tourKey(view),"1"); }catc
 
 function coachEnd(seen){
   if(!_coach) return;
-  if(seen) markTourSeen(_coach.view);
+  // Only credit the account that actually started this tour.
+  if(seen && _coach.uid===((typeof sbUserId==="function"&&sbUserId())||"")) markTourSeen(_coach.view);
+  try{ if(_coach.mo) _coach.mo.disconnect(); }catch(e){}
   ["ring","bubble","scrim"].forEach(k=>{ const el=_coach[k]; if(el&&el.parentNode) el.parentNode.removeChild(el); });
   window.removeEventListener("resize",coachPlace); window.removeEventListener("scroll",coachPlace,true);
   _coach=null;
 }
 /* Skips forward over steps whose anchor is not on screen, so a tour written for a full board
    still reads correctly on an empty one. */
-function coachResolve(from){
+/* `dir` is +1 when moving forward and -1 when going back: scanning forward on Back returned the
+   same step, so Back was a permanent no-op the moment any step was skipped. An anchor also has to
+   have SIZE - an empty watchlist leaves a laid-out zero-height div, which would ring nothing. */
+function coachVisible(sel){
+  return sel.split(",").map(x=>$(x.trim()))
+    .find(x=>x && x.offsetParent!==null && (x.offsetWidth>0 || x.offsetHeight>0));
+}
+function coachResolve(from, dir){
   if(!_coach) return -1;
-  for(let i=from;i<_coach.steps.length;i++){
-    const st=_coach.steps[i];
-    const el=st.sel.split(",").map(x=>$(x.trim())).find(x=>x&&x.offsetParent!==null);
+  const step=(dir===-1)?-1:1;
+  for(let i=from; i>=0 && i<_coach.steps.length; i+=step){
+    const el=coachVisible(_coach.steps[i].sel);
     if(el){ _coach.el=el; return i; }
   }
   return -1;
@@ -4103,8 +4163,10 @@ function coachRender(){
 }
 function coachGo(delta){
   if(!_coach) return;
-  const next=coachResolve(_coach.i+delta);
-  if(next<0 || _coach.i+delta<0){ coachEnd(true); return; }
+  const from=_coach.i+delta;
+  if(from<0){ coachEnd(true); return; }
+  const next=coachResolve(from, delta<0?-1:1);
+  if(next<0){ coachEnd(delta>0); return; }     // forward off the end = finished; back off the start = just close
   _coach.i=next; coachRender();
 }
 function coachStart(view, force){
@@ -4113,9 +4175,14 @@ function coachStart(view, force){
   if(!force && tourSeen(view)) return;
   if(typeof appLocked!=="undefined" && appLocked) return;
   if(typeof signedIn==="function" && !signedIn()) return;
-  _coach={ view, title:t.name, steps:t.steps, i:0 };
-  const first=coachResolve(0);
-  if(first<0){ _coach=null; return; }              // nothing to point at on this board yet
+  _coach={ view, title:t.name, steps:t.steps, i:0,
+           uid:(typeof sbUserId==="function"&&sbUserId())||"" };
+  const first=coachResolve(0,1);
+  if(first<0){                                     // nothing on this board to point at yet
+    _coach=null;
+    if(force) toast("Nothing to show here yet - build a theme on Model first");
+    return;
+  }
   _coach.i=first;
   const scrim=document.createElement("div"); scrim.className="coach-scrim";
   const ring=document.createElement("div");  ring.className="coach-ring";
@@ -4130,10 +4197,21 @@ function coachStart(view, force){
     else coachEnd(true);
   });
   window.addEventListener("resize",coachPlace); window.addEventListener("scroll",coachPlace,true);
+  /* The bubble sits above every modal (301 vs 80) and takes pointer events, so a step that says
+     "click New theme" would have its own bubble covering the dialog that opens. Rather than fight
+     the stacking order, stand down as soon as any modal appears. */
+  try{
+    const mr=$("#modalRoot");
+    if(mr && window.MutationObserver){
+      _coach.mo=new MutationObserver(()=>{ if(mr.children.length) coachEnd(false); });
+      _coach.mo.observe(mr,{childList:true});
+    }
+  }catch(e){}
   coachRender();
 }
 /* Offer the tour when an account first lands on a view. Never while the gate is up, never mid-boot. */
 function maybeCoach(view){
+  if(_coach) return;                       // one is already running (impNo starts it explicitly)
   if(typeof booting!=="undefined" && booting) return;
   if(typeof signedIn!=="function" || !signedIn()) return;
   if(tourSeen(view)) return;
@@ -4308,11 +4386,12 @@ async function deleteTheme(key){
 }
 async function restoreDefaultThemes(){
   if(!confirm("Restore the default 5 themes?\n\nThis removes any themes you created and resets theme membership to the defaults. Your holdings aren't sold now, but names not in a default theme become exiting positions on your next rebalance.")) return;
-  state.themes=null; state.themeTickers=null;
+  useDefaultThemes();                 // clears noDefaults too - see the helper's comment
   rebuildThemeOf();
-  await savePortfolio();
+  const ok=await savePortfolio();
   renderAll();
-  toast("Restored the default 5 themes");
+  toast(ok ? "Restored the default 5 themes"
+           : "Restored them here, but the account could not be written - see the sync badge");
 }
 
 /* ---- search any ticker and add it to a theme (E1.3) ------------------------------------------
@@ -4679,7 +4758,8 @@ function setupEvents(){
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
-    await savePortfolio(); toast("Portfolio reset"); renderAll(); switchView("calc");
+    const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
+    renderAll(); switchView("calc");
   });
 }
 
