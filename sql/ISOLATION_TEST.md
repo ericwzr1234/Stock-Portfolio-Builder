@@ -138,7 +138,7 @@ Delete user **A** in the dashboard, then check the table as **B** or via the SQL
 | 4 | Anonymous read refused — HTTP 401 | ✅ 2026-08-15 |
 | 5 | Stale write rejected — zero rows (the 409) | ✅ 2026-08-15 |
 | 5 | Revision cannot rewind — `400 revision must increase (have 2, got 1)` | ✅ 2026-08-15 |
-| 6 | Account deletion cascades | ☐ **needs the dashboard** — deleting a user requires admin rights the assistant does not hold |
+| 6 | Account deletion cascades | ◐ **partly evidenced 2026-08-15** — see below |
 
 **Run 2026-08-15: 12 automated checks, 12 passed, 0 failed.** Executed against the live project with two
 real accounts (`test-a@` / `test-b@`), not simulated.
@@ -202,3 +202,49 @@ have. Until this is done, invite nobody.
 Signup is currently **open** (`disable_signup` = false), so anyone who reaches the URL can create an
 account. Authentication → Providers → Email → turn off "Allow new users to sign up", then add
 testers yourself via Add user. Do this before the URL is shared with anyone.
+
+---
+
+## Check 6 — where it actually stands (2026-08-15)
+
+The owner registered a real account (`ericwzr@outlook.com`) through the app's own gate **with email
+confirmation**, then deleted it from the dashboard, and ran:
+
+```sql
+select
+  (select count(*) from auth.users where email = 'ericwzr@outlook.com') as your_account_still_there,
+  (select count(*) from public.portfolios) as portfolio_rows,
+  (select count(*) from public.portfolios p
+     left join auth.users u on u.id = p.user_id
+    where u.id is null) as orphaned_rows;
+```
+
+Result: **`0 · 2 · 0`**.
+
+**Proven by this:**
+- The account is genuinely gone from `auth.users` — deletion works.
+- **Zero orphaned rows**: no portfolio data survives pointing at a deleted user. This is the
+  property that actually matters for privacy, and it holds.
+- Signup + email confirmation work end to end through the built-in sender.
+
+**NOT proven by this, and worth being honest about:** `portfolio_rows = 2` is exactly the two test
+accounts (`test-a`, `test-b`), each of which has a row. So we cannot tell whether the deleted
+account ever *had* a row. If it never did, `orphaned_rows = 0` is trivially true rather than
+evidence that `on delete cascade` fired.
+
+**To close it definitively** — delete a user we KNOW has a row:
+
+1. `select u.email, p.revision from public.portfolios p join auth.users u on u.id = p.user_id;`
+   → confirms `test-b` has one.
+2. Delete `test-b@example.com` in Authentication → Users.
+3. Re-run the count query. **`portfolio_rows` must drop 2 → 1**, `orphaned_rows` must stay `0`.
+
+Only then is check 6 ✅. Until then it is ◐: deletion and non-orphaning are demonstrated; the
+cascade on a known-present row is not.
+
+### One related guarantee, already implemented
+
+If an account is deleted while a session is still open on another device, that session's next
+request returns 401/403, which converges on `sbApi`'s lock-out: the app clears all account state,
+stops its timers, drops that account's offline mirror (after filing any unsaved copy) and returns
+to the login page with *"Your session is no longer valid."* It does not carry on unauthenticated.

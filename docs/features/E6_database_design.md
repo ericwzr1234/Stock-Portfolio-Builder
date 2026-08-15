@@ -744,3 +744,81 @@ explicit converged verdict before this merges to `main`. If it does not, the rec
 stop patching and rewrite `loadPortfolio`/`_savePortfolioInner`/`sbApi` against the invariants in
 §16–17, which are now well enough understood to be written first and implemented second — the
 opposite of how they were arrived at.
+
+---
+
+## 19. Round 6, and the epoch lesson
+
+| Round | Findings | Regressions from the previous round's fixes |
+|---|---|---|
+| 1 | 36 | — |
+| 2 | 30 | 3 |
+| 3 | 19 | 4 |
+| 4 | 6 | 2 |
+| 5 | 3 | 2 |
+| 6 | 3 | 2 |
+
+Round 6's critical finding is the sharpest example of the pattern in the whole epic, and it is worth
+keeping as a worked example of how a *correct-sounding* guard goes wrong.
+
+### The bug: a session epoch that counted the wrong thing
+
+Round 4 added `sbEpoch` so that a slow reply belonging to a **previous session** could not lock out,
+replay into, or overwrite the **current** one. Round 5 extended the same guard to `loadPortfolio`
+via `stale()`. Both were right about the danger. Both were wrong about the measurement:
+
+```js
+function sbStoreSession(sess){ sbSession=sess||null; sbEpoch++; }   // bumped on EVERY session write
+```
+
+A successful **token refresh** writes the session. Nothing in the file reads `expires_at`, so a
+401-then-refresh *is* how an expired access token is handled. Therefore, on the single most common
+path in the app — reloading more than an hour after signing in:
+
+1. the portfolio GET 401s (JWT expired),
+2. `sbRefresh()` succeeds, bumping the epoch,
+3. the retry returns the real document,
+4. and `stale()` throws it away, because the epoch changed.
+
+The user, correctly signed in, was shown **"No portfolio yet — start by creating a theme on Model"**
+over a live account. Worse, `docSource`/`docOwner` had already been set, so their first click built
+a blank document and wrote it into `pb_cloud_mirror_<uid>` with the dirty bit set — destroying the
+offline copy and then offering it back as *"Unsaved work was kept aside — 0 holdings"*.
+
+### The fix, and the principle
+
+The counter now increments only when the **user identity** changes:
+
+```js
+const _prevUid = (sbSession && sbSession.user && sbSession.user.id) || "";
+const _nextUid = (sess && sess.user && sess.user.id) || "";
+sbSession = sess || null;
+if(_prevUid !== _nextUid) sbEpoch++;      // a refresh keeps you the same person
+```
+
+**The principle: a guard must measure the thing it is guarding against.** The danger was *"is this
+reply for a different user?"*, and the proxy chosen was *"has the session object been written?"* —
+which is true far more often, and true on the healthy path. A guard that fires on the healthy path
+is worse than no guard, because it converts an ordinary event into data loss.
+
+Verified against the real path: with a live session and the first portfolios request forced to 401,
+the refresh succeeds, the retry returns the row, and the app restores 25 holdings at revision 19
+with the epoch unchanged and the mirror intact.
+
+### Also fixed in round 6
+
+- **A successful save overwrote an offline copy that could not be filed.** `loadPortfolio` and
+  `dropMirror` both honour `stashUnsyncedMirror`'s `"failed"` sentinel; the save path did not, so
+  the next successful save destroyed an offline edit the app had explicitly promised to keep.
+- **`_saveChain` is never drained across a sign-out.** A save queued by one user could dequeue
+  inside the next user's session and write a blank document into their mirror. Each queued save is
+  now bound to the identity that asked for it, and mirror writes re-check it after the await.
+- **`pendingStashSig` could never match** (it was compared *after* the save stamps fields the stored
+  copy predates), so a restored-and-saved stash was re-offered on every sign-in, repeatedly inviting
+  the user to overwrite current data with stale data. It is now signed before stamping.
+
+### Status
+
+**Not converged.** A seventh round must return a clean verdict before this merges. The trend is
+real (36 → 30 → 19 → 6 → 3 → 3) but the regression rate has not fallen, and every round has found at
+least one defect introduced by the previous round's fix.

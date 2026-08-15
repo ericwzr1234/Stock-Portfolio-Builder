@@ -2,7 +2,7 @@
 
 _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
@@ -11,7 +11,7 @@ _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 2 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 8 |
+| Testing | 10 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 42 |
@@ -44,7 +44,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (8)
+## Testing  (10)
 _Built; waiting for you to try it._
 
 - **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
@@ -70,6 +70,7 @@ _Built; waiting for you to try it._
   - Stashing decides by CONTENT, not revision number: two devices editing from the same base both stamp base+1, so the old 'mirror revision is not ahead' test discarded genuine offline work. Verified live: divergent edits at equal revisions are kept, distinct edits both survive, identical repeats dedupe.
   - ROUND 5 (2026-08-15) = NOT CONVERGED: 3 defects that lose data or cross accounts, 2 of them regressions from round 4's own fixes. Fixed but NOT yet re-verified. (a) loadPortfolio's FAILURE branch had no session guard, so a stalled request from a signed-out user hydrated that account's mirror into the next user's session; (b) dropMirror ignored stashUnsyncedMirror's 'failed' sentinel and deleted the only copy of an unsaved edit; (c) 'Start fresh' resolved its modal before its own INSERT, letting a stash restore interleave and drop a document that was never written.
   - DO NOT MERGE until a sixth review round comes back converged. Findings per round so far: 36, 30, 19, 6, 3 - and EVERY round has contained defects introduced by the previous round's fix. The invariants and the failure that motivated each one are in E6_database_design.md sections 16-18.
+  - ROUND 6 (2026-08-15) = NOT CONVERGED. The critical one was a guard measuring the wrong thing: sbEpoch bumped on EVERY session write, and a token refresh is one - so on the commonest path in the app (any reload more than an hour after signing in) the 401 -> refresh -> retry succeeded and then stale() threw the recovered portfolio away. The user saw 'No portfolio yet' over a live account and their first click blanked the offline mirror. Now the epoch tracks USER IDENTITY only. Verified live: expired-token reload restores 25 holdings at revision 19, mirror intact.
 - **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
   - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
   - Import re-checks for an existing row, hydrates through the SAME path a normal load uses (it previously uploaded a book stripped of themes, watchlist, metrics, presets, cap, weights and penalty), and fails loudly instead of reporting success. 'Empty account' now means no row - not a holdings count of zero.
@@ -89,6 +90,18 @@ _Built; waiting for you to try it._
   - Proven live, not by inspection: a session dying mid-save with another save queued behind it writes NOTHING to the shared /api/portfolio (0 writes; portfolio.dev.json byte-identical) and both edits are rescued; a forged session with no refresh token cannot pass the gate or reach the offline mirror.
   - OUTSTANDING, needs the dashboard: (1) check 6, confirm account deletion cascades; (2) custom SMTP before ANY invite (the built-in sender is capped at 2 emails/hour); (3) flip signup to invite-only. See sql/ISOLATION_TEST.md.
   - Round 5 verdict: NOT CONVERGED. The gate for inviting anyone is therefore still CLOSED, independently of the three outstanding Supabase dashboard actions.
+  - Check 6 is now PARTLY evidenced: the owner registered a real account with email confirmation, deleted it, and the DB shows the account gone with ZERO orphaned rows. Still not decisive - both remaining rows belong to the two test accounts, so we cannot tell whether the deleted account ever had one. To close it: delete test-b (confirmed to hold a row, revision 2 / 4 checkpoints) and re-run the count - portfolio_rows must drop 2 -> 1. See sql/ISOLATION_TEST.md.
+- **E7.1** · _E7 · First-run onboarding_ — **Start fresh means a genuinely empty board** _(depends E6.6, web)_ · [spec](features/E7_first-run-onboarding.md)
+  - USER-FOUND (2026-08-15): choosing Start fresh still showed the five built-in themes with no stocks in them, and a donut of target weights computed over themes the user never chose.
+  - Cause: state.themes=null MEANS 'use the defaults', and Start fresh left it null. Fixed with an explicit, persisted noDefaults flag rather than by changing what null means - every existing portfolio relies on that meaning, so no existing document changes behaviour.
+  - Empty states added: Model shows 'No themes yet' with Create your first theme / Use the built-in 5 / Show me how; Rebalance says 'Build your themes first'; the context bar points at Model instead of Rebalance; the donut already said 'No themes yet'. defaultCap() guards the 1.5/N division against zero themes.
+  - Start fresh now lands the user on Model with the guide open, because that is where a portfolio actually starts.
+- **E7.2** · _E7 · First-run onboarding_ — **Guided tour - one per view** _(depends E7.1, web)_ · [spec](features/E7_first-run-onboarding.md)
+  - USER REQUEST (2026-08-15): floating-bubble prompts that walk a first-time user through creating their first portfolio, one guide per page.
+  - Five tours: Model (7 steps: create a theme, add tickers, choose metrics, weight them, bad-data policy, cap, targets), Overview (4), Rebalance (4), Research (2), History (2).
+  - Anchored to real controls. The ring is drawn by an OVERLAY, not by restyling the target - restyling would move the very element being pointed at. Steps whose anchor is not on screen are skipped, so a tour written for a full board still reads correctly on an empty one.
+  - Shown once per ACCOUNT per view (pb_tour_<uid>_<view>), so a second person on the same browser gets their own walkthrough. Replay any time from the ? button in the header. Switching views ends the tour.
+  - Verified: all five run end to end, bubbles stay on screen, rings anchor, full teardown with no leftover DOM, seen tours do not reappear, a fresh user auto-opens.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

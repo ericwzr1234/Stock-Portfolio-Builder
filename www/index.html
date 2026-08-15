@@ -513,6 +513,35 @@
      "Apply & save" button stays reachable instead of being buried in a nested scroll. */
   .calc-plan #rebOut .tscroll{max-height:44vh;overflow:auto}
 
+  /* ===== E7 guided tour (coach marks) =====================================================
+     A bubble anchored to a real control, plus a ring drawn by an OVERLAY rather than by
+     restyling the target - restyling would change the target's own box and shift the layout
+     underneath the very thing being pointed at. */
+  .coach-ring{position:absolute;border:2px solid var(--teal);border-radius:10px;pointer-events:none;
+    z-index:300;box-shadow:0 0 0 4px color-mix(in srgb,var(--teal) 18%,transparent);transition:all .18s ease}
+  .coach-scrim{position:fixed;inset:0;z-index:299;background:transparent;pointer-events:none}
+  .coach{position:absolute;z-index:301;max-width:320px;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);border-radius:12px;padding:14px 15px;
+    box-shadow:0 12px 32px rgba(0,0,0,.18);font-size:13px;line-height:1.5}
+  .coach .c-step{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .coach .c-title{font-size:14.5px;font-weight:700;margin:3px 0 5px;letter-spacing:-.01em}
+  .coach .c-body{color:var(--muted)}
+  .coach .c-row{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .coach .c-dots{display:flex;gap:4px;margin-right:auto}
+  .coach .c-dot{width:6px;height:6px;border-radius:50%;background:var(--line)}
+  .coach .c-dot.on{background:var(--teal)}
+  .coach .btn{padding:5px 11px;font-size:12px}
+  .coach .linkish{font-size:12px}
+  .coach-arrow{position:absolute;width:10px;height:10px;background:var(--surface);
+    border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+  #tourBtn{font-size:13px;line-height:1}
+  @media (max-width:640px){ .coach{max-width:calc(100vw - 28px)} }
+
+  /* an empty board should say so, not show five themes the user never chose */
+  .empty-note{border:1px dashed var(--line);border-radius:12px;padding:22px 18px;text-align:center;background:var(--surface2)}
+  .empty-note h3{margin:0 0 6px;font-size:15px;letter-spacing:-.01em}
+  .empty-note p{margin:0 auto 14px;font-size:12.5px;color:var(--muted);max-width:46ch;line-height:1.55}
+
   /* ===== E6.8 login landing page ===== */
   .gate{position:fixed;inset:0;z-index:400;background:var(--cream);display:flex;align-items:center;
     justify-content:center;padding:24px;overflow:auto}
@@ -673,6 +702,7 @@
     <div class="spacer"></div>
     <div class="ctrls">
       <span class="tag" id="syncBadge" hidden></span>
+      <button class="btn sm ghost" id="tourBtn" title="Show the guide for this page">?</button>
       <button class="btn sm ghost" id="acctBtn" title="Account">Sign in</button>
       <div class="themesw" role="group" aria-label="Colour theme">
         <button id="tLight" class="on" aria-pressed="true" title="Light theme">☀</button>
@@ -894,14 +924,29 @@ const DEFAULT_THEME_TICKERS = {}; THEMES.forEach(t=>DEFAULT_THEME_TICKERS[t.key]
    which themes exist, plus each theme's key/name/color — is state.themes; null/empty => use THEMES.
    Read the live list ONLY through themes(); look one up via themeByKey(). Membership (the tickers
    inside a theme) stays dynamic via state.themeTickers / tickersOf(). */
-function themes(){ const t=state.themes; return (Array.isArray(t)&&t.length)?t:THEMES; }
+/* `null` means "use the five built-in themes" and always has - every existing portfolio relies on
+   it, so that meaning is left alone. A user who chooses "Start fresh" gets an explicit, persisted
+   `noDefaults` flag instead: their board is genuinely empty and stays empty. Documents written
+   before this flag existed simply lack it, so nothing about them changes. */
+function themes(){
+  const t=state.themes;
+  if(Array.isArray(t)&&t.length) return t;
+  if(state.noDefaults) return [];
+  return THEMES;
+}
+function isEmptyStart(){ return !!state.noDefaults && !themes().length; }
+// N-adaptive default cap (1.5/N => 30% at five themes); guarded so an empty board cannot divide by zero.
+function defaultCap(){ const n=themes().length; return n>0 ? clamp(1.5/n, 1/n+1e-9, 1) : 0.3; }
 function themeByKey(k){ return themes().find(x=>x.key===k); }
 const THEME_PALETTE=["#13605C","#3A6EA5","#7E9C84","#5B6B8C","#B0894F","#8C5B6B","#4F8CB0","#A4683C","#6B8C5B","#5B8C87","#7A5B8C","#9C7E84"];
 
 /* Theme membership is DYNAMIC — the Screener "swap" feature replaces a name within a theme.
    It lives in state.themeTickers (persisted in the portfolio + every version snapshot).
    When unset for a theme we fall back to that theme's default 5 core names above. */
-function tickersOf(key){ const m=state.themeTickers; return (m&&Array.isArray(m[key])&&m[key].length)?m[key]:(DEFAULT_THEME_TICKERS[key]||[]); }
+function tickersOf(key){ const m=state.themeTickers;
+  if(m&&Array.isArray(m[key])&&m[key].length) return m[key];
+  return state.noDefaults ? [] : (DEFAULT_THEME_TICKERS[key]||[]);   // a fresh start inherits no membership either
+}
 function membership(){ return themes().flatMap(t=>tickersOf(t.key)); }                 // every themed name (5×5)
 function holdingSyms(){ return Object.keys((state.portfolio&&state.portfolio.holdings)||{}); }
 function tradeUniverse(){ return [...new Set([...membership(), ...holdingSyms()])]; } // themed ∪ held; held-but-unthemed = a position to liquidate
@@ -928,6 +973,7 @@ const state = {
   statements:{},                  // sym -> {sym, quarters:[{date,<lineItems>}], asOf, source} financial statements (E3); source for computed metrics
   pulled:{},                      // sym -> raw PULLED fundamentals (Yahoo pre-computed); state.fundamentals = this base, optionally overlaid with computed (E3)
   computeFromStatements:true,     // E3.4: compute metrics FROM statements (primary) vs pull Yahoo's pre-computed fields
+  noDefaults:false,               // "Start fresh": the board is genuinely empty; do NOT fall back to the 5 built-in themes
   metricSource:{},                // sym -> {field: 'computed'|'pulled'} provenance for the fundamentals table + detail page (E3.4)
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
   themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
@@ -1524,9 +1570,19 @@ function sbLoadSession(){
   try{ const raw=localStorage.getItem(SB_SESSION_KEY); sbSession=raw?JSON.parse(raw):null; }catch(e){ sbSession=null; }
   return sbSession;
 }
-let sbEpoch=0;                                        // bumped on every session change
+/* E6 FIX (round 6) - this counts CHANGES OF IDENTITY, not session writes.
+   It used to bump on every sbStoreSession, and a successful token refresh is one of those. So the
+   ordinary returning-user path broke: reload after an hour -> the access token is expired -> the
+   portfolio GET 401s -> sbRefresh succeeds (bumping the counter) -> the retry returns the real
+   document -> and loadPortfolio's stale() then threw that document away as "a previous session".
+   The user saw "No portfolio yet" over a live account, and their first click overwrote the offline
+   mirror with a blank book. A refresh keeps you the same person; only signing in or out does not. */
+let sbEpoch=0;
 function sbStoreSession(sess){
-  sbSession=sess||null; sbEpoch++;
+  const _prevUid=(sbSession&&sbSession.user&&sbSession.user.id)||"";
+  const _nextUid=(sess&&sess.user&&sess.user.id)||"";
+  sbSession=sess||null;
+  if(_prevUid!==_nextUid) sbEpoch++;                  // identity changed; a token refresh has not
   try{ if(sess) localStorage.setItem(SB_SESSION_KEY, JSON.stringify(sess));
        else localStorage.removeItem(SB_SESSION_KEY); }catch(e){}
 }
@@ -1599,7 +1655,7 @@ function clearAccountState(){
   state.presets=[];
   state.weights=Object.assign({},DEFAULT_CONFIG.weights);
   state.penalty=Object.assign({},DEFAULT_CONFIG.penalty);
-  state.cap=null; state.computeFromStatements=true;
+  state.cap=null; state.computeFromStatements=true; state.noDefaults=false;
   // market data is keyed by the previous account's tickers - it is their data too
   state.quotes={}; state.pulled={}; state.statements={}; state.screenerQuotes={};
   state.metricSource={}; state.asOf=null;
@@ -2207,6 +2263,7 @@ function hydrateFromDocument(p){
     backfillPenalty();   // restore any missing default-metric penalty (peg/ev/dfcf/pe) — no-op when complete
     state.cap = isNum(p.cap) ? p.cap : null;   // E6 FIX: an absent cap means the default, not "keep the last one"
     state.computeFromStatements = (p.computeFromStatements!==false);   // E3.4: data-source preference (default on); non-versioned
+    state.noDefaults = !!p.noDefaults;                                 // absent on every pre-existing document => false
     migrateVersions(p); }
 }
 /* E6 FIX - saves are SERIALISED. savePortfolio is wired to `change` handlers (weight sliders,
@@ -2215,7 +2272,15 @@ function hydrateFromDocument(p){
    destructive reload, out of a single-device race. */
 let _saveChain=Promise.resolve();
 function savePortfolio(){
-  const run=()=>_savePortfolioInner();
+  /* E6 FIX (round 6) - _saveChain is a module global that nothing drains across a sign-out. A save
+     queued by user A could therefore dequeue inside user B's session (appLocked is cleared by B's
+     sign-in), rebuild a blank document and write it into B's mirror. Bind each queued save to the
+     identity that asked for it. */
+  const _at=sbEpoch;
+  const run=()=>{
+    if(sbEpoch!==_at){ console.warn("dropping a save queued in a previous session"); return false; }
+    return _savePortfolioInner();
+  };
   const next=_saveChain.then(run,run);
   _saveChain=next.catch(()=>{});
   return next;
@@ -2226,14 +2291,20 @@ async function _savePortfolioInner(){
      and write it over the shared server file (or, on iOS, over the device's only copy). */
   if(appLocked){ console.warn("save refused - the app is locked"); return false; }
   if(booting){ console.warn("save refused - still loading this account"); return false; }
+  const _epoch0=sbEpoch;                       // the identity this save belongs to
   if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
   /* Captured now, so the rescue write in the catch below still knows whose document this is even
      if the session dies (and clearAccountState runs) part-way through. */
   const _owner=state.docOwner, _doc=state.portfolio;
+  /* Signed BEFORE the persisted-field stamping below. Comparing after it could never match a stored
+     stash, because stamping adds fields (noDefaults, metricCfg, presets...) the stored copy predates
+     - so a restored-and-saved stash was re-offered on every future sign-in. */
+  const _preSig=docSig(_doc);
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
   state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
+  state.portfolio.noDefaults = !!state.noDefaults;
   state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
   state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
   state.portfolio.metricCfg = state.metricCfg || null;   // E2.4: per-metric config (null when all-default)
@@ -2304,11 +2375,24 @@ async function _savePortfolioInner(){
            about the fact that nothing retries automatically. */
         setTimeout(()=>toast("NOT saved to your account - kept on this device only. Reload when your connection is back."),400);
       }
-      if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,true); else nativeSavePortfolio(_doc);
+      if(sbEpoch!==_epoch0){                 // signed out (or switched) while this was in flight
+        console.warn("not writing a mirror for a session that has ended");
+      }
+      else if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,true); else nativeSavePortfolio(_doc);
       renderSyncBadge();
       return false;                          // E6 FIX: tell the caller it did NOT save
     }
-    if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,false); else nativeSavePortfolio(_doc);
+    if(sbEpoch!==_epoch0){ console.warn("not writing a mirror for a session that has ended"); }
+    else if(_ad.mirror==="cloud"){
+      /* E6 FIX (round 6) - the mirror may still hold an offline edit that could NOT be filed into
+         the stash (a full localStorage). loadPortfolio and dropMirror both honour that; this path
+         did not, so the next successful save destroyed the copy the app had explicitly promised to
+         keep. Try to file it once more, and refuse to overwrite if that still fails. */
+      if(mirrorIsDirty(_owner) && stashUnsyncedMirror(null,_owner)==="failed"){
+        console.error("keeping the unfiled offline copy - not overwriting the mirror");
+        state.syncError="an earlier offline change is still only in this device's copy";
+      } else cloudMirrorSave(_doc,_owner,false);
+    } else nativeSavePortfolio(_doc);
   } else {
     // E6 FIX: this branch used to THROW, so web-path callers got an unhandled rejection that
     // aborted the rest of the handler with nothing shown at all. Fail the same way as above.
@@ -2326,7 +2410,7 @@ async function _savePortfolioInner(){
      screen by the time the network returns. And only forget the stash when it really was the
      thing saved; clearing it either way meant a restored-then-edited document was re-offered
      on every future sign-in. */
-  if(state.pendingStashKey && state.pendingStashSig && docSig(_doc)===state.pendingStashSig){
+  if(state.pendingStashKey && state.pendingStashSig && _preSig===state.pendingStashSig){
     stashDrop(state.pendingStashKey);
     state.pendingStashKey=null; state.pendingStashSig=null;
   }
@@ -2737,7 +2821,11 @@ function openImportChoice(local,src){
        paints the kept-aside-work prompt - and a restore from that prompt, landing while this
        INSERT was still in flight, made the blank document's own save drop the restored stash. */
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
-    state.themeTickers=null; state.themes=null; state.watchlist=[];
+    /* A BLANK board, not the five built-in themes with nothing in them. Leaving state.themes null
+       MEANS "use the defaults", so "Start fresh" used to show the seed universe and a donut of
+       target weights over themes the user had never chosen. */
+    state.themes=[]; state.themeTickers={}; state.watchlist=[];
+    state.noDefaults=true;
     // A fresh account starts on the DEFAULTS, not on whatever the previous session left in memory.
     state.presets=[]; state.metrics=null; state.metricCfg=null; state.overrides={};
     state.weights=Object.assign({},DEFAULT_CONFIG.weights);
@@ -2749,8 +2837,12 @@ function openImportChoice(local,src){
     const ok=await savePortfolio();
     if(ok) setImportAsked(sbUserId());   // only once it actually took: a failed write must be re-offerable
     close();                             // release the next prompt only now
-    toast(ok ? "Started fresh - this account has its own empty portfolio"
+    toast(ok ? "Started fresh - build your first theme on Model"
              : "Started fresh here, but the account could not be written yet - see the sync badge");
+    /* Land them where the work actually starts, and walk them through it. Left on Overview a new
+       user sees five empty cards and no obvious next move. */
+    switchView("fundamentals");
+    coachStart("fundamentals", true);
   });
   $("#impYes").addEventListener("click",async()=>{
     const b=$("#impYes"); b.disabled=true; b.textContent="Importing\u2026";
@@ -3110,7 +3202,7 @@ function renderFundamentals(){
   const cfgRows=$("#metricCfgRows"), _ae=document.activeElement;
   if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]')))
     cfgRows.innerHTML='<div class="cfg-row cfg-head"><span>Metric</span><span>When negative / missing</span><span>Value</span></div>'+MM.map(metricCfgRowHTML).join("");
-  if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:1.5/themes().length)*100);
+  if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:defaultCap())*100);
   if(typeof renderPresetSelect==='function') renderPresetSelect();
   if($("#computeStmtToggle")) $("#computeStmtToggle").checked = state.computeFromStatements!==false;
   if($("#srcCompareBtn")) $("#srcCompareBtn").disabled = state.computeFromStatements===false;   // E3.4: no computed values to compare when off   // E3.4
@@ -3160,7 +3252,7 @@ function renderFundamentals(){
     <p>Each theme gets <b>${metrics().length}</b> scores, each normalized so the themes sum to 100%:
     ${metrics().map(m=>"<b>"+m.label+"</b> ("+dirWord(m)+")").join(", ")}. Blended by your weights
     (${metrics().map(m=>m.label+" "+Math.round((A.wByKey[m.key]||0)*100)).join(" / ")}%).</p>
-    <p>Finally, <b>no theme may exceed ${Math.round((state.cap!=null?state.cap:1.5/themes().length)*100)}%</b> — excess from a
+    <p>Finally, <b>no theme may exceed ${Math.round((state.cap!=null?state.cap:defaultCap())*100)}%</b> — excess from a
     leading theme is spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
     <p><b>Per-theme tables (below):</b> each theme's names with their metrics. <b>Click any editable value</b>
     (blue dashed underline) to type your own number — saved, flagged <span class="tag ovr">ovr</span>, and used
@@ -3170,6 +3262,28 @@ function renderFundamentals(){
 
   // per-theme fundamentals tables (E2.3: columns driven by metrics(); Cap is a special always-second column)
   const grid=$("#fundGrid"); grid.innerHTML="";
+  if(!themes().length){                        // a genuinely empty board - not five themes with nothing in them
+    grid.innerHTML=`<div class="empty-note">
+      <h3>No themes yet</h3>
+      <p>A theme is a basket you invest behind &mdash; &ldquo;Robotics&rdquo;, &ldquo;Payments&rdquo;, whatever your thesis is.
+         The model allocates <b>between</b> themes and equal-weights the names inside each one, so this is where a
+         portfolio starts.</p>
+      <div class="row" style="justify-content:center;gap:8px">
+        <button class="btn primary" id="emptyNewTheme">\u2795 Create your first theme</button>
+        <button class="btn" id="emptyRestore">\u21ba Use the built-in 5</button>
+        <button class="linkish" id="emptyGuide">Show me how</button>
+      </div></div>`;
+    const nt=$("#emptyNewTheme"), rs=$("#emptyRestore"), gd=$("#emptyGuide");
+    if(nt) nt.addEventListener("click",()=>{ const b=$("#newThemeBtn"); if(b) b.click(); });
+    if(rs) rs.addEventListener("click",async()=>{
+      state.noDefaults=false; state.themes=null; state.themeTickers=null;   // back to the built-in universe
+      rebuildThemeOf(); rebuildFundamentals(); renderAll();
+      const ok=await savePortfolio();
+      toast(ok?"Loaded the five built-in themes":"Loaded them here, but the account could not be written - see the sync badge");
+    });
+    if(gd) gd.addEventListener("click",()=>coachStart("fundamentals",true));
+    return;
+  }
   const mcapOn=!!metricByKey('mcap'), cols=metrics().filter(m=>m.key!=='mcap');
   const OVR='<span class="tag ovr">ovr</span>';
   const pen=ti=>`<span class="tag pen" title="${ti}">prem</span>`, na=ti=>`<span class="tag na" title="${ti}">n/a</span>`,
@@ -3404,6 +3518,16 @@ function renderCalcInit(){
       <td class="num">${pct(r.alloc)}</td>
       <td class="num">${money(r.alloc*80000,0)}</td>
       <td class="num muted">${money(r.alloc*80000/perTheme(r.theme),0)} ea</td></tr>`).join("");
+  if(!themes().length){                        // nothing to allocate between yet
+    $("#calcUninit").innerHTML=`<div class="empty-note">
+      <h3>Build your themes first</h3>
+      <p>Rebalance turns target weights into share counts, and those targets come from your themes.
+         Create a theme or two on <b>Model</b>, add some names, and come back.</p>
+      <button class="btn primary" id="emptyGoModel">Go to Model</button></div>`;
+    const g=$("#emptyGoModel");
+    if(g) g.addEventListener("click",()=>{ switchView("fundamentals"); coachStart("fundamentals",true); });
+    return;
+  }
   $("#calcUninit").innerHTML=`
     ${(versions().length && canRedo())?`<div class="vbanner warn" style="margin-bottom:14px">
       <div>You undid your portfolio build — <b>${versions().length-1-head()}</b> version(s) can be restored.</div>
@@ -3411,8 +3535,9 @@ function renderCalcInit(){
     <div class="grid2">
       <div class="card pad">
         <h2 style="font-size:16px">Start your portfolio</h2>
-        <p class="small muted">Enter your starting capital. We'll split it across the 5 themes by the model
-          weights, then equal-weight the 5 names inside each theme, and convert to share counts at live prices.</p>
+        <p class="small muted">Enter your starting capital. We'll split it across your
+          ${themes().length} theme${themes().length===1?"":"s"} by the model weights, then equal-weight the names
+          inside each theme, and convert to share counts at live prices.</p>
         <div class="row" style="align-items:flex-end;margin-top:8px">
           <div class="field"><label>Starting capital (USD)</label>
             <input type="number" id="initCapital" value="80000" step="1000" style="width:160px"></div>
@@ -3862,6 +3987,159 @@ function openSwap(newSym, themeKey){
   $("#swapConfirm").addEventListener("click",()=>{ const sel=$("input[name=swapTarget]:checked");
     if(!sel){ toast("Pick a holding to replace"); return; } doSwap(themeKey, sel.value, newSym); });
 }
+/* ===== E7 - guided tour ===================================================================
+   One short tour per view, shown the first time an account lands on that view, replayable from
+   the ? button in the header. Anchored to real controls: if a control is not on screen (an empty
+   board hides some), that step is skipped rather than pointing at nothing.
+
+   Persistence is per USER and per VIEW (`pb_tour_<uid>_<view>`), so a second person signing in on
+   the same browser gets their own walkthrough rather than inheriting "already seen". */
+const TOURS = {
+  fundamentals: { name:"Model", steps:[
+    { sel:"#newThemeBtn", title:"Start with a theme",
+      body:"A theme is a basket - \u201cRobotics\u201d, \u201cPayments\u201d, whatever you are investing behind. The model allocates between themes, so this is the first thing to create." },
+    { sel:"#fundGrid,#driftTable", title:"Add tickers to it",
+      body:"Open your new theme and add the names that belong in it. Inside a theme the names are equal-weighted, so you are choosing the basket, not the individual sizes." },
+    { sel:"#chooseMetricsBtn", title:"Choose how themes are judged",
+      body:"Six metrics are on by default (PEG, EV/EBITDA, Debt/FCF, P/E, size and momentum) with 21 more in the catalogue. These decide which theme looks cheap or strong." },
+    { sel:"#wGroup", title:"Weight the metrics",
+      body:"Say how much each metric matters. The weights are normalised for you, so they do not need to add to 100." },
+    { sel:"#metricCfgRows,#wGroup", title:"Decide what happens to bad data",
+      body:"Some companies genuinely have no P/E or no EV/EBITDA. Per metric you can penalise them, carry over their standing on the metrics they do report, or ignore the metric for them." },
+    { sel:"#capPct", title:"Cap any single theme",
+      body:"Nothing may exceed this share of the book; the excess spills to the others. It defaults to 1.5 \u00f7 (number of themes)." },
+    { sel:"#driftTable,#allocBar", title:"These are your targets",
+      body:"Target weight per theme, and - once you hold something - how far you have drifted from it. Next stop is Rebalance, which turns these targets into trades." } ] },
+
+  calc: { name:"Rebalance", steps:[
+    { sel:"#addCash", title:"How much are you adding?",
+      body:"Enter the new money going in. Building the portfolio for the first time? Put the whole starting amount here." },
+    { sel:"#mode", title:"Full rebalance, or cash only",
+      body:"Full rebalance buys AND sells to hit the targets, funding itself. Cash-only spends the new money on whatever is underweight and never sells." },
+    { sel:"#calcRebBtn", title:"Calculate, then review",
+      body:"Nothing is committed yet: you get a full trade list to look over first." },
+    { sel:"#realignBtn", title:"Or realign with no new money",
+      body:"Rebalances what you already hold back to the current targets." } ] },
+
+  prices: { name:"Overview", steps:[
+    { sel:"#ovDonut", title:"Where the money is",
+      body:"Your target allocation across themes. It fills in as soon as you have themes with names in them." },
+    { sel:"#ovChart", title:"Value over time",
+      body:"Every rebalance writes a checkpoint, and this tracks the book against an equal-weight version of the same holdings - so you can see whether the model is actually earning its keep." },
+    { sel:"#ovRetChart", title:"Return, in $ or %",
+      body:"The same comparison expressed as return. Use the toggle to switch units." },
+    { sel:"#priceGrid", title:"Live prices by theme",
+      body:"Expand a theme for its names, day change, value and weight." } ] },
+
+  screener: { name:"Research", steps:[
+    { sel:"#screenerSearch", title:"Look up any listed name",
+      body:"Search the whole market, not just what you hold. Results show the fundamentals the model cares about." },
+    { sel:"#watchlist", title:"Park candidates on the watchlist",
+      body:"A staging area. Nothing here touches your portfolio until you deliberately add it to a theme." } ] },
+
+  history: { name:"History", steps:[
+    { sel:"#histChart", title:"Every checkpoint",
+      body:"Each build and rebalance is saved with a full snapshot of the state that produced it." },
+    { sel:"#historyBody", title:"Undo, redo, or revert to any point",
+      body:"Rebalancing from an earlier point forks the timeline, like git - the abandoned future is dropped rather than silently merged." } ] }
+};
+
+let _coach=null;                                   // {view, i, steps, els}
+function tourKey(view){ const u=(typeof sbUserId==="function"&&sbUserId())||"anon"; return "pb_tour_"+u+"_"+view; }
+function tourSeen(view){ try{ return localStorage.getItem(tourKey(view))==="1"; }catch(e){ return true; } }
+function markTourSeen(view){ try{ localStorage.setItem(tourKey(view),"1"); }catch(e){} }
+
+function coachEnd(seen){
+  if(!_coach) return;
+  if(seen) markTourSeen(_coach.view);
+  ["ring","bubble","scrim"].forEach(k=>{ const el=_coach[k]; if(el&&el.parentNode) el.parentNode.removeChild(el); });
+  window.removeEventListener("resize",coachPlace); window.removeEventListener("scroll",coachPlace,true);
+  _coach=null;
+}
+/* Skips forward over steps whose anchor is not on screen, so a tour written for a full board
+   still reads correctly on an empty one. */
+function coachResolve(from){
+  if(!_coach) return -1;
+  for(let i=from;i<_coach.steps.length;i++){
+    const st=_coach.steps[i];
+    const el=st.sel.split(",").map(x=>$(x.trim())).find(x=>x&&x.offsetParent!==null);
+    if(el){ _coach.el=el; return i; }
+  }
+  return -1;
+}
+function coachPlace(){
+  if(!_coach||!_coach.el) return;
+  const r=_coach.el.getBoundingClientRect(), sx=window.scrollX, sy=window.scrollY, pad=6;
+  const ring=_coach.ring, b=_coach.bubble;
+  ring.style.left=(r.left+sx-pad)+"px";  ring.style.top=(r.top+sy-pad)+"px";
+  ring.style.width=(r.width+pad*2)+"px"; ring.style.height=(r.height+pad*2)+"px";
+  const bw=b.offsetWidth||300, bh=b.offsetHeight||140, gap=14;
+  let top=r.bottom+sy+gap, below=true;
+  if(r.bottom+gap+bh>window.innerHeight && r.top-gap-bh>0){ top=r.top+sy-bh-gap; below=false; }
+  let left=r.left+sx+r.width/2-bw/2;
+  left=Math.max(sx+10, Math.min(left, sx+window.innerWidth-bw-10));
+  b.style.top=top+"px"; b.style.left=left+"px";
+  const ar=_coach.arrow;
+  if(ar){ ar.style.left=Math.max(12,Math.min(r.left+sx+r.width/2-left-5, bw-22))+"px";
+          ar.style.top=below?"-6px":(bh-5)+"px";
+          ar.style.transform=below?"rotate(45deg)":"rotate(225deg)"; }
+}
+function coachRender(){
+  const st=_coach.steps[_coach.i], n=_coach.steps.length;
+  const dots=_coach.steps.map((_,k)=>`<span class="c-dot${k===_coach.i?" on":""}"></span>`).join("");
+  const last=_coach.i>=n-1;
+  _coach.bubble.innerHTML=
+    `<div class="coach-arrow"></div>
+     <div class="c-step">${_coach.title} &middot; step ${_coach.i+1} of ${n}</div>
+     <div class="c-title">${st.title}</div>
+     <div class="c-body">${st.body}</div>
+     <div class="c-row"><span class="c-dots">${dots}</span>
+       ${_coach.i>0?'<button class="linkish" data-c="back">Back</button>':'<button class="linkish" data-c="skip">Skip</button>'}
+       <button class="btn primary" data-c="next">${last?"Done":"Next"}</button>
+     </div>`;
+  _coach.arrow=_coach.bubble.querySelector(".coach-arrow");
+  try{ _coach.el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){}
+  setTimeout(coachPlace,60); coachPlace();
+}
+function coachGo(delta){
+  if(!_coach) return;
+  const next=coachResolve(_coach.i+delta);
+  if(next<0 || _coach.i+delta<0){ coachEnd(true); return; }
+  _coach.i=next; coachRender();
+}
+function coachStart(view, force){
+  coachEnd(false);
+  const t=TOURS[view]; if(!t) return;
+  if(!force && tourSeen(view)) return;
+  if(typeof appLocked!=="undefined" && appLocked) return;
+  if(typeof signedIn==="function" && !signedIn()) return;
+  _coach={ view, title:t.name, steps:t.steps, i:0 };
+  const first=coachResolve(0);
+  if(first<0){ _coach=null; return; }              // nothing to point at on this board yet
+  _coach.i=first;
+  const scrim=document.createElement("div"); scrim.className="coach-scrim";
+  const ring=document.createElement("div");  ring.className="coach-ring";
+  const b=document.createElement("div");     b.className="coach";
+  document.body.appendChild(scrim); document.body.appendChild(ring); document.body.appendChild(b);
+  _coach.scrim=scrim; _coach.ring=ring; _coach.bubble=b;
+  b.addEventListener("click",e=>{
+    const a=e.target.closest("[data-c]"); if(!a) return;
+    const act=a.dataset.c;
+    if(act==="next") coachGo(1);
+    else if(act==="back") coachGo(-1);
+    else coachEnd(true);
+  });
+  window.addEventListener("resize",coachPlace); window.addEventListener("scroll",coachPlace,true);
+  coachRender();
+}
+/* Offer the tour when an account first lands on a view. Never while the gate is up, never mid-boot. */
+function maybeCoach(view){
+  if(typeof booting!=="undefined" && booting) return;
+  if(typeof signedIn!=="function" || !signedIn()) return;
+  if(tourSeen(view)) return;
+  setTimeout(()=>{ if(curView===view) coachStart(view,false); },420);   // let the view paint first
+}
+
 /* E6 FIX - a modal that something ELSE tears down must still release whoever is awaiting its
    answer. lockOut() calls closeModal(), so an import prompt closed by a mid-flight session death
    would otherwise leave bootSignedIn suspended for the rest of the page's life. */
@@ -4208,11 +4486,14 @@ async function syncDisconnect(){
 function renderAll(){ renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); }
 
 function switchView(v){
+  const changed=(curView!==v);
   curView=v;
+  if(changed && typeof coachEnd==="function") coachEnd(false);   // a tour belongs to the view that started it
   /* E5.0: the rail (web) and nav.tabs (native/narrow) are two chromes onto the same views */
   $$("#tabs button,#rail .navlink").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   $$(".view").forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
   if(v==="screener") ensureScreener();
+  if(changed) maybeCoach(v);
 }
 
 /* ===== E5.0 theme (☀ light / ☾ dark) ===== */
@@ -4244,7 +4525,9 @@ function initTheme(){
 /* ===== E5.0 context bar — portfolio numbers on every view ===== */
 function renderContext(){
   const box=$("#ctxKpis"); if(!box) return;
-  if(!isInit()){ box.innerHTML='<span class="small muted">No portfolio yet — build one on Rebalance.</span>';
+  if(!isInit()){ box.innerHTML='<span class="small muted">'+(themes().length
+      ? 'No portfolio yet \u2014 size it on Rebalance.'
+      : 'No portfolio yet \u2014 start by creating a theme on Model.')+'</span>';
     if($("#railFoot")) $("#railFoot").textContent=themes().length+" themes";
     return; }
   const total=curTotal();                                  // reuse the app's own value helpers
@@ -4311,6 +4594,7 @@ function setupEvents(){
   /* E5.0: rail nav + theme toggle + 1-5 shortcuts */
   if($("#rail")) $("#rail").addEventListener("click",e=>{ const b=e.target.closest(".navlink[data-view]"); if(b)switchView(b.dataset.view); });
   if($("#acctBtn")) $("#acctBtn").addEventListener("click",openAccount);
+  if($("#tourBtn")) $("#tourBtn").addEventListener("click",()=>coachStart(curView,true));   // replay, any time
   if($("#retPct")) $("#retPct").addEventListener("click",()=>setReturnUnit("pct"));
   if($("#retDol")) $("#retDol").addEventListener("click",()=>setReturnUnit("dol"));
   if($("#tLight")) $("#tLight").addEventListener("click",()=>setTheme("light",true));
