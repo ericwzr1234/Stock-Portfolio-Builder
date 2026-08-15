@@ -384,3 +384,68 @@ Not hosting. At a few thousand users, hosting is tens of dollars a month. **Lice
 real bill** (Yahoo's free endpoints are not licensed for redistribution — see
 [`E6_multi-user-platform.md`](E6_multi-user-platform.md) §7). Any long-term sustainability plan should be
 built around that number, not around Postgres.
+
+
+---
+
+## 14. Vendor comparison — verified against live pricing pages (2026-08-15)
+
+Four candidates were checked against the vendors' own pricing and docs, then independently re-verified.
+Anything that could not be confirmed on a live page is marked UNVERIFIED rather than guessed.
+
+### The four hard requirements
+Postgres · **database-enforced** row-level security · built-in auth **with invite-only** · plain `fetch()`
+without an SDK.
+
+| Vendor | Postgres | DB-enforced RLS | Auth + invite-only | Plain fetch | Verdict |
+|---|---|---|---|---|---|
+| **Supabase** | yes | **yes** (native RLS) | yes | yes (PostgREST) | **strong fit** |
+| Neon | yes | yes (native RLS) | auth yes, **invite-only NO** | yes (PostgREST-compatible) | possible |
+| Nhost | yes | **NO** — Hasura role permissions are app-layer | yes (invite-only strong) | GraphQL, not REST | possible |
+| Firebase | **no** — document store | **NO** — proprietary rules DSL | yes | yes | **poor fit** |
+
+Only Supabase satisfies all four. The eliminations follow directly from this project's own premises:
+Firebase and Nhost fail the *security* premise (isolation not enforced by the database), and Neon fails
+the *settled* invite-only decision. Firebase additionally fails portability — there is no `pg_dump` and
+exports are a proprietary format.
+
+### Supabase, verified figures
+
+**Free** — verbatim from supabase.com/pricing: "500 MB database size", "5 GB egress", "50,000 monthly
+active users", "1 GB file storage", "Unlimited API requests", "Free projects are paused after 1 week of
+inactivity. Limit of 2 active projects." **No managed backups** (verified by omission — backups appear
+only from Pro).
+
+**Pro** — "from $25/month" (per organisation, a floor not a ceiling; overages billed beyond the included
+allowances): "100,000 monthly active users", "8 GB disk size per project", "250 GB egress", "Daily backups
+stored for 7 days". Pausing is removed — verified at the pausing doc: *"Projects under a paid plan cannot
+be paused and are not subject to automatic pausing for inactivity."*
+
+**Pausing / restore** — inactivity is judged on *user database activity* over a rolling week; a paused
+project is restored by the owner from the dashboard, and there is a **1-year** window to do so. A pause is
+downtime, not data loss.
+
+### Two findings that change what we build
+
+**1. Email rate limits will break password reset if ignored.** Verified at the auth-SMTP doc: the built-in
+email service is *"set to 2 messages per hour"*, and it is *"provided as best-effort only and intended for
+… non-production use cases."* After wiring your own SMTP, *"a low rate-limit of 30 messages per hour is
+imposed."* → **Custom SMTP must be configured before any real tester can hit "forgot password"**, which is
+the single most likely support event of the whole test. Add it to E6.4.
+
+**2. A naive RLS policy can silently fail open-ended checks.** The RLS docs warn that when no access token
+is present `auth.uid()` returns **null**, so a policy comparing against it silently evaluates false rather
+than erroring. Policies must therefore check authentication explicitly rather than relying on the null
+comparison. → This goes straight into **E6.7**, which must prove isolation with a real second account
+rather than by reading the SQL.
+
+### Other Supabase specifics worth knowing
+- **No backups on Free** → own a `pg_dump` cadence yourself until Pro.
+- **2 active projects** on Free — prod + staging exhausts it.
+- REST is genuine PostgREST at `https://<ref>.supabase.co/rest/v1/`, callable with two ordinary headers,
+  and the docs explicitly contemplate calling it straight from the browser. The specific **auth** endpoint
+  paths were **UNVERIFIED** in research — read them from the project's own API docs before coding.
+
+### Cost conclusion
+**$0 today.** The natural moment to pay the **$25/month** is when you invite friends — that is exactly when
+"no pausing" and "daily backups" stop being conveniences and start being requirements. Not before.
