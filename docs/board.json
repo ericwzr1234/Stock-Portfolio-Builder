@@ -1,6 +1,6 @@
 {
   "project": "Stock Portfolio Builder",
-  "updated": "2026-06-26",
+  "updated": "2026-08-15",
   "tagline": "Project board — features flow left→right through the pipeline. Edit this file (docs/board.json) and run tools/render_dashboard.py to update both DASHBOARD.md and dashboard.html. Each card's title is the feature; the bullets describe, in plain language, what it does and the logic behind it.",
   "stages": [
     { "key": "ideation",       "label": "Ideation",       "desc": "A half-baked idea; can be pushed further down once fleshed out." },
@@ -294,13 +294,13 @@
       "Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.",
       "NOT being built now. No accounts, no backend, no database, no paid services in Phase 1." ] },
 
-    { "id": "E6.1", "epic": "E6", "stage": "design", "platform": "web", "depends": "E6.0", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.1", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.0", "spec": "docs/features/E6_database_design.md",
       "title": "Forward-compat: schemaVersion + revision + updatedAt", "notes": [
       "Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.",
       "revision is the optimistic-concurrency token E6.5 needs; schemaVersion makes any future server-side migration mechanical.",
       "Deliberately kept OUT of E5 so savePortfolio stayed byte-identical to prod for a provably safe merge. Do this FIRST." ] },
 
-    { "id": "E6.2", "epic": "E6", "stage": "design", "platform": "web", "depends": "E6.1", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.2", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.1", "spec": "docs/features/E6_database_design.md",
       "title": "Extract a storage-adapter interface", "notes": [
       "Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.",
       "No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically." ] },

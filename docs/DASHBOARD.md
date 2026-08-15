@@ -1,6 +1,6 @@
 # Stock Portfolio Builder — Project Board
 
-_Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
+_Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
 **Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
 
@@ -9,9 +9,9 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 7 |
-| Design | 2 |
+| Design | 0 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 2 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 42 |
@@ -50,8 +50,18 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
   - No tester is invited until this passes.
 
-## Design  (2)
+## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
+
+- _(none)_
+
+## Implementation  (0)
+_Being built on the dev branch._
+
+- _(none)_
+
+## Testing  (2)
+_Built; waiting for you to try it._
 
 - **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
   - Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.
@@ -60,16 +70,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
 - **E6.2** · _E6 · Multi-user platform_ — **Extract a storage-adapter interface** _(depends E6.1, web)_ · [spec](features/E6_database_design.md)
   - Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.
   - No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically.
-
-## Implementation  (0)
-_Being built on the dev branch._
-
-- _(none)_
-
-## Testing  (0)
-_Built; waiting for you to try it._
-
-- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

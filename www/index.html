@@ -1242,6 +1242,55 @@ function serverBase(){ return (state.serverUrl||"").trim().replace(/\/+$/,""); }
 function useRemote(){ return NATIVE && !!serverBase(); }
 async function remoteGetPortfolio(){ const Http=capHttp(); const r=await Http.request({url:serverBase()+"/api/portfolio", method:"GET"}); const d=jsonOf(r.data); return d?d.portfolio:null; }
 async function remotePutPortfolio(p){ const Http=capHttp(); await Http.request({url:serverBase()+"/api/portfolio", method:"POST", headers:{"Content-Type":"application/json"}, data:p}); }
+
+/* ===== E6.2 — storage adapters =========================================================
+   The app has always branched on platform inline inside loadPortfolio/savePortfolio. This
+   names each implementation instead, so the account/cloud backend (E6.5) becomes a FOURTH
+   entry here and nothing above this line has to change: the engine is pure, the UI only ever
+   calls loadPortfolio()/savePortfolio(), and this is the single seam between them.
+
+   Contract for an adapter:
+     name    string                     — also used for state.syncStatus
+     load()  -> portfolio | null        — may throw; `fallback` decides what happens then
+     save(p) -> void                    — may throw
+     mirror  boolean (optional)         — also write a local copy, so data survives going offline
+     fallback(): portfolio | null       — used only when load() throws
+   Behaviour is deliberately identical to the pre-E6.2 inline branching.               */
+const STORAGE_ADAPTERS={
+  lan:    { name:"remote", load:remoteGetPortfolio, save:remotePutPortfolio, mirror:true,
+            fallback:()=>nativeLoadPortfolio() },
+  native: { name:"local",  load:async()=>nativeLoadPortfolio(), save:async p=>nativeSavePortfolio(p) },
+  web:    { name:"web",    load:webLoadPortfolio,   save:webSavePortfolio }
+};
+function storageAdapter(){
+  if(useRemote()) return STORAGE_ADAPTERS.lan;   // iOS + a configured computer URL
+  if(NATIVE)      return STORAGE_ADAPTERS.native;
+  return STORAGE_ADAPTERS.web;
+}
+
+/* ===== E6.1 — document metadata =======================================================
+   Stamped on every save so a future server can migrate and can detect concurrent writes.
+   schemaVersion : the shape of `data`; bump only on a breaking change.
+   revision      : MONOTONIC. E6.5 sends the revision a save was based on and the server
+                   rejects it if that no longer matches (optimistic concurrency), which is
+                   what stops one device silently overwriting another's rebalance.
+   updatedAt     : ISO timestamp of the last successful stamp.
+   These are document-level fields, deliberately NOT part of snapshotState(), so they never
+   leak into the version timeline.                                                       */
+const PORTFOLIO_SCHEMA_VERSION=1;
+function stampPortfolioMeta(p){
+  if(!p) return p;
+  p.schemaVersion=PORTFOLIO_SCHEMA_VERSION;
+  p.revision=(isNum(p.revision)?p.revision:0)+1;
+  p.updatedAt=new Date().toISOString();
+  return p;
+}
+function portfolioMeta(){                      // read-only view, for E6.5 and for diagnostics
+  const p=state.portfolio||{};
+  return { schemaVersion:isNum(p.schemaVersion)?p.schemaVersion:null,
+           revision:isNum(p.revision)?p.revision:null,
+           updatedAt:p.updatedAt||null, adapter:storageAdapter().name };
+}
 const YUA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 let _crumb=null;
 function jsonOf(d){ return typeof d==="string"?JSON.parse(d):d; }
@@ -1575,11 +1624,14 @@ async function loadScreenerQuotes(){
 }
 async function loadPortfolio(){
   let p=null;
-  if(useRemote()){
-    try{ p=await remoteGetPortfolio(); state.syncStatus="remote"; if(p) nativeSavePortfolio(p); }   // cache a local mirror of the shared book
-    catch(e){ console.error("remote load failed",e); state.syncStatus="remote-failed"; p=nativeLoadPortfolio(); }
-  } else if(NATIVE){ p=nativeLoadPortfolio(); state.syncStatus="local"; }
-  else { p=await webLoadPortfolio(); }
+  const _ad=storageAdapter();                      // E6.2: one seam, one branch
+  if(_ad.fallback){
+    try{ p=await _ad.load(); state.syncStatus=_ad.name; if(p&&_ad.mirror) nativeSavePortfolio(p); }   // keep a local mirror of the shared book
+    catch(e){ console.error("remote load failed",e); state.syncStatus=_ad.name+"-failed"; p=_ad.fallback(); }
+  } else {
+    p=await _ad.load();
+    if(_ad===STORAGE_ADAPTERS.native) state.syncStatus="local";
+  }
   if(p){ state.portfolio=p; if(p.weights)state.weights=p.weights; if(p.overrides)state.overrides=p.overrides; if(p.penalty)state.penalty=p.penalty;
     if(p.themeTickers)state.themeTickers=p.themeTickers;
     if(p.themes)state.themes=p.themes;
@@ -1606,12 +1658,15 @@ async function savePortfolio(){
   state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
   state.portfolio.metricCfg = state.metricCfg || null;   // E2.4: per-metric config (null when all-default)
   state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];   // E2.5: preset library
-  if(useRemote()){
-    try{ await remotePutPortfolio(state.portfolio); state.syncStatus="remote"; }
-    catch(e){ console.error("remote save failed",e); state.syncStatus="remote-failed"; }
+  stampPortfolioMeta(state.portfolio);             // E6.1: schemaVersion + monotonic revision + updatedAt
+  const _ad=storageAdapter();                      // E6.2
+  if(_ad.mirror){
+    try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
+    catch(e){ console.error("remote save failed",e); state.syncStatus=_ad.name+"-failed"; }
     nativeSavePortfolio(state.portfolio);   // always keep a local mirror so data survives going offline
-  } else if(NATIVE){ nativeSavePortfolio(state.portfolio); }
-  else { await webSavePortfolio(state.portfolio); }
+  } else {
+    await _ad.save(state.portfolio);
+  }
 }
 
 /* ======================================================================
