@@ -8,21 +8,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 5 |
+| Ideation | 4 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 4 |
+| Testing | 5 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 35 |
 
 ---
 
-## Ideation  (5)
+## Ideation  (4)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E5.4** · _E5 · Web UI overhaul_ — **Research tab (replaces Screener)** _(depends E5.0, web)_
-  - Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow.
 - **E5.5** · _E5 · Web UI overhaul_ — **History tab** _(depends E5.0, web)_
   - Checkpoint timeline, undo / redo / revert-to-here with the fork behaviour, value-at-checkpoint chart, reset portfolio, and the data-sync sheet.
 - **APP2** · _APP · iOS app parity_ — **Redesign the iOS app against the new feature set** _(depends E5.5, ios)_
@@ -50,7 +48,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (4)
+## Testing  (5)
 _Built; waiting for you to try it._
 
 - **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
@@ -63,6 +61,8 @@ _Built; waiting for you to try it._
   - The biggest card — to be split into sub-steps: (a) metric weights + the 27-metric picker + exception handling + cap + presets; (b) targets/drift/allocation visuals + compute-from-statements toggle + source compare; (c) per-theme tables with inline overrides, source tags, per-theme add/rename/delete, and the stock-detail statement page.
 - **E5.3** · _E5 · Web UI overhaul_ — **Rebalance tab (replaces Calculator)** _(depends E5.0, web)_
   - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
+- **E5.4** · _E5 · Web UI overhaul_ — **Research tab (replaces Screener)** _(depends E5.0, web)_
+  - Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

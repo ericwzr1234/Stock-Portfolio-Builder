@@ -316,11 +316,14 @@
   .addname-btn:hover{ border-color:var(--blue); background:color-mix(in srgb,var(--blue) var(--tint),var(--paper)) }
   .theme-acts{ display:contents }   /* web: no box (buttons stay inline as before); native restyles it into a group */
   .ts-results{ margin-top:8px; max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:4px }
-  .ts-row{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid var(--line); background:var(--paper); border-radius:8px; padding:8px 10px; cursor:pointer }
-  .ts-row:hover{ border-color:var(--teal); background:var(--surface2) }
-  .ts-row .sym{ font-weight:600 }
-  .ts-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-  .ts-row .ts-ex{ flex:0 0 auto }
+  /* .rs-row is the E5.4 INLINE result row. It deliberately does NOT carry the .ts-row class:
+     openTickerSearch() wires its results with a global $$(".ts-row"), which would otherwise
+     attach the modal's handler to these rows as well. Same look, separate wiring. */
+  .ts-row,.rs-row{ display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:1px solid var(--line); background:var(--paper); border-radius:8px; padding:8px 10px; cursor:pointer; font-family:inherit; font-size:13px; color:var(--ink) }
+  .ts-row:hover,.rs-row:hover{ border-color:var(--teal); background:var(--surface2) }
+  .ts-row .sym,.rs-row .sym{ font-weight:600 }
+  .ts-row .ts-nm,.rs-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .ts-row .ts-ex,.rs-row .ts-ex{ flex:0 0 auto }
   .wl-row td{ padding:7px 8px; border-bottom:1px solid var(--line2); vertical-align:middle; white-space:nowrap }
   .wl-table thead th{ padding:6px 8px; font-size:10.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); font-weight:600; white-space:nowrap; border-bottom:1px solid var(--line2) }
   .wl-co{ color:var(--muted); max-width:190px; overflow:hidden; text-overflow:ellipsis }
@@ -510,6 +513,22 @@
      "Apply & save" button stays reachable instead of being buried in a nested scroll. */
   .calc-plan #rebOut .tscroll{max-height:44vh;overflow:auto}
 
+  /* ===== E5.4 Research: search left, watchlist right ===== */
+  .res-layout{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+  @media(max-width:1040px){ .res-layout{grid-template-columns:1fr} }
+  .res-list{min-width:0}
+  .res-searchbox{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface2);
+    border-radius:999px;padding:9px 13px;margin-top:8px;transition:border-color .15s ease,box-shadow .15s ease}
+  .res-searchbox:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--teal) 18%,transparent)}
+  .res-searchbox input{border:0;background:none;outline:0;flex:1;min-width:0;color:var(--ink);
+    font-size:14px;font-family:inherit}
+  #resResults{margin-top:9px;display:flex;flex-direction:column;gap:5px;max-height:44vh;overflow:auto}
+  .res-stats{margin-top:12px;padding-top:10px;border-top:1px solid var(--line2);
+    display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .res-stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+  /* keep the wide watchlist quote table inside its own scroller instead of stretching the page */
+  .res-list .wl-scroll{max-height:calc(100vh - 230px);overflow:auto}
+
   /* ===== E5.2b: wide-screen adaptation — LAST in the sheet on purpose.
      These override base rules of equal specificity, so source order is what makes them win.
      Spend reclaimed width on content rather than stretching two columns into long lines. ===== */
@@ -696,13 +715,31 @@
   </section>
 
   <!-- ============ SCREENER ============ -->
+  <!-- ===== E5.4 Research — search on the left, watchlist on the right ===== -->
   <section id="view-screener" class="view">
-    <div class="section-title"><h2>Screener — search &amp; watchlist</h2>
-      <button id="screenerSearch" class="btn sm">🔍 Search any ticker</button></div>
-    <p class="small muted" style="margin-top:-6px">Look up any stock and add it to your <b>watchlist</b> (no theme yet). When you're ready, pick a theme on a watchlisted name — you'll confirm whether to <b>add it as a new name</b> or <b>swap</b> it for a holding, then review the rebalance.</p>
-    <div id="watchlist"></div>
-    <div id="screenerBody"></div>
-    <p class="note">Universe is a curated seed (largest, most clearly-relevant names per theme); order is re-sorted on each refresh by live market cap. Stocks already in your portfolio are tagged <span class="tag live">held</span>.</p>
+    <div class="res-layout">
+      <div class="card pad res-find">
+        <div class="ov-k">Find a stock</div>
+        <div class="res-searchbox">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="resQuery" placeholder="Ticker or company — e.g. AMD" autocomplete="off"
+                 aria-label="Search any ticker or company">
+          <button class="rmv-tkr" id="resClear" title="Clear search" hidden>✕</button>
+        </div>
+        <div id="resResults"></div>
+        <p class="xs muted" style="margin:10px 0 0">Anything you pick lands on the <b>watchlist</b> —
+          it <b>doesn't touch your portfolio</b>. You choose a theme for it later, and review the
+          rebalance before anything is saved.</p>
+        <div id="resStats" class="res-stats"></div>
+        <button id="screenerSearch" class="btn sm ghost" style="margin-top:10px;width:100%">🔍 Open search dialog</button>
+      </div>
+
+      <div class="res-list">
+        <div id="watchlist"></div>
+        <div id="screenerBody"></div>
+      </div>
+    </div>
   </section>
 </main>
 </div><!-- /.appmain -->
@@ -2392,11 +2429,55 @@ async function loadThemeRecos(){
 
 function renderScreener(){
   renderWatchlist();
-  const body=$("#screenerBody"); if(!body) return;
   const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
-  body.innerHTML = wl.length
-    ? `<p class="note">Your watchlist is above. When you're ready, pick a theme on a name to add it to your portfolio — you'll confirm whether to add it as a new name or swap it for a holding, then review the rebalance.</p>`
-    : `<div class="empty" style="padding:18px">Use <b>🔍 Search any ticker</b> above to look up a stock and add it to your <b>watchlist</b> (with no theme). From the watchlist you decide which theme to add it to — as a new name or a swap — then rebalance.</div>`;
+  const body=$("#screenerBody");
+  if(body) body.innerHTML = wl.length
+    ? `<p class="note">Pick a theme on a name to add it to your portfolio — you'll confirm whether to add it
+       as a new name or swap it for a holding, then review the rebalance before anything is saved.</p>`
+    : `<div class="card pad" style="text-align:center;padding:34px 18px">
+         <div style="font-size:26px;opacity:.5;line-height:1">☆</div>
+         <div style="font-weight:620;margin-top:6px">Your watchlist is empty</div>
+         <p class="small muted" style="max-width:420px;margin:6px auto 0">Search on the left for any listed
+           name — including ones outside your themes. Picking a result parks it here so you can weigh it up
+           before it ever touches your portfolio.</p>
+       </div>`;
+  // E5.4: left-hand context
+  const st=$("#resStats");
+  if(st){ const h=Object.keys(holdings()).length;
+    st.innerHTML=`<span><b>${wl.length}</b> on the watchlist</span>
+      <span><b>${h}</b> holdings across <b>${themes().length}</b> themes</span>
+      <span><b>${membership().length}</b> names in the model</span>`; }
+}
+
+/* E5.4: inline search. Reuses dsSearch + addToWatchlist — no duplicated add logic.
+   Rows are .rs-row (NOT .ts-row) so openTickerSearch's global $$(".ts-row") can't grab them. */
+let _rsTimer=null;
+function wireResearchSearch(){
+  const q=$("#resQuery"), res=$("#resResults"), clr=$("#resClear");
+  if(!q||!res) return;
+  const paint=html=>{ res.innerHTML=html; };
+  const run=()=>{
+    clearTimeout(_rsTimer);
+    const term=q.value.trim();
+    if(clr) clr.hidden=!term;
+    if(!term){ paint(""); return; }
+    paint(`<div class="muted xs" style="padding:6px">Searching…</div>`);
+    _rsTimer=setTimeout(async()=>{
+      let list=[]; try{ list=await dsSearch(term); }catch(e){}
+      if(q.value.trim()!==term) return;                       // a newer keystroke superseded this one
+      if(!list.length){ paint(`<div class="muted xs" style="padding:6px">No matches — try another symbol or name.</div>`); return; }
+      paint(list.slice(0,8).map(r=>`<button type="button" class="rs-row" data-rssym="${r.symbol}">
+        <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
+        <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join(""));
+    },250);
+  };
+  q.addEventListener("input",run);
+  if(clr) clr.addEventListener("click",()=>{ q.value=""; run(); q.focus(); });
+  res.addEventListener("click",e=>{
+    const b=e.target.closest("[data-rssym]"); if(!b) return;
+    q.value=""; paint(""); if(clr) clr.hidden=true;           // clear before the async add re-renders the view
+    addToWatchlist(b.dataset.rssym, null);
+  });
 }
 
 /* ---- per-stock action sheet from the flat Screener (E1.9): add / swap / remove / watchlist ---- */
@@ -2895,6 +2976,7 @@ function setupEvents(){
     e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
   if($("#screenerSearch")) $("#screenerSearch").addEventListener("click",()=>openTickerSearch());   // E1.3: search (Screener)
+  wireResearchSearch();                                                                             // E5.4: inline search box
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addticker]"); if(b) openTickerSearch(b.dataset.addticker, true); });   // E4.3: '＋ ticker' in a theme section — add DIRECTLY (rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-editth]"); if(b) openEditTheme(b.dataset.editth); });   // E1.5: rename / recolour a theme
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-delth]"); if(b) deleteTheme(b.dataset.delth); });   // E1.6: delete a theme

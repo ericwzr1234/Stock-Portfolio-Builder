@@ -263,7 +263,7 @@
       "title": "Rebalance tab (replaces Calculator)", "notes": [
       "Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint." ] },
 
-    { "id": "E5.4", "epic": "E5", "stage": "ideation", "platform": "web", "depends": "E5.0",
+    { "id": "E5.4", "epic": "E5", "stage": "testing", "platform": "web", "depends": "E5.0",
       "title": "Research tab (replaces Screener)", "notes": [
       "Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow." ] },
 
