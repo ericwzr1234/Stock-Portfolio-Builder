@@ -8,17 +8,17 @@ _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 4 |
+| Ideation | 3 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 5 |
+| Testing | 6 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 42 |
 
 ---
 
-## Ideation  (4)
+## Ideation  (3)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **APP2** · _APP · iOS app parity_ — **Rebuild the iOS app against the V2 web baseline** _(depends E5.5, ios)_
@@ -35,10 +35,6 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 - **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
   - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
-- **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
-  - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
-  - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
-  - No tester is invited until this passes.
 
 ## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
@@ -50,7 +46,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (5)
+## Testing  (6)
 _Built; waiting for you to try it._
 
 - **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
@@ -70,6 +66,10 @@ _Built; waiting for you to try it._
   - Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.
   - On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.
   - Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure.
+- **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
+  - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
+  - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
+  - No tester is invited until this passes.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

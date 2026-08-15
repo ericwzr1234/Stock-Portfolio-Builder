@@ -325,7 +325,7 @@
       "title": "Import local portfolio.json + cutover", "notes": [
       "On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup." ] },
 
-    { "id": "E6.7", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.7", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
       "title": "Security review - GATE before inviting anyone", "notes": [
       "Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.",
       "Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.",

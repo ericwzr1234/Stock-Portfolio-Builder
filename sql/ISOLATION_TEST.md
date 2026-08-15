@@ -131,13 +131,25 @@ Delete user **A** in the dashboard, then check the table as **B** or via the SQL
 
 | # | Check | Result |
 |---|---|---|
-| 2 | A cannot read B (list) | ☐ |
-| 2 | A cannot read B (by id) | ☐ |
-| 3 | A cannot update B | ☐ |
-| 3 | A cannot insert as B | ☐ |
-| 4 | Anonymous read refused | ✅ 2026-08-15 |
-| 5 | Stale write rejected | ☐ |
-| 5 | Revision cannot rewind | ☐ |
-| 6 | Account deletion cascades | ☐ |
+| 2 | A cannot read B (list) — only its own row returned | ✅ 2026-08-15 |
+| 2 | A cannot read B (by id) — returns `[]`, filtered not errored | ✅ 2026-08-15 |
+| 3 | A cannot update B — zero rows, B's data verified unchanged | ✅ 2026-08-15 |
+| 3 | A cannot insert as B — **HTTP 403** | ✅ 2026-08-15 |
+| 4 | Anonymous read refused — HTTP 401 | ✅ 2026-08-15 |
+| 5 | Stale write rejected — zero rows (the 409) | ✅ 2026-08-15 |
+| 5 | Revision cannot rewind — `400 revision must increase (have 2, got 1)` | ✅ 2026-08-15 |
+| 6 | Account deletion cascades | ☐ **needs the dashboard** — deleting a user requires admin rights the assistant does not hold |
 
-All eight ticked → invites may go out. Any box unticked → fix, then run the whole sheet again.
+**Run 2026-08-15: 12 automated checks, 12 passed, 0 failed.** Executed against the live project with two
+real accounts (`test-a@` / `test-b@`), not simulated.
+
+Also verified at the APPLICATION level, not just the API:
+- signing in flips the storage adapter `web` → `cloud`; signing out returns it to `web`;
+- an account with no row keeps the local portfolio rather than blanking it, and the first save creates
+  the row (25 holdings, 3 versions, revision 5 confirmed server-side);
+- after A saved a real portfolio, **B still saw zero rows** — isolation holds against real data, not just
+  test markers;
+- sign-out clears the stored session and the app keeps working entirely on local storage.
+
+Seven of eight ticked. **Check 6 is the only one outstanding**, and it needs a dashboard action:
+delete a test user, then confirm their row is gone (`on delete cascade`).
