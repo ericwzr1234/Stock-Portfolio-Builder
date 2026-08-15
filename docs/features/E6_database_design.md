@@ -298,3 +298,89 @@ than it first appears:
 Invite-only registration, TLS-only, no secrets in the repo, collect the minimum (an email address and the
 portfolio — no names, no phone numbers), and support account deletion that really removes the row. These
 are not vendor features; they are choices, and they apply to both paths.
+
+
+---
+
+## 13. "Can we host our own SQL database?" — sustainability & scale
+
+Short answer: **yes, it is entirely viable — and it is also not the thing that decides this.** The
+measurements below are from the real book, not estimates.
+
+### The actual numbers
+
+| | |
+|---|---|
+| Heaviest real portfolio document | **62 KB** compact (112 KB pretty-printed) |
+| Holdings | 27 |
+| Checkpoints | 9, averaging **6.6 KB** each (each stores a full snapshot + its trades) |
+| Growth, weekly rebalancing for **10 years** | ~3.6 MB **for that one user** |
+| Storage at 500 users | ~32 MB |
+| Storage at 5,000 users | ~320 MB |
+| Write load at 5,000 users | ~2,100 writes/day ≈ **0.02 writes/sec** |
+
+**This is not a database-scale problem and will not become one.** A single small Postgres instance handles
+five thousand users of this app without noticing. Anyone's free tier holds the Phase-2 fleet a thousand
+times over. So "will it scale?" should not drive the choice — it is answered either way.
+
+What *does* grow without bound is the per-user checkpoint history, and even that is ~3.6 MB after a decade
+of weekly rebalancing. If it ever mattered, the fix is to split `versions[]` into its own table and page
+it — which is exactly the normalisation §4 defers until a query demands it.
+
+### Three architectures, not two
+
+The real spectrum is wider than "managed vs self-hosted":
+
+| | Who runs the DB | Who runs auth | Notes |
+|---|---|---|---|
+| **A. Managed BaaS** | vendor | vendor | Least work. Anon key + RLS is the whole security model |
+| **B. Your app server + managed Postgres** | vendor | **you** | You own the API and identity; the database is still someone else's problem. No BaaS lock-in |
+| **C. Fully self-hosted** | you | you | Total control, total responsibility, ~$5/mo minimum to do safely |
+
+**B is the genuine middle path** and the natural landing spot if this ever becomes a real product: standard
+Postgres you could move anywhere, your own server holding the business logic, and no vendor-specific
+runtime. Its cost is that you own authentication — the one area where mistakes are unforgiving.
+
+### The lock-in question, answered precisely
+
+The concern is legitimate, but it is narrower than it feels:
+
+- **The data is not locked in.** The schema in §4 is ordinary Postgres. `pg_dump` moves it anywhere.
+- **RLS is not a vendor feature.** Row-level security is standard Postgres and travels with the schema.
+- **Identity is the sticky part.** Migrating auth providers means every tester resets their password once —
+  a non-event at five users, a real project at five thousand.
+
+So the durable decision is not the vendor; it is **staying on portable primitives**: plain tables, plain
+SQL, RLS, and no proprietary runtime (no vendor edge functions, no realtime channels, no vendor-only
+client SDK — REST over `fetch` keeps even the browser neutral). Do that and switching later is a weekend,
+not a rewrite.
+
+### What would actually make self-hosting the right call — and when
+
+Not scale. The honest triggers are:
+
+1. **Cost inflection** — free tiers stop being free somewhere in the hundreds-to-thousands of users.
+2. **Control** — you need something the vendor forbids, or data residency they do not offer.
+3. **Capacity** — you (or someone) can commit to patching, certificate renewal and tested restores
+   *indefinitely*, not just enthusiastically for the first month.
+
+None of those is true today, and (3) is the one people overestimate about themselves.
+
+### The recommendation this leads to
+
+**Start on A, architect so that B is a weekend's work, and never rule out C.** Concretely, for E6.3:
+
+- plain `portfolios` table, ordinary columns, `jsonb` payload — no vendor types;
+- RLS policies written as standard Postgres, checked into the repo as `.sql`;
+- the client talks **REST over `fetch`**, so no vendor SDK enters the browser;
+- everything behind the storage adapter from E6.2, so the app cannot tell the difference.
+
+That way the vendor is a hosting decision, not an architecture commitment — and the free tier costs
+nothing while the user count is small enough that "scalable" is a hypothetical.
+
+### The cost that will actually dominate later
+
+Not hosting. At a few thousand users, hosting is tens of dollars a month. **Licensed market data is the
+real bill** (Yahoo's free endpoints are not licensed for redistribution — see
+[`E6_multi-user-platform.md`](E6_multi-user-platform.md) §7). Any long-term sustainability plan should be
+built around that number, not around Postgres.
