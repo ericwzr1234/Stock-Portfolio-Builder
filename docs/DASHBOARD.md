@@ -8,21 +8,19 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 4 |
+| Ideation | 3 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 5 |
+| Testing | 6 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 35 |
 
 ---
 
-## Ideation  (4)
+## Ideation  (3)
 _A half-baked idea; can be pushed further down once fleshed out._
 
-- **E5.5** · _E5 · Web UI overhaul_ — **History tab** _(depends E5.0, web)_
-  - Checkpoint timeline, undo / redo / revert-to-here with the fork behaviour, value-at-checkpoint chart, reset portfolio, and the data-sync sheet.
 - **APP2** · _APP · iOS app parity_ — **Redesign the iOS app against the new feature set** _(depends E5.5, ios)_
   - DECISION (2026-08-08): the iPhone app does NOT have to copy the web UI — platform/Xcode constraints make a shared pixel-level design a poor fit. It MUST carry the same CONTENT and FEATURES.
   - So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).
@@ -48,7 +46,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (5)
+## Testing  (6)
 _Built; waiting for you to try it._
 
 - **E5.0** · _E5 · Web UI overhaul_ — **App shell — rail, context bar, theme tokens** _(web)_ · [spec](features/E5_web-ui-overhaul.md)
@@ -63,6 +61,8 @@ _Built; waiting for you to try it._
   - Initial build, add-cash, full / cash-only / realign modes, the trade plan, and Apply & save as a version checkpoint.
 - **E5.4** · _E5 · Web UI overhaul_ — **Research tab (replaces Screener)** _(depends E5.0, web)_
   - Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow.
+- **E5.5** · _E5 · Web UI overhaul_ — **History tab** _(depends E5.0, web)_
+  - Checkpoint timeline, undo / redo / revert-to-here with the fork behaviour, value-at-checkpoint chart, reset portfolio, and the data-sync sheet.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

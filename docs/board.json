@@ -267,7 +267,7 @@
       "title": "Research tab (replaces Screener)", "notes": [
       "Ticker search, the watchlist quote table, the per-stock action sheet, and the add-vs-swap confirmation flow." ] },
 
-    { "id": "E5.5", "epic": "E5", "stage": "ideation", "platform": "web", "depends": "E5.0",
+    { "id": "E5.5", "epic": "E5", "stage": "testing", "platform": "web", "depends": "E5.0",
       "title": "History tab", "notes": [
       "Checkpoint timeline, undo / redo / revert-to-here with the fork behaviour, value-at-checkpoint chart, reset portfolio, and the data-sync sheet." ] },
 

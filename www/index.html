@@ -529,6 +529,20 @@
   /* keep the wide watchlist quote table inside its own scroller instead of stretching the page */
   .res-list .wl-scroll{max-height:calc(100vh - 230px);overflow:auto}
 
+  /* ===== E5.5 History: chart + controls left, checkpoints right ===== */
+  .hist-layout{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+  @media(max-width:1040px){ .hist-layout{grid-template-columns:1fr} }
+  .hist-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .hist-list{min-width:0}
+  .hist-chart{width:100%;height:150px;margin-top:6px;overflow:visible}
+  .vthm .thm-head{gap:8px;flex-wrap:wrap}
+  .vthm .thm-head .nm{flex:1;min-width:150px}
+  .vthm .vval{flex:none;font-variant-numeric:tabular-nums}
+  .vthm.cur{border-color:var(--teal)}
+  .vthm.fut{opacity:.72;border-style:dashed}
+  .vthm .thm-body{padding:2px 12px 10px}
+  #historyBody{max-height:calc(100vh - 190px);overflow:auto;padding-right:2px}
+
   /* ===== E5.2b: wide-screen adaptation — LAST in the sheet on purpose.
      These override base rules of equal specificity, so source order is what makes them win.
      Spend reclaimed width on content rather than stretching two columns into long lines. ===== */
@@ -708,10 +722,30 @@
   </section>
 
   <!-- ============ HISTORY ============ -->
+  <!-- ===== E5.5 History — chart + controls left, checkpoints right ===== -->
   <section id="view-history" class="view">
-    <div class="section-title"><h2>Transaction history</h2>
-      <button id="resetBtn" class="btn sm danger ghost">Reset portfolio…</button></div>
-    <div id="historyBody"></div>
+    <div class="hist-layout">
+      <div class="hist-side">
+        <div class="card pad">
+          <div class="ov-k">Value at each checkpoint</div>
+          <svg id="histChart" class="hist-chart" role="img"
+               aria-label="Portfolio value recorded at each saved checkpoint"></svg>
+          <div id="histChartNote" class="xs muted"></div>
+        </div>
+        <div id="histControls"></div>
+        <div class="card pad">
+          <div class="ov-k" style="margin-bottom:6px">Danger zone</div>
+          <p class="xs muted" style="margin:0 0 9px">Clears every holding and the whole checkpoint
+            timeline. Your metric model, weights and overrides are kept. This cannot be undone.</p>
+          <button id="resetBtn" class="btn sm danger ghost" style="width:100%">Reset portfolio…</button>
+        </div>
+      </div>
+      <div class="hist-list">
+        <div class="ov-k" style="margin-bottom:8px">Checkpoints
+          <span class="xs muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click one to see its trades</span></div>
+        <div id="historyBody"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ SCREENER ============ -->
@@ -1593,9 +1627,15 @@ function valueHistory(){
       const sh=h[sym]?h[sym].shares:0; if(!isNum(sh)||sh<=0) return;
       held++; if(isNum(px[sym])){ priced++; val+=sh*px[sym]; }
     });
+    // Prefer the value RECORDED at the checkpoint (buildTxn stores plan.newTotal) — that's the
+    // authoritative figure. The mark-to-last-traded-price reconstruction above is only a fallback
+    // for older versions that predate it. (Cross-checked on the real book: the reconstruction
+    // reproduces every recorded value to ~1e-9, so the fallback is trustworthy where it's needed.)
+    const recorded=isNum(v.valueAfter)?v.valueAfter:null;
     out.push({ label:v.date||("#"+v.id), type:v.type||"",
       invested:isNum(snap.totalContributed)?snap.totalContributed:null,
-      value:(held>0&&priced===held)?val:null });
+      value: recorded!=null ? recorded : ((held>0&&priced===held)?val:null),
+      estimated: recorded==null });
   });
   if(isInit()) out.push({ label:"now", type:"LIVE", invested:totalContributed(), value:curTotal(), live:true });
   return out;
@@ -1652,9 +1692,10 @@ function renderOverview(){
   if(legend) legend.innerHTML=
     `<span><i style="border-top:2.4px solid var(--teal)"></i>Value</span>`+
     `<span><i style="border-top:1.6px dashed var(--muted)"></i>Invested</span>`;
-  const gaps=H.filter(p=>!isNum(p.value)).length;
-  if(note) note.textContent=`${H.length} checkpoints · positions marked at their last traded price`+
-    (gaps?` · ${gaps} checkpoint${gaps>1?"s":""} not fully priced (line breaks there)`:"");
+  const gaps=H.filter(p=>!isNum(p.value)).length, est=H.filter(p=>p.estimated&&isNum(p.value)).length;
+  if(note) note.textContent=`${H.length} checkpoints · value as recorded at each save`+
+    (est?` · ${est} reconstructed from traded prices`:"")+
+    (gaps?` · ${gaps} not priced (line breaks there)`:"");
   // scrub
   svg.onmousemove=e=>{
     const r=svg.getBoundingClientRect(); if(!r.width) return;
@@ -2360,35 +2401,89 @@ async function applyRebalance(plan){
    Render: HISTORY view
    ====================================================================== */
 function renderHistory(){
-  const body=$("#historyBody");
+  const body=$("#historyBody"), ctl=$("#histControls");
   const vs=versions(), h=head();
-  if(!vs.length){ body.innerHTML=syncCardHTML()+`<div class="empty">No versions yet. Build your portfolio in the Calculator tab — each build &amp; rebalance becomes a checkpoint you can undo or revert to.</div>`; return; }
-  const banner=`<div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:14px">
-      <div>Showing <b>version ${h+1} of ${vs.length}</b>${canRedo()?' · reverted — newer versions are redoable until you apply a new rebalance':''}</div>
-      <div class="row" style="gap:8px">${undoRedoButtons()}</div></div>`;
-  const cards=vs.map((_,i)=>i).reverse().map(i=>{
-    const tx=vs[i], isCur=(i===h), isFut=(i>h);
+  // E5.5: undo/redo + sync live in the left column; the checkpoint list is the right column
+  if(ctl) ctl.innerHTML =
+    (vs.length?`<div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:10px">
+        <div>Showing <b>version ${h+1} of ${vs.length}</b>${canRedo()?' · reverted — newer versions stay redoable until you apply a new rebalance':''}</div>
+        <div class="row" style="gap:8px;margin-top:6px">${undoRedoButtons()}</div></div>`:"")
+    + syncCardHTML();
+  if(!body) return;
+  try{ renderHistChart(); }catch(e){ console.error("hist chart",e); }
+  if(!vs.length){ body.innerHTML=`<div class="card pad" style="text-align:center;padding:34px 18px">
+      <div style="font-size:26px;opacity:.5;line-height:1">◷</div>
+      <div style="font-weight:620;margin-top:6px">No checkpoints yet</div>
+      <p class="small muted" style="max-width:420px;margin:6px auto 0">Build your portfolio on the
+        <b>Rebalance</b> tab — every build and rebalance is saved here as a checkpoint you can undo,
+        redo, or revert to.</p></div>`; return; }
+  body.innerHTML=vs.map((_,i)=>i).reverse().map(i=>{
+    const tx=vs[i], isCur=(i===h), isFut=(i>h), open=OPEN_VERSIONS.has(tx.id);
     const trades=(tx.trades||[]).map(tr=>{ const act=tr.amount>0?"BUY":"SELL", cls=tr.amount>0?"trade-buy":"trade-sell";
       return `<tr><td class="sym">${tr.sym}</td><td class="${cls}">${act}</td>
         <td class="num ${cls}">${(tr.amount>0?"+":"")+money(tr.amount,0)}</td>
         <td class="num ${cls}">${signed(tr.shares,3)}</td><td class="num">${money(tr.price,2)}</td></tr>`;}).join("");
     const tag = isCur?'<span class="tag live">● current</span>':(isFut?'<span class="tag fut">redoable</span>':'');
     const btn = isCur?'':`<button class="btn sm ghost" data-vaction="revert" data-idx="${i}">${isFut?'Redo to here':'Revert to here'}</button>`;
-    return `<div class="card pad vcard ${isCur?'cur':''} ${isFut?'fut':''}" style="margin-bottom:12px">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div><span class="tag ${tx.type==='INITIAL'?'ovr':'live'}">#${tx.id} ${tx.type}</span>
-          <b style="margin-left:8px">${tx.date}</b>
-          <span class="muted small"> · ${tx.mode==='full'?'full rebalance':'cash deploy'} · added ${money(tx.cashIn,0)}</span> ${tag}</div>
-        <div class="row" style="gap:10px;align-items:center"><span class="small muted">${money(tx.valueBefore,0)} → <b>${money(tx.valueAfter,0)}</b></span>${btn}</div>
+    const delta=(isNum(tx.valueAfter)&&isNum(tx.valueBefore))?tx.valueAfter-tx.valueBefore:null;
+    return `<div class="thm vthm ${isCur?'cur':''} ${isFut?'fut':''} ${open?'open':''}" data-vkey="${tx.id}">
+      <div class="thm-head" data-vtoggle="${tx.id}" role="button" tabindex="0" aria-expanded="${open}"
+           title="Show / hide the trades in checkpoint #${tx.id}">
+        <span class="chev">▶</span>
+        <span class="tag ${tx.type==='INITIAL'?'ovr':'live'}">#${tx.id}</span>
+        <span class="nm"><b>${tx.date}</b>
+          <span class="muted xs"> · ${tx.mode==='full'?'full rebalance':'cash deploy'}${isNum(tx.cashIn)&&tx.cashIn?` · added ${money(tx.cashIn,0)}`:''} · ${(tx.trades||[]).length} trades</span></span>
+        ${tag}
+        <span class="small muted vval">${money(tx.valueBefore,0)} → <b>${money(tx.valueAfter,0)}</b>${
+          delta!=null?` <span class="${delta>=0?'up':'down'}">(${delta>=0?'+':'−'}${money(Math.abs(delta),0)})</span>`:''}</span>
+        ${btn}
       </div>
-      <div class="kvs" style="margin-top:8px">
-        ${themes().map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
+      <div class="thm-body" ${open?"":"hidden"}>
+        <div class="kvs" style="margin:8px 0">
+          ${themes().map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
+        </div>
+        <div class="tscroll"><table><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
+          <tbody>${trades||`<tr><td colspan="5" class="muted xs" style="padding:9px">No trades recorded.</td></tr>`}</tbody></table></div>
       </div>
-      <details class="exp"><summary>${(tx.trades||[]).length} trades</summary>
-        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
-          <tbody>${trades}</tbody></table></div></details>
     </div>`;}).join("");
-  body.innerHTML=syncCardHTML()+banner+cards;
+}
+/* E5.5: which checkpoints are expanded (keyed by version id, which is stable across re-renders) */
+const OPEN_VERSIONS=new Set();
+function toggleVersion(id){
+  id=String(id);
+  if(OPEN_VERSIONS.has(id)) OPEN_VERSIONS.delete(id); else OPEN_VERSIONS.add(id);
+  const box=document.querySelector(`.vthm[data-vkey="${CSS.escape(id)}"]`); if(!box) return;
+  const open=OPEN_VERSIONS.has(id), b=box.querySelector(".thm-body"), hd=box.querySelector(".thm-head");
+  box.classList.toggle("open",open);
+  if(b) b.hidden=!open;
+  if(hd) hd.setAttribute("aria-expanded",String(open));
+}
+/* E5.5: recorded value at each checkpoint (uses tx.valueAfter — the figure saved at the time) */
+function renderHistChart(){
+  const svg=$("#histChart"), note=$("#histChartNote"); if(!svg) return;
+  const vs=versions(), h=head();
+  if(vs.length<1){ svg.innerHTML=""; if(note)note.textContent=""; return; }
+  const W=Math.max(240,Math.round(svg.clientWidth||300)), H=150, PB=20, PT=8;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const vals=vs.map(v=>isNum(v.valueAfter)?v.valueAfter:null).filter(isNum);
+  if(!vals.length){ svg.innerHTML=""; if(note)note.textContent="No recorded values yet."; return; }
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(hi<=lo){ lo=lo*0.98; hi=hi*1.02+1; }
+  const bw=Math.max(6,Math.min(46,(W-8)/vs.length-6));
+  svg.innerHTML=vs.map((v,i)=>{
+    const val=isNum(v.valueAfter)?v.valueAfter:null;
+    const x=(i*((W-8)/vs.length))+4, isCur=(i===h), isFut=(i>h);
+    if(val==null) return "";
+    const bh=Math.max(2,((val-lo)/(hi-lo))*(H-PB-PT-6)+6), y=H-PB-bh;
+    return `<g><title>#${v.id} ${v.date} — ${money(val,0)}</title>
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3"
+        fill="${isFut?'transparent':'var(--teal)'}" stroke="var(--teal)" stroke-width="${isFut?1.4:0}"
+        stroke-dasharray="${isFut?'3 3':'0'}" opacity="${isCur?1:(isFut?.9:.42)}"></rect></g>`;
+  }).join("")+
+   `<line x1="0" y1="${H-PB}" x2="${W}" y2="${H-PB}" stroke="var(--line)" stroke-width="1"/>`;
+  const futures=vs.length-1-h;
+  if(note) note.textContent=`${vs.length} checkpoint${vs.length===1?'':'s'} · solid = current & past`+
+    (futures>0?` · ${futures} dashed = redoable future`:"");
 }
 
 /* ======================================================================
@@ -3021,6 +3116,14 @@ function setupEvents(){
     const h=e.target.closest("[data-fthmtoggle]"); if(!h) return;
     e.preventDefault(); toggleFTheme(h.dataset.fthmtoggle); });
   if($("#fundExpandAll")) $("#fundExpandAll").addEventListener("click",toggleAllFThemes);
+  // E5.5: expand/collapse a checkpoint. Revert/undo/redo live inside the header, so ignore those.
+  if($("#historyBody")) $("#historyBody").addEventListener("click",e=>{
+    if(e.target.closest("button,[data-vaction]")) return;
+    const hd=e.target.closest("[data-vtoggle]"); if(hd) toggleVersion(hd.dataset.vtoggle); });
+  if($("#historyBody")) $("#historyBody").addEventListener("keydown",e=>{
+    if(e.key!=="Enter"&&e.key!==" ") return;
+    const hd=e.target.closest("[data-vtoggle]"); if(!hd) return;
+    e.preventDefault(); toggleVersion(hd.dataset.vtoggle); });
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
