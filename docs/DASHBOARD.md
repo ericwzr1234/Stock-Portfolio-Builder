@@ -8,17 +8,17 @@ _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 3 |
+| Ideation | 2 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 6 |
+| Testing | 8 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 42 |
 
 ---
 
-## Ideation  (3)
+## Ideation  (2)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **APP2** · _APP · iOS app parity_ — **Rebuild the iOS app against the V2 web baseline** _(depends E5.5, ios)_
@@ -33,8 +33,6 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
-- **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
-  - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
 
 ## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
@@ -46,7 +44,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (6)
+## Testing  (8)
 _Built; waiting for you to try it._
 
 - **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
@@ -66,6 +64,13 @@ _Built; waiting for you to try it._
   - Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.
   - On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.
   - Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure.
+- **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
+  - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
+- **E6.8** · _E6 · Multi-user platform_ — **Login landing page - sign-in required before anything** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
+  - USER REQUEST (2026-08-15): a proper log-in landing page. Nobody reaches the app without signing in first.
+  - This CHANGES THE APP'S CHARACTER: today it runs fine signed-out on local storage. With a hard gate, no account = no app, and the local portfolio.json path becomes reachable only through the E6.6 import.
+  - OPERATIONAL RISK to design around: the free tier PAUSES after a week idle. A naive gate would lock the user out of their own portfolio whenever the backend is asleep or offline. So: a VALID STORED SESSION must still open the app against the local mirror when the backend is unreachable — the gate blocks strangers, it must not block the owner during an outage.
+  - Sign out returns to the landing page.
 - **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
   - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
   - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.

@@ -321,9 +321,16 @@
       "On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.",
       "Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure." ] },
 
-    { "id": "E6.6", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.5", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.6", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.5", "spec": "docs/features/E6_database_design.md",
       "title": "Import local portfolio.json + cutover", "notes": [
       "On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup." ] },
+
+    { "id": "E6.8", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
+      "title": "Login landing page - sign-in required before anything", "notes": [
+      "USER REQUEST (2026-08-15): a proper log-in landing page. Nobody reaches the app without signing in first.",
+      "This CHANGES THE APP'S CHARACTER: today it runs fine signed-out on local storage. With a hard gate, no account = no app, and the local portfolio.json path becomes reachable only through the E6.6 import.",
+      "OPERATIONAL RISK to design around: the free tier PAUSES after a week idle. A naive gate would lock the user out of their own portfolio whenever the backend is asleep or offline. So: a VALID STORED SESSION must still open the app against the local mirror when the backend is unreachable — the gate blocks strangers, it must not block the owner during an outage.",
+      "Sign out returns to the landing page." ] },
 
     { "id": "E6.7", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
       "title": "Security review - GATE before inviting anyone", "notes": [

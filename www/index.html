@@ -513,6 +513,20 @@
      "Apply & save" button stays reachable instead of being buried in a nested scroll. */
   .calc-plan #rebOut .tscroll{max-height:44vh;overflow:auto}
 
+  /* ===== E6.8 login landing page ===== */
+  .gate{position:fixed;inset:0;z-index:400;background:var(--cream);display:flex;align-items:center;
+    justify-content:center;padding:24px;overflow:auto}
+  .gate[hidden]{display:none}
+  .gate-card{width:100%;max-width:380px}
+  .gate-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .gate-brand .rmark{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
+    background:var(--teal);color:var(--on-accent);font-weight:750;font-size:15px}
+  .gate-brand b{font-size:14.5px;display:block;letter-spacing:-.01em}
+  .gate-brand span{display:block;font-size:11px;color:var(--muted)}
+  .gate-h{font-size:22px;margin:0;letter-spacing:-.02em}
+  .gate-sub{font-size:12.5px;color:var(--muted);margin:6px 0 4px;line-height:1.5}
+  html.gated, html.gated body{overflow:hidden}
+
   /* ===== E6.4 accounts ===== */
   #acctBtn.on{border-color:var(--teal);color:var(--teal)}
   .auth-field{display:block;margin:9px 0 3px;font-size:12px;color:var(--muted)}
@@ -585,6 +599,26 @@
 <script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
 </head>
 <body>
+<!-- ===== E6.8 login landing page. Covers everything until a session exists. ===== -->
+<div id="gate" class="gate" hidden>
+  <div class="gate-card card pad">
+    <div class="gate-brand"><span class="rmark">&#9704;</span>
+      <div><b>Portfolio Builder</b><span>themed allocator</span></div></div>
+    <h1 class="gate-h" id="gateTitle">Sign in</h1>
+    <p class="gate-sub" id="gateSub">Your portfolio, its full rebalance history, and every checkpoint &mdash; kept to your account.</p>
+    <label class="auth-field" for="gateEmail">Email</label>
+    <input class="auth-in" type="email" id="gateEmail" autocomplete="username" placeholder="you@example.com">
+    <label class="auth-field" for="gatePass">Password</label>
+    <input class="auth-in" type="password" id="gatePass" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <div id="gateMsg" class="auth-msg"></div>
+    <button class="btn primary" id="gateGo" style="width:100%;margin-top:14px;padding:11px">Sign in</button>
+    <div class="auth-alt">
+      <button class="linkish" id="gateToggle">Create an account</button>
+      <button class="linkish" id="gateForgot">Forgot password?</button>
+    </div>
+    <p class="xs muted" style="margin:16px 0 0;text-align:center">Your holdings are private to your account and never shared.</p>
+  </div>
+</div>
 <div class="app">
 <!-- ===== E5.0 rail (web only; the phone uses the bottom tab bar instead) ===== -->
 <aside class="rail" id="rail">
@@ -1908,6 +1942,89 @@ function setReturnUnit(u){
 /* ===== E6.4 - account UI ==============================================================
    Deliberately additive: signed out, the app behaves exactly as before and keeps using
    local storage. Signing in switches the storage adapter and nothing else. */
+/* ===== E6.8 - the gate ==================================================================
+   Nobody reaches the app without a session. The safeguard that matters: a VALID STORED
+   SESSION opens the app even when the backend is unreachable (the free tier pauses after a
+   week idle) - it falls back to the local mirror. The gate is there to keep strangers out,
+   not to lock the owner out of their own portfolio during an outage. */
+function showGate(show){
+  const g=$("#gate"); if(!g) return;
+  g.hidden=!show;
+  document.documentElement.classList.toggle("gated",!!show);
+  if(show) setTimeout(()=>{ const el=$("#gateEmail"); if(el&&!el.value) el.focus(); },40);
+}
+function gateMsg(kind,text){
+  const m=$("#gateMsg"); if(!m) return;
+  m.className="auth-msg show "+(kind==="ok"?"ok":"err"); m.textContent=text;
+}
+function wireGate(){
+  const g=$("#gate"); if(!g) return;
+  let mode="signin";
+  const setMode=m=>{ mode=m;
+    $("#gateTitle").textContent = m==="signin"?"Sign in":"Create an account";
+    $("#gateSub").textContent   = m==="signin"
+      ? "Your portfolio, its full rebalance history, and every checkpoint \u2014 kept to your account."
+      : "You will get an email to confirm the address before your first sign-in.";
+    $("#gateGo").textContent    = m==="signin"?"Sign in":"Create account";
+    $("#gateToggle").textContent= m==="signin"?"Create an account":"I already have an account";
+    $("#gatePass").setAttribute("autocomplete", m==="signin"?"current-password":"new-password");
+  };
+  $("#gateToggle").addEventListener("click",()=>setMode(mode==="signin"?"signup":"signin"));
+  $("#gateForgot").addEventListener("click",async()=>{
+    const email=($("#gateEmail").value||"").trim();
+    if(!email){ gateMsg("err","Enter your email address first, then press this again."); return; }
+    try{ await sbRecover(email); gateMsg("ok","If that address has an account, a reset link is on its way."); }
+    catch(e){ gateMsg("err",e.message||"Could not send the reset email."); }
+  });
+  const submit=async()=>{
+    const email=($("#gateEmail").value||"").trim(), pass=$("#gatePass").value||"";
+    if(!email||!pass){ gateMsg("err","Email and password are both required."); return; }
+    const b=$("#gateGo"); b.disabled=true; b.textContent="Working\u2026";
+    try{
+      if(mode==="signup"){
+        const r=await sbSignUp(email,pass);
+        if(r.needsConfirmation){
+          b.disabled=false; setMode("signin");
+          gateMsg("ok","Account created. Confirm the link in your email, then sign in.");
+          return;
+        }
+      } else { await sbSignIn(email,pass); }
+      $("#gatePass").value="";
+      showGate(false);
+      await bootSignedIn();
+    }catch(e){
+      b.disabled=false; setMode(mode);
+      gateMsg("err", e.message==="Invalid login credentials"
+        ? "That email and password did not match an account."
+        : (e.message||"Sign-in failed."));
+    }
+  };
+  $("#gateGo").addEventListener("click",submit);
+  ["gateEmail","gatePass"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{ if(e.key==="Enter")submit(); }));
+  setMode("signin");
+}
+/* Load everything for a signed-in session. Used both on boot and right after signing in. */
+async function bootSignedIn(){
+  try{ await loadPortfolio(); }catch(e){ console.error("load failed",e); }
+  rebuildThemeOf();
+  try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }
+  catch(e){ console.error(e); toast("Some market data failed to load - using fallback"); }
+  renderAcctBtn(); renderAll();
+  if(!isInit()) await offerImportIfLocalExists();   // E6.6
+}
+/* E6.6 - the account is empty. Is there a portfolio on THIS MACHINE worth importing?
+   The gate means the local book is no longer sitting in memory, so read it from local storage
+   directly rather than assuming what is on screen. The local file is only ever READ here. */
+async function offerImportIfLocalExists(){
+  if(!signedIn()) return;
+  let localP=null;
+  try{ localP = NATIVE ? nativeLoadPortfolio() : await webLoadPortfolio(); }
+  catch(e){ console.error("local probe failed",e); return; }
+  const n = localP && localP.holdings ? Object.keys(localP.holdings).length : 0;
+  if(!n) return;                                   // nothing local worth importing
+  openImportChoice(localP);
+}
+
 function renderAcctBtn(){
   const b=$("#acctBtn"); if(!b) return;
   if(signedIn()){ b.textContent="\u25CF " + (sbUserEmail()||"Account"); b.classList.add("on");
@@ -1934,8 +2051,8 @@ function openAccount(){
     $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
     $("#acctSignOut").addEventListener("click",async()=>{
       await sbSignOut(); closeModal(); renderAcctBtn();
-      toast("Signed out - back to local storage");
-      try{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); }catch(e){ console.error(e); }
+      showGate(true);                       // E6.8: signing out returns to the landing page
+      toast("Signed out");
     });
     return;
   }
@@ -2003,18 +2120,74 @@ function openAccount(){
   setMode("signin");
   setTimeout(()=>{ const el=$("#authEmail"); if(el) el.focus(); },30);
 }
-/* After signing in: pull the account's portfolio. If the account has no row yet, keep what is
-   already on screen - the next save creates the row. (The explicit import UX is E6.6.) */
+/* ===== E6.6 - what happens on the first sign-in to an EMPTY account =====================
+   The old behaviour was implicit and quietly dangerous: whatever portfolio happened to be on
+   screen became the account's portfolio on the next save. Sign in to a real account while
+   sitting on the dev server and you would silently upload the wrong book.
+   Now the choice is explicit, and the local file is never modified either way. */
 async function adoptAccountPortfolio(){
-  try{
-    const before=isInit();
-    await loadPortfolio(); rebuildThemeOf();
-    try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); }catch(e){}
-    rebuildFundamentals(); renderAll(); renderAcctBtn();
-    toast(isInit()? "Signed in - portfolio loaded from your account"
-                  : (before? "Signed in - this portfolio will save to your account on the next change"
-                           : "Signed in"));
-  }catch(e){ console.error("adopt failed",e); toast("Signed in, but loading your account failed - showing the local copy"); }
+  const localSnapshot = state.portfolio ? deepCopy(state.portfolio) : null;
+  const hadLocal = isInit();
+  let cloudRow=null;
+  try{ cloudRow = await cloudLoadPortfolio(); }
+  catch(e){ console.error("cloud load failed",e);
+    toast("Signed in, but your account could not be reached - showing the local copy."); renderAcctBtn(); return; }
+
+  if(cloudRow){                                   // the account already has a portfolio: it wins
+    try{
+      await loadPortfolio(); rebuildThemeOf();
+      try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); }catch(e){}
+      rebuildFundamentals(); renderAll(); renderAcctBtn();
+      toast("Signed in - portfolio loaded from your account");
+    }catch(e){ console.error(e); toast("Signed in, but loading your account failed."); }
+    return;
+  }
+  renderAcctBtn();
+  if(hadLocal && localSnapshot){ openImportChoice(localSnapshot); return; }   // it was already in memory
+  await offerImportIfLocalExists();               // otherwise read local storage and ask
+}
+function openImportChoice(local){
+  const h=Object.keys((local&&local.holdings)||{}).length;
+  const v=((local&&local.versions)||[]).length;
+  const contributed=(local&&isNum(local.totalContributed))?money(local.totalContributed,0):"-";
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="impModal"><div class="modal-card card pad" style="max-width:460px">
+    <h2 style="font-size:16px">This account is empty</h2>
+    <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b>. There is no portfolio
+      stored against it yet. You have one open on this computer:</p>
+    <div class="card pad" style="margin:12px 0;background:var(--surface2)">
+      <div class="small"><b>${h}</b> holdings &middot; <b>${v}</b> checkpoint${v===1?"":"s"} &middot; ${contributed} contributed</div>
+      <div class="xs muted" style="margin-top:4px">Its full history comes with it - every rebalance stays undoable.</div>
+    </div>
+    <div id="impMsg" class="auth-msg"></div>
+    <div class="row" style="gap:8px;margin-top:6px">
+      <button class="btn primary" id="impYes" style="flex:1">Import it into my account</button>
+      <button class="btn" id="impNo">Start fresh</button>
+    </div>
+    <p class="xs muted" style="margin:12px 0 0">Either way your local file is left exactly as it is, so
+      nothing here can lose it.</p>
+  </div></div>`;
+  const close=()=>{ closeModal(); };
+  $("#impNo").addEventListener("click",async()=>{
+    close();
+    state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
+    state.themeTickers=null; state.themes=null; state.watchlist=[];
+    rebuildThemeOf(); rebuildFundamentals(); renderAll();
+    toast("Started fresh - this account has its own empty portfolio");
+  });
+  $("#impYes").addEventListener("click",async()=>{
+    const b=$("#impYes"); b.disabled=true; b.textContent="Importing\u2026";
+    try{
+      state.portfolio=local;                      // the in-memory book is already this; be explicit
+      state.portfolio.revision=0;                 // the account has no row: the first write starts at 1
+      await savePortfolio();                      // stamps revision 1 and INSERTs the row
+      rebuildThemeOf(); rebuildFundamentals(); renderAll();
+      close(); toast("Imported - "+h+" holdings and "+v+" checkpoint"+(v===1?"":"s")+" now live in your account");
+    }catch(e){
+      console.error("import failed",e); b.disabled=false; b.textContent="Import it into my account";
+      const m=$("#impMsg"); if(m){ m.className="auth-msg show err"; m.textContent="Import failed: "+(e.message||"unknown error")+". Your local copy is untouched."; }
+    }
+  });
+  $("#impModal").addEventListener("click",e=>{ if(e.target.id==="impModal") close(); });
 }
 
 function renderOverview(){
@@ -3601,8 +3774,13 @@ async function init(){
   if(NATIVE){ try{ document.documentElement.classList.add('native'); }catch(e){} try{ state.serverUrl=localStorage.getItem(SRV_KEY)||""; }catch(e){} }
   initTheme();                                            // E5.0: before first paint, so there's no flash
   sbLoadSession();                                        // E6.4: restore a signed-in session before any load
+  wireGate();                                             // E6.8
   setupEvents();
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
+  // E6.8: no session -> stop here and show the landing page. A stored session continues, even if
+  // the backend turns out to be unreachable (loadPortfolio falls back to the local mirror).
+  if(!signedIn()){ showGate(true); setupAutoRefresh(); return; }
+  showGate(false);
   try{ await loadPortfolio(); }catch(e){ console.error(e); }
   rebuildThemeOf();
   try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }   // E3: load statements + overlay computed metrics
