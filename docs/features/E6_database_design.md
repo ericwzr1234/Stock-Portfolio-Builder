@@ -822,3 +822,66 @@ with the epoch unchanged and the mirror intact.
 **Not converged.** A seventh round must return a clean verdict before this merges. The trend is
 real (36 → 30 → 19 → 6 → 3 → 3) but the regression rate has not fallen, and every round has found at
 least one defect introduced by the previous round's fix.
+
+---
+
+## 20. Round 7, and a recommendation to stop patching
+
+| Round | Findings | Regressions from the previous round's fixes |
+|---|---|---|
+| 1 | 36 | — |
+| 2 | 30 | 3 |
+| 3 | 19 | 4 |
+| 4 | 6 | 2 |
+| 5 | 3 | 2 |
+| 6 | 3 | 2 |
+| 7 | 5 | 2 |
+
+**Seven rounds. Seven with regressions.** The finding count fell by 7× and then stopped falling; the
+regression rate never fell at all. Round 7's two were both created by round 6's fixes, and round 6's
+critical was created by round 5's.
+
+### Round 7's findings
+
+- **HIGH — the rescue that round 6 disabled.** Round 6 added `if(sbEpoch!==_epoch0)` around the
+  mirror write so an in-flight save could not resurrect a mirror that sign-out had deleted. But a
+  *definitive 401/403* also bumps the epoch, via `sbStoreSession(null)`. So the commonest way to
+  lose a session — an expired or revoked refresh token — skipped the rescue write entirely: the
+  user's edit went nowhere, while the toast said *"kept on this device only."* Now the work is
+  written to the **owner's stash** (whose data it is) without re-creating the plaintext mirror.
+- **MEDIUM — one bit doing two jobs.** `mirrorIsDirty` meant both *"this copy is newer than the
+  server"* and *"we could not file this copy"*. So an ordinary failed-then-retried save filed its
+  own **ancestor** as unsaved work, and restoring that prompt reverted the account to the older
+  document. Split into `pb_mirror_dirty_<uid>` and `pb_mirror_unfiled_<uid>`.
+- A restored stash is now consumed by the first successful save after it is put on screen (signature
+  comparison could only ever match a byte-identical re-save, so the prompt returned forever);
+  `nativeSavePortfolio` throws instead of reporting success on a full localStorage; `#resetBtn` no
+  longer claims success unconditionally.
+
+### The recommendation
+
+**Stop patching this layer. Rewrite `loadPortfolio`, `_savePortfolioInner` and `sbApi` against the
+invariants in §16–19, written first and implemented second.**
+
+The case for it is in the table. Each fix is individually correct and locally reasoned, and each one
+lands in a function whose behaviour depends on state that three other functions mutate across
+`await` boundaries. The recurring shapes have not changed since §17:
+
+1. State captured before an `await` and used after it without re-checking that it still applies.
+2. A guard that reads state some other path nulls.
+3. A rescue store nothing reads back.
+4. A sentinel return value nobody checks.
+5. A comment describing an intention the code does not implement.
+6. **(new, round 6–7)** A guard that measures a proxy for the thing it guards against, and therefore
+   fires on the healthy path.
+
+What is different now, and why a rewrite is finally the cheaper option: **the invariants are known.**
+They were discovered by breaking them seven times, and they are written down. A fresh implementation
+can state them as preconditions at the top of each function and check them once, instead of
+re-deriving them at each of the fourteen points where these three functions touch shared state.
+
+Scope: roughly 250 lines across three functions. Everything else in E6 — the SQL and RLS (gate 8/8),
+the adapter registry, the gate, the import flow, the stash UI — has held up across all seven rounds
+and should not be touched.
+
+Until that is done, or until a round returns clean, **this does not merge to `main`.**
