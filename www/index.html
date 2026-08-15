@@ -1617,7 +1617,11 @@ function renderStatus(){
    synthetic prices. Between checkpoints untraded positions are held at their
    last traded price, which is why this is labelled "at traded prices". */
 function valueHistory(){
-  const vs=(typeof versions==="function")?versions():[];
+  // Respect the active timeline: restoreVersion() only moves head, it never truncates versions
+  // (that is what makes Redo work), so plotting the whole array would chart undone checkpoints.
+  const _all=(typeof versions==="function")?versions():[];
+  const _h=(typeof head==="function")?head():_all.length-1;
+  const vs=_all.slice(0,Math.max(0,_h+1));
   const px={}, out=[];
   vs.forEach(v=>{
     (v.trades||[]).forEach(tr=>{ if(tr&&tr.sym&&isNum(tr.price)) px[tr.sym]=tr.price; });
@@ -1659,11 +1663,15 @@ function renderOverview(){
   const H=valueHistory();
   const legend=$("#ovChartLegend"), note=$("#ovChartNote");
   if(H.length<2){
-    svg.innerHTML=""; if(legend)legend.innerHTML="";
+    svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null;   // else stale handlers keep reporting the OLD portfolio's dollars
+    if(legend)legend.innerHTML="";
     if(note)note.textContent=init?"One checkpoint so far — the curve appears once you have a second.":"";
     renderOverviewDonut(); return;
   }
-  const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=170, PB=18, PT=10;
+  // viewBox must match the CSS box's aspect, or the default preserveAspectRatio letterboxes the
+  // drawing (it rendered in the middle ~61% of the card) AND the scrub maths goes out of register.
+  const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=Math.max(80,Math.round(svg.clientHeight||170)),
+        PB=Math.max(10,Math.round(Ht*0.11)), PT=Math.max(6,Math.round(Ht*0.06));
   svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
   const vals=H.flatMap(p=>[p.value,p.invested]).filter(isNum);
   let lo=Math.min(...vals), hi=Math.max(...vals);
@@ -1693,13 +1701,20 @@ function renderOverview(){
     `<span><i style="border-top:2.4px solid var(--teal)"></i>Value</span>`+
     `<span><i style="border-top:1.6px dashed var(--muted)"></i>Invested</span>`;
   const gaps=H.filter(p=>!isNum(p.value)).length, est=H.filter(p=>p.estimated&&isNum(p.value)).length;
-  if(note) note.textContent=`${H.length} checkpoints · value as recorded at each save`+
+  const saves=H.filter(p=>!p.live).length;   // the appended "now" point is live, not a saved checkpoint
+  if(note) note.textContent=`${saves} checkpoint${saves===1?"":"s"} · value as recorded at each save`+
+    (H.some(p=>p.live)?" · plus today at live prices":"")+
     (est?` · ${est} reconstructed from traded prices`:"")+
     (gaps?` · ${gaps} not priced (line breaks there)`:"");
   // scrub
   svg.onmousemove=e=>{
     const r=svg.getBoundingClientRect(); if(!r.width) return;
-    let i=Math.round(((e.clientX-r.left)/r.width)*(H.length-1));
+    // map through the SVG's own transform so the index matches the point actually drawn
+    let ux=null;
+    try{ const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+      const m=svg.getScreenCTM(); if(m) ux=pt.matrixTransform(m.inverse()).x; }catch(err){}
+    let i = (ux!=null && W>8) ? Math.round(((ux-4)/(W-8))*(H.length-1))
+                              : Math.round(((e.clientX-r.left)/r.width)*(H.length-1));
     i=Math.max(0,Math.min(H.length-1,i)); const p=H[i];
     setHero(isNum(p.value)?money(p.value,0):"—",
       `<b>${p.label}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
@@ -1718,7 +1733,14 @@ function renderOverviewDonut(){
     current:(init&&total>0)?(cvt[r.theme.key]||0)/total:null }));
   const useCur=init&&total>0;
   const parts=seg.map(s=>useCur?(s.current||0):(s.target||0));
-  const sum=parts.reduce((a,b)=>a+b,0)||1;
+  // Do NOT renormalise: curTotal() spans tradeUniverse (membership UNION holdings) while
+  // curValueByTheme() covers themed names only, so a held-but-unthemed position would inflate
+  // every slice. Show the remainder as its own segment instead, so the ring still closes.
+  let sum=parts.reduce((a,b)=>a+b,0);
+  if(useCur){ const other=1-sum;
+    if(other>1e-6){ seg.push({name:"Exiting / unthemed",color:"var(--muted)",target:0,current:other}); parts.push(other); }
+    sum=parts.reduce((a,b)=>a+b,0); }
+  if(!(sum>0)) sum=1;
   const cx=100,cy=100,R=84,r0=54; let a0=-Math.PI/2, d="";
   svg.innerHTML=seg.map((s,i)=>{
     const frac=parts[i]/sum; if(frac<=0) return "";
@@ -2006,6 +2028,7 @@ function renderFundamentals(){
         </div>
       </div>`);
   });
+  syncFThemeAllBtn();   // the theme set may have changed; keep the Expand/Collapse-all label honest
   // wire inline editors
   $$(".editable").forEach(el=>el.addEventListener("click",()=>startEdit(el)));
   $$(".reset").forEach(el=>el.addEventListener("click",async e=>{
@@ -2265,7 +2288,7 @@ function renderCalcMain(){
       <div class="card pad calc-holdings">
         <div class="calc-hhead">
           <span class="ov-k">Current holdings</span>
-          <span class="xs muted">cost basis ${money(cost,0)} · unrealised
+          <span class="xs muted">started ${state.portfolio.createdAt||"—"} · cost basis ${money(cost,0)} · unrealised
             <span class="${unreal>=0?'up':'down'}">${sgn(unreal)}</span>
             (${cost>0?pct(unreal/cost):"—"})</span>
         </div>
@@ -2341,7 +2364,7 @@ function renderRebalanceOutput(plan){
 
   const M=membership();   // E1.6: warn before liquidating names that are no longer in any theme
   const exiting=plan.universe.filter(s=> !M.includes(s) && (plan.cv[s]||0)>0.5 && (plan.target[s]||0)<0.5);
-  const exitWarn = exiting.length ? `<div class="hint" style="margin:14px 0;border-left:3px solid #B0894F;background:#FBF6EC;color:#7A5A25;padding:8px 12px">
+  const exitWarn = exiting.length ? `<div class="hint" style="margin:14px 0;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) var(--tint),var(--paper));color:var(--gold);padding:8px 12px">
       ⚠ <b>${exiting.length} name${exiting.length>1?"s":""} will be sold to $0</b> — no longer in any theme (deleted theme, removed, or swapped out): <b>${exiting.join(", ")}</b>. Apply to liquidate.</div>` : "";
   out.innerHTML=`
     ${exitWarn}
@@ -2418,7 +2441,8 @@ function renderHistory(){
         <b>Rebalance</b> tab — every build and rebalance is saved here as a checkpoint you can undo,
         redo, or revert to.</p></div>`; return; }
   body.innerHTML=vs.map((_,i)=>i).reverse().map(i=>{
-    const tx=vs[i], isCur=(i===h), isFut=(i>h), open=OPEN_VERSIONS.has(tx.id);
+    // dataset round-trips the id as a String, so compare as one (Set membership is SameValueZero)
+    const tx=vs[i], isCur=(i===h), isFut=(i>h), open=OPEN_VERSIONS.has(String(tx.id));
     const trades=(tx.trades||[]).map(tr=>{ const act=tr.amount>0?"BUY":"SELL", cls=tr.amount>0?"trade-buy":"trade-sell";
       return `<tr><td class="sym">${tr.sym}</td><td class="${cls}">${act}</td>
         <td class="num ${cls}">${(tr.amount>0?"+":"")+money(tr.amount,0)}</td>
@@ -2654,7 +2678,7 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
     rebuildFundamentals();
   }
   if(isInit()){
-    switchView("calc"); renderCalc();
+    switchView("calc"); renderCalc(); renderContext();   // membership changed: refresh Max drift + rail footer
     const plan=planTrades(0,"full"); lastPlan=plan;
     if($("#addCash")) $("#addCash").value="0";
     renderRebalanceOutput(plan);
@@ -3028,9 +3052,9 @@ function renderContext(){
   const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n));
   box.innerHTML=
     kpi("Total value",money(total))+
-    kpi("Today",`<span class="${day>=0?'pos':'neg'}">${sgn(day)} · ${day>=0?'+':'−'}${Math.abs(dayPct).toFixed(2)}%</span>`)+
+    kpi("Today",`<span class="${day>=0?'up':'down'}">${sgn(day)} · ${day>=0?'+':'−'}${Math.abs(dayPct).toFixed(2)}%</span>`)+
     kpi("Invested",money(invested))+
-    kpi("Gain",`<span class="${pl>=0?'pos':'neg'}">${sgn(pl)} · ${pl>=0?'+':'−'}${Math.abs(plPct).toFixed(1)}%</span>`)+
+    kpi("Gain",`<span class="${pl>=0?'up':'down'}">${sgn(pl)} · ${pl>=0?'+':'−'}${Math.abs(plPct).toFixed(1)}%</span>`)+
     (drift!=null?kpi("Max drift",drift.toFixed(1)+"pp"):"");
   if($("#railFoot")) $("#railFoot").innerHTML=
     Object.keys(h).length+" holdings · "+themes().length+" themes";
@@ -3039,7 +3063,7 @@ function kpi(k,v){ return `<span class="kpi"><span class="k">${k}</span><span cl
 
 async function refreshPrices(showToast){
   $("#refreshBtn").disabled=true;
-  try{ await loadQuotes(); renderStatus(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }
+  try{ await loadQuotes(); renderStatus(); renderContext(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }   // E5 fix: the context bar is on the refresh path, else it shows stale money beside live money
   catch(e){ toast("Price refresh failed"); }
   finally{ $("#refreshBtn").disabled=false; }
 }
@@ -3113,6 +3137,9 @@ function setupEvents(){
     const h=e.target.closest("[data-fthmtoggle]"); if(h) toggleFTheme(h.dataset.fthmtoggle); });
   if($("#fundGrid")) $("#fundGrid").addEventListener("keydown",e=>{        // header is a div: keyboard-operable
     if(e.key!=="Enter"&&e.key!==" ") return;
+    // Same guard as the click handler. Without it, preventDefault() below cancels the UA's
+    // activation of a focused add/rename/delete button, so keyboard users could never press them.
+    if(e.target.closest(".theme-acts,button,.editable,.reset")) return;
     const h=e.target.closest("[data-fthmtoggle]"); if(!h) return;
     e.preventDefault(); toggleFTheme(h.dataset.fthmtoggle); });
   if($("#fundExpandAll")) $("#fundExpandAll").addEventListener("click",toggleAllFThemes);
@@ -3122,6 +3149,7 @@ function setupEvents(){
     const hd=e.target.closest("[data-vtoggle]"); if(hd) toggleVersion(hd.dataset.vtoggle); });
   if($("#historyBody")) $("#historyBody").addEventListener("keydown",e=>{
     if(e.key!=="Enter"&&e.key!==" ") return;
+    if(e.target.closest("button,[data-vaction]")) return;   // else Enter on "Revert to here" is swallowed
     const hd=e.target.closest("[data-vtoggle]"); if(!hd) return;
     e.preventDefault(); toggleVersion(hd.dataset.vtoggle); });
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
@@ -3148,6 +3176,14 @@ async function init(){
   renderAll();
   setupAutoRefresh();
 }
+/* E5 fix: the value chart's viewBox is built from its measured box, so re-render it when that box
+   changes (window resize, or the rail collapsing at 900px) instead of leaving stale W/Ht. */
+(function watchChartSize(){
+  const el=document.getElementById("ovChart"); if(!el) return;
+  let t=null; const redraw=()=>{ clearTimeout(t); t=setTimeout(()=>{ try{ renderOverview(); }catch(e){} },120); };
+  if(window.ResizeObserver){ try{ new ResizeObserver(redraw).observe(el); return; }catch(e){} }
+  window.addEventListener("resize",redraw);
+})();
 init();
 </script>
 </body>
