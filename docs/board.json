@@ -294,11 +294,41 @@
       "Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.",
       "NOT being built now. No accounts, no backend, no database, no paid services in Phase 1." ] },
 
-    { "id": "E6.1", "epic": "E6", "stage": "ideation", "platform": "web + ios", "depends": "E6.0", "spec": "docs/features/E6_multi-user-platform.md",
-      "title": "Phase 2: accounts + hosted sync (free tier)", "notes": [
-      "The five gaps to close: identity (managed provider - never hand-roll password storage), server-side authorisation scoped to the authenticated user, HTTPS everywhere, conflict resolution via a monotonic revision + optimistic concurrency (one account editing on phone AND web), and a per-user storage row instead of one whole-file rewrite.",
-      "Add a FOURTH adapter behind the existing loadPortfolio/savePortfolio seam - the engine and UI should need no changes.",
-      "Includes a migration that imports the existing local portfolio.json into an account.",
-      "Starts only after E5 ships and the user explicitly opens Phase 2." ] }
+    { "id": "E6.1", "epic": "E6", "stage": "design", "platform": "web", "depends": "E6.0", "spec": "docs/features/E6_database_design.md",
+      "title": "Forward-compat: schemaVersion + revision + updatedAt", "notes": [
+      "Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.",
+      "revision is the optimistic-concurrency token E6.5 needs; schemaVersion makes any future server-side migration mechanical.",
+      "Deliberately kept OUT of E5 so savePortfolio stayed byte-identical to prod for a provably safe merge. Do this FIRST." ] },
+
+    { "id": "E6.2", "epic": "E6", "stage": "design", "platform": "web", "depends": "E6.1", "spec": "docs/features/E6_database_design.md",
+      "title": "Extract a storage-adapter interface", "notes": [
+      "Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.",
+      "No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically." ] },
+
+    { "id": "E6.3", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.2", "spec": "docs/features/E6_database_design.md",
+      "title": "Choose provider; stand up schema + row-level security", "notes": [
+      "NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.",
+      "Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().",
+      "Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth." ] },
+
+    { "id": "E6.4", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.3", "spec": "docs/features/E6_database_design.md",
+      "title": "Login / register / logout + session handling", "notes": [
+      "First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout." ] },
+
+    { "id": "E6.5", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
+      "title": "Cloud adapter with optimistic concurrency", "notes": [
+      "Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.",
+      "On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.",
+      "Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure." ] },
+
+    { "id": "E6.6", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.5", "spec": "docs/features/E6_database_design.md",
+      "title": "Import local portfolio.json + cutover", "notes": [
+      "On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup." ] },
+
+    { "id": "E6.7", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
+      "title": "Security review - GATE before inviting anyone", "notes": [
+      "Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.",
+      "Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.",
+      "No tester is invited until this passes." ] }
   ]
 }

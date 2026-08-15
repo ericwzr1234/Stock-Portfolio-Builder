@@ -8,8 +8,8 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 3 |
-| Design | 0 |
+| Ideation | 7 |
+| Design | 2 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
@@ -18,7 +18,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (3)
+## Ideation  (7)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **APP2** · _APP · iOS app parity_ — **Rebuild the iOS app against the V2 web baseline** _(depends E5.5, ios)_
@@ -33,16 +33,33 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
-- **E6.1** · _E6 · Multi-user platform_ — **Phase 2: accounts + hosted sync (free tier)** _(depends E6.0, web + ios)_ · [spec](features/E6_multi-user-platform.md)
-  - The five gaps to close: identity (managed provider - never hand-roll password storage), server-side authorisation scoped to the authenticated user, HTTPS everywhere, conflict resolution via a monotonic revision + optimistic concurrency (one account editing on phone AND web), and a per-user storage row instead of one whole-file rewrite.
-  - Add a FOURTH adapter behind the existing loadPortfolio/savePortfolio seam - the engine and UI should need no changes.
-  - Includes a migration that imports the existing local portfolio.json into an account.
-  - Starts only after E5 ships and the user explicitly opens Phase 2.
+- **E6.3** · _E6 · Multi-user platform_ — **Choose provider; stand up schema + row-level security** _(depends E6.2, web)_ · [spec](features/E6_database_design.md)
+  - NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.
+  - Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().
+  - Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth.
+- **E6.4** · _E6 · Multi-user platform_ — **Login / register / logout + session handling** _(depends E6.3, web)_ · [spec](features/E6_database_design.md)
+  - First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout.
+- **E6.5** · _E6 · Multi-user platform_ — **Cloud adapter with optimistic concurrency** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
+  - Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.
+  - On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.
+  - Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure.
+- **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
+  - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
+- **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
+  - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
+  - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
+  - No tester is invited until this passes.
 
-## Design  (0)
+## Design  (2)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- _(none)_
+- **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
+  - Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.
+  - revision is the optimistic-concurrency token E6.5 needs; schemaVersion makes any future server-side migration mechanical.
+  - Deliberately kept OUT of E5 so savePortfolio stayed byte-identical to prod for a provably safe merge. Do this FIRST.
+- **E6.2** · _E6 · Multi-user platform_ — **Extract a storage-adapter interface** _(depends E6.1, web)_ · [spec](features/E6_database_design.md)
+  - Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.
+  - No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically.
 
 ## Implementation  (0)
 _Being built on the dev branch._
