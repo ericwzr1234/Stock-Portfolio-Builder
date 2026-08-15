@@ -1,5 +1,18 @@
 # Web → iOS app migration — status & checklist
 
+> ## ⚠️ SUPERSEDED FOR NEW WORK — read [`V2_WEB_BASELINE.md`](V2_WEB_BASELINE.md) first
+> This file documents how the **V1** iOS app reached parity with the **V1** web app (that work is
+> done and shipped). The web app has since been **rebuilt as V2** (epic E5, on `main` since
+> 2026-08-15). **V1 — including the shipped iPhone app — is superseded.**
+>
+> The V1 native CSS keys off markup V2 no longer emits, so parts of it are dead by design. Per the
+> user's decision, that is **not** to be repaired: the phone UI is being rebuilt against
+> [`V2_WEB_BASELINE.md`](V2_WEB_BASELINE.md), which defines the content and features the app must
+> carry. Board ticket: **APP2**.
+>
+> Everything below remains accurate as **V1 history** — in particular §1 (how the platforms relate)
+> and §3 (the `ds*` data-layer table), which are still true and still the right architecture.
+
 > **The shared record of what's been built on the web side and how the iOS app reached parity — now complete.**
 > The Windows machine builds features on the web (`www/index.html` + `server.py`); the Mac brought the
 > **native iOS app** (Capacitor) to parity and shipped it to a physical device. Both machines share **one**
