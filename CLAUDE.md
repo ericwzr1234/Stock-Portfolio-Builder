@@ -14,19 +14,35 @@ from a **user-defined fundamentals model** (pick your themes, pick your metrics,
 data or straight from the financial statements). It runs in two forms from **one codebase** (`www/`):
 
 1. **Web app** — `server.py` (Python standard library only) serves `www/` and proxies Yahoo
-   Finance; data persists in `portfolio.json`. This is the dev path and works on Windows + Mac.
+   Finance. Since **E6 the portfolio persists in the signed-in user's account** (Supabase, one row
+   per user, isolated by database row-level security), with a per-user copy in `localStorage` so the
+   app still opens offline. `portfolio.json` is now the *pre-account* file: the import source on
+   first sign-in, and the pre-migration backup. This is the dev path and works on Windows + Mac.
 2. **iOS app** — the same `www/` wrapped with **Capacitor**. On iOS there is no server: it fetches
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-**Status (2026-07-15):** the web app is feature-complete — Epics **E1** (user-defined themes),
-**E2** (user-defined metrics), **E3** (statement-driven data), and **E4/E4.5** (Fundamentals/Screener
-redesign) are all shipped to `main`/prod (`a3353ae`). The **iOS-parity phase is complete**: the
-Capacitor app is now built, installed, and **running on a real iPhone** (not just the simulator) with
-live on-device Yahoo data, and board ticket **APP1** (epic `APP`) is **done** and merged to prod. The
-only ongoing maintenance is the **weekly re-run from Xcode** to refresh the free (personal-team)
-signing cert, which expires every 7 days. See [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md) and
-[`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
+**Status (2026-08-15):** epics **E1** (themes), **E2** (metrics), **E3** (statement-driven data) and
+**E4/E4.5** (Fundamentals/Screener redesign) are shipped to `main`/prod. **E5** (the V2 web UI) and
+**E6** (accounts + hosted database) are **built and on `dev-newUI`, NOT yet merged** — they are
+waiting on the owner's own testing, and on the sync layer clearing a review (see below).
+
+- **E5** replaced the whole web UI: five views — **Overview · Model · Rebalance · Research ·
+  History** — with the allocation donut, the portfolio-value chart against an **Equal-weight
+  Strategy** counterfactual, a **$ / %** return chart, and a collapsible holdings table.
+  Spec: [`docs/features/E5_web-ui-overhaul.md`](docs/features/E5_web-ui-overhaul.md).
+- **E6** put the portfolio behind a **mandatory login**. Read
+  [`docs/features/E6_database_design.md`](docs/features/E6_database_design.md) **§16–17 before
+  touching the sync layer** — five adversarial review rounds found ~90 defects there, and several
+  were introduced by the previous round's fix. Each invariant is written next to the failure that
+  motivated it.
+- **iOS is PARKED at V1.** It still runs on a real iPhone, but it predates E5 and E6. Rebuilding it
+  is board ticket **APP2**; the hand-off spec is
+  [`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md) (§9 lists the sync rules the native build
+  must inherit — they matter more there, because on-device storage is the *only* copy).
+  Maintenance while parked: the **weekly re-run from Xcode** to refresh the free personal-team
+  signing cert, which expires every 7 days. See [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md)
+  and [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
 ## The default themes (user-editable since E1)
 Themes and their names are no longer hardcoded — the user can create/rename/recolour/delete themes and
@@ -97,9 +113,15 @@ This is now a managed, git-synced project. **Before developing, read
   is [`docs/board.json`](docs/board.json); regenerate the views with `tools/render_dashboard.py`.
 - **Each feature** has a spec in `docs/features/<id>_<name>.md`; its **iOS migration notes** are what
   the Mac session reads to replicate the web feature natively.
-- **Current focus:** none active — the **iOS app** (epic `APP`, ticket `APP1`) reached web parity and
-  is **shipped to a physical device**; web epics E1–E4.5 are all in prod. Ongoing maintenance is the
-  weekly free-signing re-run (below). History: [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md).
+- **Current focus: E5 + E6 on `dev-newUI`, awaiting testing and a clean review before merge.**
+  **Do not merge to `main` until the sync-layer review comes back converged** — five adversarial
+  rounds have run (36 → 30 → 19 → 6 → 3 findings) and *every* round has included defects introduced
+  by the previous round's fixes. Round 5's three are fixed but **unverified by a sixth round**.
+  Start there: `docs/features/E6_database_design.md` §16–18.
+  Three operator actions are also outstanding *before anyone else is invited* — see
+  `sql/ISOLATION_TEST.md`: confirm account-deletion cascades, configure custom SMTP (the built-in
+  sender is capped at 2 emails/hour), and switch signup to invite-only.
+  Next build ticket after that is **APP2** (rebuild iOS against the V2 baseline).
 
 ## How to run
 
@@ -107,7 +129,8 @@ This is now a managed, git-synced project. **Before developing, read
 - **Windows:** double-click `Start Portfolio Builder.bat` (needs Python 3).
 - **Mac:** double-click `Start Portfolio Builder.command` (Finder may need right-click → Open the
   first time), or run `python3 server.py`. Then open the printed `http://127.0.0.1:8765/`.
-- Everything you do saves to `portfolio.json`.
+- **You sign in first** — the app opens on a login page and nothing is reachable until you do.
+  Your work then saves to your account, with an offline copy in this browser.
 
 ### iOS (Mac only) — see [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) for the full walkthrough
 Prerequisites are now **satisfied** on this Mac (Xcode 26.5, Node 24, CocoaPods 1.16.2). The app is
@@ -134,9 +157,9 @@ On-device the portfolio lives in the app's private WebKit **localStorage** (`pb_
 cloud — and the app fetches **only while foregrounded** (no background refresh). Optional Wi-Fi/LAN
 sync (History → Data sync) shares the home computer's `portfolio.json`.
 
-## Feature epics (all shipped to prod)
+## Feature epics (E1–E4.5 in prod; E5 + E6 built on `dev-newUI`)
 The original tool (core 6-factor model, calculator/rebalance, version history, Prices tab) has been
-extended by four epics — each with specs under `docs/features/`:
+extended by six epics — each with specs under `docs/features/`:
 1. **E1 — User-defined themes.** Themes are data-driven: create/rename/recolour/delete, restore
    defaults, add/remove any ticker (search any listed name incl. ADRs), a staging watchlist, and the
    flat Screener → peers recommendations.
@@ -152,6 +175,17 @@ extended by four epics — each with specs under `docs/features/`:
    ② Exception handling / ③ Max weight; per-theme actions in each theme card; the **Screener is now
    search + watchlist** (look up a name → watchlist → add-as-new or swap-for-a-holding → rebalance);
    the two-card Fundamentals layout (Target-vs-current | Theme-allocation-model).
+5. **E5 — V2 web UI.** The whole web interface, rebuilt: five views (**Overview · Model · Rebalance ·
+   Research · History**), a light/dark toggle driven by CSS design tokens, the allocation donut, the
+   portfolio-value chart against an **Equal-weight Strategy** counterfactual (rebalanced to exact
+   equal weight at every checkpoint, drifting between them, priced from the recorded trade prices), a
+   **$ / %** return chart, and a collapsible holdings table. Presentation only — 24 engine functions
+   were verified byte-identical to prod.
+6. **E6 — Accounts + hosted database.** A mandatory login gate; one row per user in Supabase with
+   isolation enforced by **database** row-level security; optimistic concurrency on a monotonic
+   `revision` (a save states the revision it was based on; the loser is refused and **kept aside**,
+   never auto-merged); a per-user offline copy; and a one-time import of a pre-account
+   `portfolio.json`. **§16–17 of the design doc are required reading before changing this layer.**
 
 **Swap** (still core, now driven from the watchlist): choosing a theme for a watchlisted name asks
 whether to add it or replace a **same-theme** holding → the Calculator shows a full realign (sell the

@@ -153,3 +153,52 @@ Also verified at the APPLICATION level, not just the API:
 
 Seven of eight ticked. **Check 6 is the only one outstanding**, and it needs a dashboard action:
 delete a test user, then confirm their row is gone (`on delete cascade`).
+
+---
+
+## Second application-level run — 2026-08-15, after the sync hardening
+
+The checks above proved the *database* isolates users. These prove the *app* does, which is a
+separate claim: RLS can be perfect while the client still shows one account another's data from
+memory or from a shared local key. Run through the real UI (gate → sign in → save → sign out),
+not by calling the API directly.
+
+| Check | Result |
+|---|---|
+| A writes marker `MARKERA` through the real save path; server confirms it | ✅ |
+| B signs in — sees `[]`, **not** `MARKERA` | ✅ |
+| B writes `MARKERB`; A signs back in and still holds `MARKERA`, never sees `MARKERB` | ✅ |
+| Sign-out empties `state.portfolio`, `baseRevision`, watchlist, badge | ✅ |
+| Each account gets its own `pb_cloud_mirror_<uid>` — two distinct keys | ✅ |
+| `pb_portfolio_v1` (the on-device book) byte-identical after the full cycle — 18,871 bytes | ✅ |
+| Forced network failure → `savePortfolio()` returns `false`, base unchanged, badge reads *not synced* | ✅ |
+| The next save after that failure **succeeds** — no permanent false conflict | ✅ |
+| Simulated second device wins a race → its write survives, ours does not clobber it | ✅ |
+| The rejected edit is stashed complete (25 holdings) to `pb_conflict_<uid>_<ts>` | ✅ |
+| All five views render after the changes; zero console errors | ✅ |
+| Real `portfolio.json` untouched — last written 2026-07-13 | ✅ |
+
+Test accounts were left clean (markers and stashes cleared).
+
+---
+
+## Before anyone else is invited — three dashboard actions
+
+These need admin rights on the Supabase project. **I cannot and will not do them for you** — they
+are account-level changes on a service in your name.
+
+**1. Check 6 — account deletion cascades.**
+Authentication → Users → delete one of the test users, then in the SQL editor run
+`select user_id from public.portfolios;` and confirm that user's row is gone. This is the last
+box on the gate above.
+
+**2. Custom SMTP — required before any invite.**
+The built-in sender is capped at **2 emails per hour** and is explicitly not for production. With
+it, a confirmation or reset email will silently fail to arrive and the tester will think the app is
+broken. Project Settings → Authentication → SMTP Settings, point it at any provider you already
+have. Until this is done, invite nobody.
+
+**3. Invite-only signup.**
+Signup is currently **open** (`disable_signup` = false), so anyone who reaches the URL can create an
+account. Authentication → Providers → Email → turn off "Allow new users to sign up", then add
+testers yourself via Add user. Do this before the URL is shared with anyone.

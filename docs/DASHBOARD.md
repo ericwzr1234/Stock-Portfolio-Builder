@@ -60,21 +60,35 @@ _Built; waiting for you to try it._
   - Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth.
 - **E6.4** · _E6 · Multi-user platform_ — **Login / register / logout + session handling** _(depends E6.3, web)_ · [spec](features/E6_database_design.md)
   - First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout.
+  - Sign-out now clears every trace of the account (portfolio, revision, themes, watchlist, metrics, presets, weights, penalty, cap) - without it a different, empty account was offered the previous user's book to import. Verified with per-account markers across repeated sign-in cycles.
+  - A session that dies mid-use (revoked/expired refresh token, paused project) now re-gates the app. It used to keep running unauthenticated: the adapter fell through to the identity-free store and the next save wrote the account's portfolio over the shared server file.
 - **E6.5** · _E6 · Multi-user platform_ — **Cloud adapter with optimistic concurrency** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
   - Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.
   - On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.
   - Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure.
+  - HARDENED over three review rounds. baseRevision holds only a SERVER-CONFIRMED revision (null means saving is refused); the offline mirror moved off STORE_KEY to pb_cloud_mirror_<uid>; savePortfolio() returns true/false; kept-aside work is stashed AND readable back. Contract: E6_database_design.md sections 16-17.
+  - Stashing decides by CONTENT, not revision number: two devices editing from the same base both stamp base+1, so the old 'mirror revision is not ahead' test discarded genuine offline work. Verified live: divergent edits at equal revisions are kept, distinct edits both survive, identical repeats dedupe.
+  - ROUND 5 (2026-08-15) = NOT CONVERGED: 3 defects that lose data or cross accounts, 2 of them regressions from round 4's own fixes. Fixed but NOT yet re-verified. (a) loadPortfolio's FAILURE branch had no session guard, so a stalled request from a signed-out user hydrated that account's mirror into the next user's session; (b) dropMirror ignored stashUnsyncedMirror's 'failed' sentinel and deleted the only copy of an unsaved edit; (c) 'Start fresh' resolved its modal before its own INSERT, letting a stash restore interleave and drop a document that was never written.
+  - DO NOT MERGE until a sixth review round comes back converged. Findings per round so far: 36, 30, 19, 6, 3 - and EVERY round has contained defects introduced by the previous round's fix. The invariants and the failure that motivated each one are in E6_database_design.md sections 16-18.
 - **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
   - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
+  - Import re-checks for an existing row, hydrates through the SAME path a normal load uses (it previously uploaded a book stripped of themes, watchlist, metrics, presets, cap, weights and penalty), and fails loudly instead of reporting success. 'Empty account' now means no row - not a holdings count of zero.
+  - Cross-user guards verified as a truth table: claimed by another account, not offered; account read failed, not offered; clean and unclaimed, offered; claimed by me, offered. pb_portfolio_v1 stayed byte-identical (18,871 bytes) through every test.
 - **E6.8** · _E6 · Multi-user platform_ — **Login landing page - sign-in required before anything** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
   - USER REQUEST (2026-08-15): a proper log-in landing page. Nobody reaches the app without signing in first.
   - This CHANGES THE APP'S CHARACTER: today it runs fine signed-out on local storage. With a hard gate, no account = no app, and the local portfolio.json path becomes reachable only through the E6.6 import.
   - OPERATIONAL RISK to design around: the free tier PAUSES after a week idle. A naive gate would lock the user out of their own portfolio whenever the backend is asleep or offline. So: a VALID STORED SESSION must still open the app against the local mirror when the backend is unreachable — the gate blocks strangers, it must not block the owner during an outage.
   - Sign out returns to the landing page.
+  - The gate is visible in markup and taken down pre-paint only when a stored session exists, so the page fails closed if a boot fetch hangs. It lifts only AFTER the account's data has loaded - previously a new user saw the previous user's holdings for the seconds boot spent on the network.
+  - init() and the sign-in path now share one boot function; they had drifted, so reloading the page skipped the sync badge, the import offer and the kept-aside-work prompt.
 - **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
   - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
   - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
   - No tester is invited until this passes.
+  - THREE adversarial review rounds over E6.4-E6.8. Round 1: 36 confirmed. Round 2: 30 more, including three HIGH data-loss paths INTRODUCED by the round-1 fixes (lockOut cleared the very state its own save guards read). Engine re-verified untouched after every round - 28 functions byte-identical to main.
+  - Proven live, not by inspection: a session dying mid-save with another save queued behind it writes NOTHING to the shared /api/portfolio (0 writes; portfolio.dev.json byte-identical) and both edits are rescued; a forged session with no refresh token cannot pass the gate or reach the offline mirror.
+  - OUTSTANDING, needs the dashboard: (1) check 6, confirm account deletion cascades; (2) custom SMTP before ANY invite (the built-in sender is capped at 2 emails/hour); (3) flip signup to invite-only. See sql/ISOLATION_TEST.md.
+  - Round 5 verdict: NOT CONVERGED. The gate for inviting anyone is therefore still CLOSED, independently of the three outstanding Supabase dashboard actions.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

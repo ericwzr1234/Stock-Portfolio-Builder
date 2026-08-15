@@ -489,3 +489,258 @@ rather than by reading the SQL.
   *Allow new users to sign up* off before real testers.
 - **Custom SMTP** — the built-in sender is 2 emails/hour and vendor-labelled non-production. Required
   before any invite or password-reset round (E6.4).
+
+---
+
+## 16. The sync contract (E6.5, hardened after adversarial review)
+
+The first implementation passed a functional test and still had two defects that would have
+destroyed real holdings. Both came from the same mistake: **inferring server state from the
+local document.** The rules below are the contract; breaking any of them reintroduces a
+data-loss bug that a happy-path test will not catch.
+
+### Rule 1 — `state.baseRevision` is the last revision the SERVER confirmed
+
+Not `document.revision - 1`. The document is incremented locally before the write, so deriving
+the base from it silently assumes the previous save landed.
+
+*What went wrong:* one failed save (a dropped connection) left the document one ahead of the
+server forever. Every subsequent save then sent a base the server had never reached, so PostgREST
+matched zero rows and the app reported **"changed on another device"** on a device that had never
+been contended — and offered to reload, discarding the user's work. The failure was permanent:
+it could not recover without clearing storage.
+
+`baseRevision` is now assigned in exactly three places, all of them server responses:
+the `SELECT` (`cloudLoadPortfolio`), the returned representation of a successful `PATCH`,
+and the returned representation of a successful `INSERT`. A failed write never advances it.
+
+Verified: with `fetch` forced to fail, `savePortfolio()` returns `false`, the base is unchanged,
+and the *next* save succeeds and advances the base — no false conflict.
+
+### Rule 2 — the cloud mirror never shares a key with the local store
+
+The offline mirror originally wrote to `STORE_KEY` (`pb_portfolio_v1`). On native that key is the
+**only** copy of the on-device book. Mirroring an account into it meant signing in could overwrite
+a portfolio built over months, and a second account on the same device could be served the first
+account's holdings.
+
+The mirror is now per-user: `pb_cloud_mirror_<uid>`. `STORE_KEY` is written only by the local
+adapters. Verified: after a full A → sign-out → B → sign-out → A cycle with live writes,
+`pb_portfolio_v1` was byte-identical (18,871 bytes) and two separate mirror keys existed.
+
+### Rule 3 — nothing is discarded to make room for a server copy
+
+Before a server copy overwrites the mirror, `stashUnsyncedMirror()` compares revisions and, if the
+mirror is ahead, copies it to `pb_unsynced_<uid>_<ts>`. A conflict likewise stashes the rejected
+edit to `pb_conflict_<uid>_<ts>` **before** reloading. Financial records are never auto-merged —
+but they are never thrown away either.
+
+### Rule 4 — `savePortfolio()` reports whether the write landed
+
+It returns `true`/`false`. Previously it returned `undefined` on every path, so callers fired their
+own "Saved" toast over the top of the failure message and the user was told the opposite of the
+truth. Failure toasts are also deferred ~400ms so a caller's optimistic toast cannot bury them, and
+the wording no longer promises a retry that does not exist.
+
+### Rule 5 — sign-out clears every trace of the account
+
+`clearAccountState()` drops `portfolio`, `baseRevision`, `syncStatus`, `syncError`, `themeTickers`,
+`themes`, `watchlist`, `metrics`, `metricCfg`, `overrides`, and the sync badge. Without it, signing
+in to a *different, empty* account found a book "already open" and offered to import it — one
+person's holdings uploaded into another person's account.
+
+Verified with markers written through the real save path: A holds `MARKERA` and never sees
+`MARKERB`; B holds `MARKERB` and never sees `MARKERA`; each keeps its own across repeated switches.
+
+### Rule 6 — only a definitive rejection destroys a session
+
+`sbRefresh()` clears the session on HTTP 400/401 only. Clearing it on *any* error meant a network
+blip or a paused free-tier backend signed the owner out — precisely the situation the offline
+fallback exists to survive.
+
+### Visible state, not a toast
+
+A `#syncBadge` in the header shows **synced** (with the confirmed revision in its tooltip) or
+**not synced** (with the error). "Did my rebalance actually save?" is not a question a
+three-second toast can answer.
+
+---
+
+## 17. Second review round — the invariants that were still missing
+
+Section 16 recorded the first set of fixes. A second adversarial review over the same code found
+**30 more defects**, including three that could destroy real holdings. The lesson is worth keeping:
+every one of them passed a happy-path functional test. Correct behaviour when everything works
+tells you almost nothing about a persistence layer.
+
+### The defect that mattered most: the adapter could change under the document
+
+`storageAdapter()` chose its backend fresh on every call, from `signedIn()`. Nothing re-gated the
+app when a session died mid-use — a rotated or revoked refresh token, a password change elsewhere,
+or the paused free-tier project this design explicitly plans around. So:
+
+1. `sbRefresh()` gets a definitive 401 and nulls the session. The app stays open.
+2. `renderSyncBadge()` **hides the badge**, because it hides when signed out — the one visible
+   warning disappears at the exact moment it is needed.
+3. The next autosave calls `storageAdapter()`, which now returns `web`, and POSTs the *account's*
+   portfolio to `/api/portfolio` — one identity-free file shared by the whole deployment. On
+   native it writes `pb_portfolio_v1` instead: the device's only copy of a book built over months.
+4. `savePortfolio()` returns `true`. Every caller toasts success.
+
+**The invariant now:** a document records where it came from (`state.docSource`) and who it
+belongs to (`state.docOwner`), both captured at load time before any `await`. A document loaded
+from an account can never be written anywhere else. If the session is gone, the save is refused,
+the work is kept under the *owner's* mirror and stash keys, and `lockOut()` returns the app to the
+gate. Verified: `portfolio.dev.json` was byte-identical (same MD5, same mtime) after forcing
+exactly this sequence.
+
+### `baseRevision` must never be advanced by anything but confirmed content
+
+The conflict handler adopted `e.serverRevision` from the *error object*, before the reload. If
+that reload then failed — a two-second Wi-Fi drop is enough — the client held a base for a
+revision whose content it had never seen. The next save matched that base and overwrote the other
+device's work with a document built on a revision six behind. No conflict, no warning, badge green.
+
+It is now `null` whenever unknown (after any fallback load, and after a failed conflict reload),
+and `cloudSavePortfolio` **refuses to write** while it is null: *"this device is not in sync with
+your account — reload the page before saving."* Verified: refuses, then saves cleanly after a real
+load restores a confirmed base.
+
+### "Kept aside" was a write-only promise
+
+`pb_unsynced_*` and `pb_conflict_*` were written and never read — no reader, no list, no restore,
+anywhere in the file. The app told users *"your edit was kept aside"* when the only route back was
+devtools. `offerStashRecovery()` is the reader: it lists each kept-aside document with its holding
+and checkpoint counts and why it was kept, and offers restore or discard. Stashes dedupe by
+content and cap at the 10 most recent, so a mirror sitting ahead of the server does not pile up an
+identical copy on every page load.
+
+### Keys were written under `anon`
+
+`cloudMirrorKey()` resolved the uid lazily, at call time. But `sbRefresh()` can null the session
+*during* the failing request — so by the time the rescue write ran, `sbUserId()` was `""` and the
+copy landed under `pb_cloud_mirror_anon`, which nothing would ever read again. On a shared browser
+the next signed-out failure would read it back as *somebody else's* portfolio. The uid is now
+always captured before the operation and passed explicitly; a write with no owner is refused.
+
+### The import uploaded a stripped book
+
+`impYes` assigned `state.portfolio` directly, skipping `loadPortfolio`'s hydration — then
+`savePortfolio` overwrote the document's config from the module defaults still sitting in `state`.
+The account received the holdings and history but lost its themes, theme membership, watchlist,
+metric list, per-metric config, presets, overrides, cap, weights and penalty, while the modal
+promised *"its full history comes with it."* A legacy file also never got `migrateVersions()`,
+which lives in that same hydration — so its history could never migrate afterwards.
+
+That block is now `hydrateFromDocument()`, shared by the normal load, the import, and stash
+restore.
+
+### Cross-user rules the database cannot enforce
+
+RLS isolates *accounts*. It cannot isolate a *browser*. Three guards close the rest:
+
+| Guard | Why |
+|---|---|
+| `pb_local_claim` — the uid that imported or declined this device's book | Without it the second person to sign in on a machine was shown the first person's holdings, checkpoints and contributed dollars, and could upload them into their own account |
+| The offer requires `syncStatus==="cloud"` | A cloud read that *failed* is not an empty account. Announcing "this account is empty" over a real book pushed the user toward "Start fresh" |
+| `/api/portfolio` is only consulted on a private host | On a shared deployment it carries no user identity at all — it is one file for everybody, never "your" book |
+
+Verified as a truth table: claimed by another account → not offered; account read failed → not
+offered; clean and unclaimed → offered; claimed by me → offered.
+
+### Smaller, still real
+
+- **Sign-out left the model behind.** `presets`, `weights`, `penalty`, `cap` and
+  `computeFromStatements` survived into the next account and were written into its first save.
+- **Themes could never be cleared.** `if(p.themes)` cannot move state back to `null`, which is
+  exactly what "restore the defaults" and "delete a theme" persist — so a theme deleted on one
+  device was resurrected by the next save from another. (`themes()` treats `[]` and `null`
+  identically, so this changed nothing for existing documents.)
+- **No in-flight lock.** `savePortfolio` is wired to `change` handlers and to undo/redo, so two
+  overlapping saves read the same base and the second was reported as a cross-device conflict —
+  manufacturing a destructive reload out of a single-device race. Saves are now serialised.
+- **A failed probe read as "no row".** Zero rows from the PATCH plus an errored probe fell through
+  to INSERT against a live row; the `user_id` primary key rejects it, but the 409 surfaced as a
+  *network* error, so the losing edit was never stashed.
+- **`remotePutPortfolio` never checked status.** CapacitorHttp resolves on non-2xx, so the home
+  computer could refuse the write while the app reported a successful save.
+- **The gate dropped before the data loaded**, so a new user saw the previous user's holdings,
+  totals and history — still painted underneath — for the seconds `bootSignedIn` spent on the
+  network. The gate now lifts last.
+- **The gate was default-hidden in markup** and only raised after an awaited fetch, leaving the
+  live app shell exposed until it resolved — and never gating at all if it hung. It is now visible
+  in markup and taken down pre-paint only when a stored session exists: the page fails closed.
+- **The gate form kept the previous user's email** on a shared machine, kept stale errors, and
+  kept `mode` on "signup" so a button reading "Sign in" attempted a registration.
+- **`init()` duplicated `bootSignedIn()`** inline and had drifted: reloading the page skipped the
+  sync badge, the import offer and the recovery prompt. One boot path now.
+
+---
+
+## 18. Rounds 3–5, and why this layer is not signed off
+
+Sections 16–17 recorded rounds 1–2. Three more rounds followed. The numbers matter more than any
+individual defect:
+
+| Round | Findings | Of which were regressions from the previous round's fixes |
+|---|---|---|
+| 1 | 36 | — |
+| 2 | 30 | 3 (incl. two HIGH data-loss) |
+| 3 | 19 | 4 |
+| 4 | 6 | 2 (one a CRITICAL deadlock) |
+| 5 | 3 | 2 |
+
+**Every round has contained defects introduced by the previous round's fix.** That is the single
+most important fact about this code, and the reason it is not signed off despite the count falling.
+
+### The regressions worth remembering
+
+- **Round 1's `lockOut()`** called `clearAccountState()`, which nulls `docSource`/`docOwner`/
+  `portfolio` — the exact fields the new save guards read. A session dying mid-save walked past the
+  guard written for it, and a save queued behind it fabricated a blank document that both guards
+  waved through to the identity-free store. The fix turned a race into a *deterministic* failure.
+  → Now: `appLocked`/`booting`, flags that do not depend on state the wipe touches, plus `_owner`
+  and `_doc` captured at function entry.
+- **Round 2 replaced revision-comparison with content-comparison** for deciding what work to keep
+  aside. But the mirror holds the last *synced* document, so "differs from the server" is the
+  ordinary state after any other device writes. Ordinary two-device use produced a false "unsaved
+  work was kept aside" prompt, and restoring it reverted the other device's rebalance.
+  → Now: an explicit dirty bit, set only when a save actually failed.
+- **Round 2 moved `offerStashRecovery()` out of an `else`** so it always runs. `openImportChoice`
+  was synchronous, so the stash prompt overwrote the import modal — making the import offer
+  unreachable in exactly the case both were meant to cover.
+  → Round 3 made the modal awaited, which…
+- **…deadlocked first sign-in permanently.** The gate is opaque at `z-index:400`; a modal renders at
+  80. `bootSignedIn()` is awaited by the gate submit *while the gate is still up*, so it waited
+  forever on a dialog the user could not see or click.
+  → Now: `postSignInPrompts()`, called only after `showGate(false)`.
+- **Round 4's snapshot/restore** in `loadPortfolio` captured the snapshot at the *stale* load's
+  start, so restoring it wrote the old account's revision over the live one.
+  → Now: `cloudLoadPortfolio` writes nothing global; it parks its result in `_cloudMeta` and
+  `loadPortfolio` applies it only after the session check passes.
+- **Round 4's `dropMirror`** called `preserveDirtyMirror`, which called `stashUnsyncedMirror` inside
+  a `try/catch` and discarded the result — but that function does not *throw* on failure, it
+  returns the sentinel `"failed"`. So a full localStorage meant the rescue silently did nothing and
+  the mirror — the only copy of the unsaved edit — was deleted anyway, by the Sign-out button whose
+  own comment promises the opposite.
+  → Now: the sentinel is honoured; a mirror whose copy could not be filed survives.
+
+### The lesson, stated plainly
+
+Every one of these passed a happy-path test. What finds them is asking *"what is the state of the
+world when this line runs, and who does it belong to?"* — specifically across an `await`, where the
+session, the document, and the user can all have changed. The recurring shapes:
+
+1. **State captured before an `await` and used after it** without re-checking that it still applies.
+2. **A guard that reads state some other path nulls.**
+3. **A rescue store nothing reads back.**
+4. **A sentinel return value nobody checks.**
+5. **A comment describing an intention the code does not implement.**
+
+### Status
+
+Round 5's three defects are **fixed but not re-verified**. A sixth round must come back with an
+explicit converged verdict before this merges to `main`. If it does not, the recommendation is to
+stop patching and rewrite `loadPortfolio`/`_savePortfolioInner`/`sbApi` against the invariants in
+§16–17, which are now well enough understood to be written first and implemented second — the
+opposite of how they were arrived at.

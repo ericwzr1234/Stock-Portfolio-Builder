@@ -4,13 +4,18 @@ A free, no-API-key tool to **build and rebalance** a themed, market-cap-weighted
 from a **fundamentals model you control** — pick your themes, pick your metrics, and let the model
 compute target weights from live data (or straight from the companies' financial statements).
 
-Nothing here costs money. No accounts, no keys. Data comes from Yahoo Finance's free endpoints; your
-portfolio lives in a plain `portfolio.json` file next to this README (or on-device in the iOS app).
+Nothing here costs money and there are no API keys. Data comes from Yahoo Finance's free endpoints.
+Your portfolio lives in **your own account**, in a hosted database where row-level security makes it
+readable only by you — with a copy kept on your device so it still opens when the network is down.
 
-> **Project status (2026-07-15):** the **web app is feature-complete** — user-defined themes,
-> user-defined metrics, statement-driven data, and the redesigned Fundamentals/Screener are all
-> shipped. The native **iOS app now runs on a physical iPhone** — free, private, with data fetched
-> and stored on-device. Live progress board: [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
+> **Project status (2026-08-15):** the shipped web app (in `main`) has user-defined themes,
+> user-defined metrics, statement-driven data and the redesigned Fundamentals/Screener. **In
+> progress on the `dev-newUI` branch, not yet merged:** the **V2 UI** (E5 — Overview, Model,
+> Rebalance, Research, History) and **accounts** (E6 — you sign in, and your portfolio follows you
+> between devices). This README describes the V2 app. The native **iOS app** runs on a physical
+> iPhone but is **parked at V1**; it will be rebuilt against the new web baseline
+> ([`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md)). Live progress board:
+> [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
 
 ---
 
@@ -21,8 +26,14 @@ portfolio lives in a plain `portfolio.json` file next to this README (or on-devi
 **Mac:** double-click **`Start Portfolio Builder.command`** (the first time, right-click → Open),
 or run `python3 server.py` in this folder.
 
-A small window opens (the local server) and your browser opens to the app automatically. Everything
-you do is saved to `portfolio.json` in this folder. To stop, close the window (or press `Ctrl+C`).
+A small window opens (the local server) and your browser opens to the app automatically. To stop,
+close the window (or press `Ctrl+C`).
+
+**You sign in first.** The app opens on a login page; nothing is reachable until you do. Everything
+you then do saves to your account, with a copy kept in this browser so the app still opens if the
+network (or the database) is unavailable. If this machine already has a `portfolio.json` and your
+account is empty, you will be offered a one-time import — and your local file is never modified
+either way.
 
 > Requires Python 3 (standard library only — nothing to install). The app itself lives in
 > **`www/index.html`**; the server just serves it and proxies free data. On Windows, if the window
@@ -39,11 +50,18 @@ and [`docs/DEV_WORKFLOW.md`](docs/DEV_WORKFLOW.md) first.
 
 ---
 
-## What it does — five tabs
+## What it does — five views
 
-**Prices · Fundamentals & Allocation · Calculator / Rebalance · Screener · History.**
+**Overview · Model · Rebalance · Research · History.** (Press `1`–`5` to switch.)
 
-### 1. Prices (by theme)
+### 1. Overview — the portfolio at a glance
+
+Your allocation donut, portfolio value over time against an **Equal-weight Strategy** counterfactual
+(what the same book would be worth had every holding been rebalanced to equal weight at each
+checkpoint), a return chart that toggles between **$ and %**, and the full holdings table — % of book,
+value, cost, P&L and P&L% — collapsed by default so the whole thing fits one screen.
+
+Live prices by theme also live here, with day change and each theme's live value and weight.
 Live-ish prices for every name in your themes, grouped by theme, with day change and — once you've
 started a portfolio — the live value and weight of each theme. Auto-refreshes on the interval you
 pick (default 60s). Yahoo's free feed can be delayed up to ~15 min for some names; most US names
@@ -67,7 +85,7 @@ themes of five names each, but everything is yours to change:
 - Within a theme, names are **equal-weighted**, and the per-theme cap auto-scales with how many themes
   you have.
 
-### 3. Fundamentals & Allocation
+### 3. Model (Fundamentals & Allocation)
 This is the model. Two cards side by side:
 
 - **Target vs current weight** — the drift table (target vs your live weights), a colored allocation
@@ -109,7 +127,7 @@ whole metric setup as a **preset**, or reset to the default six.
 quarters** (plus a TTM column) and a **computed-metrics panel** showing each metric's value, its
 formula, and whether it was computed or pulled.
 
-### 4. Calculator / Rebalance
+### 4. Rebalance (Calculator)
 - **First run:** enter your starting capital (defaults to **$80,000**) and click *Build initial
   portfolio*. It splits capital across themes by the model, equal-weights the names in each theme, and
   converts to share counts at live prices.
@@ -121,7 +139,7 @@ formula, and whether it was computed or pulled.
   adding zero capital (use it after you change metrics/weights/cap and just want to re-align).
 - Click *Apply & save* to record it — it updates holdings, bumps total invested, and saves a version.
 
-### 5. Screener — search & watchlist
+### 5. Research (Screener) — search & watchlist
 Look up **any** stock and add it to your **watchlist** (no theme yet — just browsing). When you're
 ready, pick a theme on a watchlisted name and confirm whether to **add it as a new name** or **swap**
 it for an existing holding; then review the rebalance on the Calculator and *Apply & save*. Names
@@ -158,12 +176,26 @@ themes, metrics, weights, overrides).
 
 ## Your data
 
-`portfolio.json` holds your current holdings (share counts + cost basis), total invested, your themes,
-your metric model (metrics, weights, exception-handling policies, cap, presets), any manual overrides,
-and the full **version timeline** (`versions[]` + a `head` pointer to the active checkpoint, each with
-its own state snapshot). Back it up by copying that one file. Delete it (or use *Reset portfolio…* in
-History) to start over. On the iPhone app the same data lives on-device, and can optionally sync with
-this file over Wi-Fi.
+Your portfolio document holds your current holdings (share counts + cost basis), total invested, your
+themes, your metric model (metrics, weights, exception-handling policies, cap, presets), any manual
+overrides, and the full **version timeline** (`versions[]` + a `head` pointer to the active checkpoint,
+each with its own state snapshot).
+
+**Where it lives.** In your account, one row per user, protected by database row-level security —
+another signed-in user cannot read or write it, and that is enforced by the database rather than by
+this code. Proof, including the live cross-account tests, is in
+[`sql/ISOLATION_TEST.md`](sql/ISOLATION_TEST.md).
+
+**Concurrency.** Every save states the revision it was based on; if another device wrote first, the
+save is refused, the server's version is loaded, and **your edit is kept aside rather than merged** —
+financial records are never auto-merged. Anything that could not reach your account is preserved on
+this device and offered back to you the next time you sign in.
+
+**`portfolio.json`** is now a *pre-account* file: the import source on first sign-in, and your
+pre-migration backup. The app never writes it while you are signed in. Copy it to back it up.
+*Reset portfolio…* in History clears your account's book, not that file.
+
+On the iPhone app (V1, parked) the data still lives on-device and can sync with this file over Wi-Fi.
 
 ## Cross-platform
 
@@ -175,6 +207,8 @@ and [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) to build the app.
 ## Cost / limits
 
 100% free — Yahoo Finance's free public endpoints (cookie + crumb handled for you) plus the SEC's free
-ticker list; Python standard library only, no API keys. The server caches prices ~15s and fundamentals
+ticker list; Python standard library only, no API keys. Accounts and the database run on Supabase's
+free tier, which **pauses a project after a week with no activity** — you can resume it from their
+dashboard, and a stored sign-in still opens the app against the on-device copy meanwhile. The server caches prices ~15s and fundamentals
 ~6h so it never hammers Yahoo. If Yahoo is ever unreachable, the app falls back to a built-in snapshot
 (values flagged `seed`) so it still works — hit *Refresh* to go live again.

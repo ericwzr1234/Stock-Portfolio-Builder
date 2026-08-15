@@ -526,6 +526,7 @@
   .gate-h{font-size:22px;margin:0;letter-spacing:-.02em}
   .gate-sub{font-size:12.5px;color:var(--muted);margin:6px 0 4px;line-height:1.5}
   html.gated, html.gated body{overflow:hidden}
+  html.gated .app{pointer-events:none}          /* belt and braces alongside [inert] */
 
   /* ===== E6.4 accounts ===== */
   #acctBtn.on{border-color:var(--teal);color:var(--teal)}
@@ -600,7 +601,7 @@
 </head>
 <body>
 <!-- ===== E6.8 login landing page. Covers everything until a session exists. ===== -->
-<div id="gate" class="gate" hidden>
+<div id="gate" class="gate">
   <div class="gate-card card pad">
     <div class="gate-brand"><span class="rmark">&#9704;</span>
       <div><b>Portfolio Builder</b><span>themed allocator</span></div></div>
@@ -619,6 +620,22 @@
     <p class="xs muted" style="margin:16px 0 0;text-align:center">Your holdings are private to your account and never shared.</p>
   </div>
 </div>
+<script>
+/* E6 FIX - the gate is VISIBLE in the markup and is only taken down once a stored session is
+   found. It used to default to hidden and be raised by init() only AFTER an awaited fetch, so an
+   unauthenticated visitor got the live, fully-wired app shell until that resolved - and never saw
+   the gate at all if the fetch hung (a paused free-tier project, a slow link). This runs before
+   first paint, so the page fails closed. */
+(function(){
+  try{
+    var raw=localStorage.getItem("pb_sb_session");        /* must match SB_SESSION_KEY */
+    /* must match signedIn(): access_token AND refresh_token */
+    var ok=false; if(raw){ var sess=JSON.parse(raw); ok=!!(sess&&sess.access_token&&sess.refresh_token); }
+    if(ok) document.getElementById("gate").hidden=true;
+    else document.documentElement.classList.add("gated");
+  }catch(e){ document.documentElement.classList.add("gated"); }
+})();
+</script>
 <div class="app">
 <!-- ===== E5.0 rail (web only; the phone uses the bottom tab bar instead) ===== -->
 <aside class="rail" id="rail">
@@ -655,6 +672,7 @@
     <div class="kpis" id="ctxKpis"></div>
     <div class="spacer"></div>
     <div class="ctrls">
+      <span class="tag" id="syncBadge" hidden></span>
       <button class="btn sm ghost" id="acctBtn" title="Account">Sign in</button>
       <div class="themesw" role="group" aria-label="Colour theme">
         <button id="tLight" class="on" aria-pressed="true" title="Light theme">☀</button>
@@ -919,6 +937,13 @@ const state = {
   screenerLoaded:false,
   serverUrl:"",                   // iOS: optional home-computer address for LAN sync (shared portfolio.json)
   syncStatus:"local",             // 'local' | 'remote' | 'remote-failed'
+  syncError:null,                 // E6: last save failure, shown persistently by the badge
+  baseRevision:null,              // E6: the revision the SERVER last CONFIRMED. null => unknown, saving is refused.
+  cloudRowExists:null,            // E6: does this account HAVE a row? null => not established (a failed read is not "empty")
+  docSource:null,                 // E6: which adapter the in-memory document came from ('cloud'|'web'|'local'|'remote')
+  docOwner:null,                  // E6: the uid that document belongs to, captured at load time
+  pendingStashKey:null,           // E6: a kept-aside document put back on screen; dropped once it saves
+  pendingStashSig:null,           // E6: ...and only if what saved is still THAT document
 };
 let curView="prices";
 let timer=null;
@@ -1230,11 +1255,11 @@ function migrateVersions(p){   // forward-compat for any legacy file that only h
   p.head=p.versions.length-1; delete p.transactions;
 }
 
-async function undo(){ if(!canUndo())return; const lbl=versionLabel(currentVersion()); restoreVersion(head()-1); await savePortfolio(); renderAll(); toast("Undid "+lbl+" · Redo available"); }
-async function redo(){ if(!canRedo())return; restoreVersion(head()+1); await savePortfolio(); renderAll(); toast("Redid "+versionLabel(currentVersion())); }
+async function undo(){ if(!canUndo())return; const lbl=versionLabel(currentVersion()); restoreVersion(head()-1); const ok=await savePortfolio(); renderAll(); if(ok) toast("Undid "+lbl+" · Redo available"); }
+async function redo(){ if(!canRedo())return; restoreVersion(head()+1); const ok=await savePortfolio(); renderAll(); if(ok) toast("Redid "+versionLabel(currentVersion())); }
 async function revertTo(i){ const tgt=versions()[i]; if(!tgt)return;
   if(!confirm("Revert to version #"+tgt.id+" ("+tgt.type+" · "+tgt.date+")?\n\nHoldings, total invested and settings will be set to that point. Newer versions stay redoable until you apply a new rebalance from here.")) return;
-  restoreVersion(i); await savePortfolio(); renderAll(); toast("Reverted to #"+tgt.id); }
+  restoreVersion(i); const ok=await savePortfolio(); renderAll(); if(ok) toast("Reverted to #"+tgt.id); }
 
 /* ======================================================================
    Plan: given cash to add + mode, produce per-stock target $ and trade $
@@ -1286,13 +1311,149 @@ const STORE_KEY="pb_portfolio_v1";
 function nativeLoadPortfolio(){ try{ const raw=localStorage.getItem(STORE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
 function nativeSavePortfolio(p){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }catch(e){ console.error("save failed",e); } }
 
+/* E6 FIX - the cloud mirror must NOT share STORE_KEY. On native that key is the ONLY copy of the
+   on-device book, so mirroring an account's portfolio into it could destroy the local one, and a
+   second account could be served the first account's data. The mirror is therefore per-user and
+   lives in its own namespace. */
+/* The uid is ALWAYS passed in, captured before the operation started. Resolving it lazily was a
+   real bug: sbRefresh() can null the session mid-request, so by the time the failure handler ran
+   sbUserId() was "" and the rescue copy landed under a key nothing would ever read again. A
+   mirror with no owner is worse than no mirror, so it is refused outright. */
+function cloudMirrorKey(uid){ const u=uid||sbUserId(); return u?("pb_cloud_mirror_"+u):null; }
+/* E6 FIX - the mirror needs a DIRTY BIT, not a content comparison.
+   The mirror is rewritten on every successful load and every successful save, so it normally
+   holds the last SYNCED document. "mirror differs from server" is therefore the ordinary state
+   after any other device writes - not evidence of unsaved work. Comparing content announced
+   "unsaved work was kept aside" during plain two-device use, and restoring that prompt reverted
+   the other device's rebalance. The only thing that actually means "unsynced" is: this copy was
+   written by a save that FAILED. */
+function mirrorDirtyKey(uid){ const u=uid||sbUserId(); return u?("pb_mirror_dirty_"+u):null; }
+function mirrorIsDirty(uid){ try{ const k=mirrorDirtyKey(uid); return !!k && localStorage.getItem(k)==="1"; }catch(e){ return false; } }
+function setMirrorDirty(uid,dirty){
+  try{ const k=mirrorDirtyKey(uid); if(!k) return;
+       if(dirty) localStorage.setItem(k,"1"); else localStorage.removeItem(k); }catch(e){}
+}
+function cloudMirrorSave(p,uid,dirty){
+  const k=cloudMirrorKey(uid);
+  if(!k){ console.error("refusing to mirror a portfolio with no user id"); return false; }
+  try{ localStorage.setItem(k, JSON.stringify(p)); setMirrorDirty(uid,!!dirty); return true; }
+  catch(e){ console.error("mirror save failed",e); return false; }
+}
+function cloudMirrorLoad(uid){
+  const k=cloudMirrorKey(uid); if(!k) return null;
+  try{ const raw=localStorage.getItem(k); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+/* Before a server copy overwrites the mirror, keep anything the mirror holds that the server has
+   not seen, so an edit made during an outage is recoverable instead of silently discarded. */
+/* E6 FIX - decide by CONTENT, never by revision number.
+   Two devices editing from the same base both stamp revision base+1, and an offline device
+   re-stamps base+1 on every retry, so `mirror.revision <= server.revision` was not evidence that
+   the mirror held nothing new. It was how an offline edit got silently overwritten: the load saw
+   equal revisions, skipped the stash, and immediately mirrored the server's document over it.
+   `serverDoc` is the document just loaded (null when the account has no row at all - in which
+   case ANY mirror content is unsynced work and must be kept). */
+/* Returns "failed" when it NEEDED to keep something and could not - the caller must then leave
+   the mirror alone rather than overwrite the only copy. */
+function stashUnsyncedMirror(serverDoc,uid){
+  const u=uid||sbUserId(); if(!u) return false;
+  if(!mirrorIsDirty(u)) return false;                       // the mirror is a synced copy: nothing to keep
+  try{
+    const m=cloudMirrorLoad(u); if(!m){ setMirrorDirty(u,false); return false; }
+    const sig=docSig(m);
+    if(serverDoc && docSig(serverDoc)===sig){ setMirrorDirty(u,false); return false; }  // the server already has it
+    const seen=stashList(u);
+    if(seen.some(x=>docSig(x.doc)===sig)){ setMirrorDirty(u,false); return false; }     // already kept exactly this
+    // Prune BEFORE writing: the old order could hit the quota, swallow the error, and never reach
+    // the prune that would have made room - so every later stash failed too, permanently.
+    seen.slice(9).forEach(x=>stashDrop(x.key));             // keep the 9 most recent + this one
+    localStorage.setItem("pb_unsynced_"+u+"_"+Date.now(), JSON.stringify(m));
+    setMirrorDirty(u,false);
+    return true;
+  }catch(e){
+    console.error("could not keep the unsynced copy - leaving the mirror intact",e);
+    return "failed";
+  }
+}
+/* ---- kept-aside work ------------------------------------------------------------------
+   Everything stashed above is useless if nothing ever reads it. These list/restore/discard
+   helpers back the recovery prompt shown on sign-in; without them "your edit was kept aside"
+   is a false promise. */
+function stashList(uid){
+  const u=uid||sbUserId(); if(!u) return [];
+  const out=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i); if(!k) continue;
+      const m=/^pb_(unsynced|conflict)_(.+)_(\d+)$/.exec(k);
+      if(!m || m[2]!==u) continue;
+      let doc=null; try{ doc=JSON.parse(localStorage.getItem(k)); }catch(e){ continue; }
+      if(!doc) continue;
+      out.push({ key:k, kind:m[1], when:Number(m[3])||0, doc,
+                 holdings:Object.keys(doc.holdings||{}).length,
+                 versions:((doc.versions)||[]).length, revision:doc.revision });
+    }
+  }catch(e){}
+  return out.sort((a,b)=>b.when-a.when);
+}
+function stashDrop(key){ try{ localStorage.removeItem(key); }catch(e){} }
+/* E6 FIX - the ordinary failed-save path writes the work into the MIRROR ONLY (no pb_unsynced_
+   entry). So every place that deletes a mirror was deleting the single copy of work the server
+   never took: the 401/403 handler, and the sign-out button whose own comment promised that
+   kept-aside work is never cleared. File it first, then delete. */
+/* Returns false when the unsaved copy could NOT be filed - the mirror must then survive. */
+function preserveDirtyMirror(uid){
+  const u=uid||sbUserId(); if(!u) return true;
+  if(!mirrorIsDirty(u)) return true;
+  /* stashUnsyncedMirror does not THROW on failure - it returns the sentinel "failed" (a full
+     localStorage is the ordinary cause). The old code called it inside a try/catch, discarded the
+     return value, and deleted the mirror anyway: the one copy of an edit the server never took,
+     removed by the Sign-out button whose own comment promises the opposite. */
+  return stashUnsyncedMirror(null,u)!=="failed";
+}
+function dropMirror(uid){
+  const u=uid||sbUserId(); if(!u) return;
+  if(!preserveDirtyMirror(u)){
+    console.error("keeping the mirror: the unsaved copy could not be filed");
+    return;                                     // better a stale plaintext copy than a lost edit
+  }
+  try{ const k=cloudMirrorKey(u); if(k) localStorage.removeItem(k); }catch(e){}
+  setMirrorDirty(u,false);                      // the bit must not outlive what it describes
+}
+/* The WHOLE document, minus the two fields that change without the user changing anything.
+   Signing only (revision + holdings) meant a theme rename, a weight, the cap, the watchlist, a
+   preset or a metric config - none of which touch holdings - counted as "the same work" and was
+   thrown away by the dedupe. */
+function docSig(d){
+  /* Key ORDER must not matter: the mirror is stringified from an in-memory object (insertion
+     order) while the server copy comes back from a jsonb column (normalised order), so a plain
+     JSON.stringify made identical content look different - and announced "unsaved work was kept
+     aside" for work that was already safely in the account. */
+  try{
+    const norm=v=>{
+      if(v===null||typeof v!=="object") return v;
+      if(Array.isArray(v)) return v.map(norm);
+      const o={}; Object.keys(v).sort().forEach(k=>{ o[k]=norm(v[k]); }); return o;
+    };
+    const c=Object.assign({},d||{}); delete c.updatedAt; delete c.revision;
+    return JSON.stringify(norm(c));
+  }catch(e){ return "?"+String(performance.now()); }
+}
+
 /* iOS LAN sync: when serverUrl is set, the app reads/writes the SAME portfolio.json the web
    version uses (via the home computer's server over Wi-Fi). Falls back to on-device storage. */
 const SRV_KEY="pb_server_url";
 function serverBase(){ return (state.serverUrl||"").trim().replace(/\/+$/,""); }
 function useRemote(){ return NATIVE && !!serverBase(); }
 async function remoteGetPortfolio(){ const Http=capHttp(); const r=await Http.request({url:serverBase()+"/api/portfolio", method:"GET"}); const d=jsonOf(r.data); return d?d.portfolio:null; }
-async function remotePutPortfolio(p){ const Http=capHttp(); await Http.request({url:serverBase()+"/api/portfolio", method:"POST", headers:{"Content-Type":"application/json"}, data:p}); }
+async function remotePutPortfolio(p){
+  const Http=capHttp();
+  const r=await Http.request({url:serverBase()+"/api/portfolio", method:"POST", headers:{"Content-Type":"application/json"}, data:p});
+  // E6 FIX: CapacitorHttp RESOLVES on a non-2xx. Without this the home computer can refuse the
+  // write (500, disk full, stale serverUrl path) and the app still reports a successful save.
+  const st=r&&r.status;
+  // Fail CLOSED: an absent or non-numeric status is not evidence the write landed.
+  if(!isNum(st) || st<200 || st>=300) throw new Error("the home computer did not confirm the save (status "+st+")");
+}
 
 /* ===== E6.2 — storage adapters =========================================================
    The app has always branched on platform inline inside loadPortfolio/savePortfolio. This
@@ -1308,8 +1469,8 @@ async function remotePutPortfolio(p){ const Http=capHttp(); await Http.request({
      fallback(): portfolio | null       — used only when load() throws
    Behaviour is deliberately identical to the pre-E6.2 inline branching.               */
 const STORAGE_ADAPTERS={
-  cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p), mirror:true,
-            fallback:()=>nativeLoadPortfolio() },                       // E6.5
+  cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p), mirror:"cloud",
+            fallback:uid=>cloudMirrorLoad(uid) },                       // E6.5 (own mirror, never STORE_KEY)
   lan:    { name:"remote", load:remoteGetPortfolio, save:remotePutPortfolio, mirror:true,
             fallback:()=>nativeLoadPortfolio() },
   native: { name:"local",  load:async()=>nativeLoadPortfolio(), save:async p=>nativeSavePortfolio(p) },
@@ -1363,12 +1524,17 @@ function sbLoadSession(){
   try{ const raw=localStorage.getItem(SB_SESSION_KEY); sbSession=raw?JSON.parse(raw):null; }catch(e){ sbSession=null; }
   return sbSession;
 }
+let sbEpoch=0;                                        // bumped on every session change
 function sbStoreSession(sess){
-  sbSession=sess||null;
+  sbSession=sess||null; sbEpoch++;
   try{ if(sess) localStorage.setItem(SB_SESSION_KEY, JSON.stringify(sess));
        else localStorage.removeItem(SB_SESSION_KEY); }catch(e){}
 }
-function signedIn(){ return !!(sbSession && sbSession.access_token); }
+/* E6 FIX - a refresh_token is REQUIRED. Every real session carries one (the password grant always
+   returns it), so demanding it costs nothing - and it removes the trivially-forged
+   {"access_token":"x"} localStorage entry that used to take the gate down and then serve whatever
+   was sitting in that uid's offline mirror. */
+function signedIn(){ return !!(sbSession && sbSession.access_token && sbSession.refresh_token); }
 function sbUserEmail(){ return (sbSession&&sbSession.user&&sbSession.user.email)||""; }
 function sbUserId(){ return (sbSession&&sbSession.user&&sbSession.user.id)||""; }
 
@@ -1382,7 +1548,10 @@ async function sbAuth(path, body, method){
   return d;
 }
 function sbAdoptSession(d){
-  if(!d||!d.access_token) return null;
+  // E6 FIX: must match signedIn(). Storing a session with no refresh_token produced a TRUTHY
+  // return that sent sbApi down its retry path, where it exited through the plain "not signed in"
+  // throw - no authFailed marker, no lockOut, gate still down, adapter silently identity-free.
+  if(!d||!d.access_token||!d.refresh_token) return null;
   const sess={ access_token:d.access_token, refresh_token:d.refresh_token,
     expires_at: Math.floor(Date.now()/1000)+(isNum(d.expires_in)?d.expires_in:3600),
     user:d.user||null };
@@ -1398,23 +1567,141 @@ async function sbSignUp(email,password){
 }
 async function sbRecover(email){ return sbAuth("recover",{email}); }
 async function sbSignOut(){
-  try{ if(signedIn()) await fetch(SB_URL+"/auth/v1/logout",{ method:"POST",
-        headers:{ "apikey":SB_KEY, "Authorization":"Bearer "+sbSession.access_token } }); }catch(e){}
+  /* E6 FIX - local teardown FIRST, remote revoke fire-and-forget. Awaiting an untimed fetch meant
+     that on a paused project or a captive portal the logout pended for minutes: the session stayed
+     valid, the portfolio stayed on screen and the price timer kept running, while the user had
+     walked away believing they had signed out. */
+  const tok=sbSession && sbSession.access_token;
+  appLocked=true;                       // set HERE, not only in the click handler, so no queued save slips through
   sbStoreSession(null);
+  clearAccountState();
+  if(tok){
+    try{
+      const ctl=("AbortController" in window)?new AbortController():null;
+      if(ctl) setTimeout(()=>{ try{ ctl.abort(); }catch(e){} },4000);
+      fetch(SB_URL+"/auth/v1/logout",{ method:"POST", signal:ctl?ctl.signal:undefined,
+        headers:{ "apikey":SB_KEY, "Authorization":"Bearer "+tok } }).catch(()=>{});
+    }catch(e){}
+  }
+}
+/* E6 FIX - signing out previously left the account's portfolio in memory. Signing in to a DIFFERENT,
+   empty account then found a book "already open" and offered to import it, so one person's holdings
+   could be uploaded into another person's account. Everything session-scoped is dropped here. */
+function clearAccountState(){
+  state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null;
+  state.docSource=null; state.docOwner=null; state.cloudRowExists=null;
+  state.pendingStashKey=null; state.pendingStashSig=null;
+  state.themeTickers=null; state.themes=null; state.watchlist=[];
+  state.metrics=null; state.metricCfg=null; state.overrides={};
+  /* These are account data too. Leaving them behind meant the NEXT person to sign in on this
+     browser wrote the previous person's preset library, weights, penalties and cap into their
+     own brand-new account on its very first save. */
+  state.presets=[];
+  state.weights=Object.assign({},DEFAULT_CONFIG.weights);
+  state.penalty=Object.assign({},DEFAULT_CONFIG.penalty);
+  state.cap=null; state.computeFromStatements=true;
+  // market data is keyed by the previous account's tickers - it is their data too
+  state.quotes={}; state.pulled={}; state.statements={}; state.screenerQuotes={};
+  state.metricSource={}; state.asOf=null;
+  state.fundamentals={}; state.themeRecos={}; state.screenerLoaded=false;   // derived from the above
+  try{ rebuildThemeOf(); }catch(e){}
+  try{ renderSyncBadge(); }catch(e){}   // the badge is account state too - it must not survive sign-out
+}
+function stopAutoRefresh(){ if(timer){ clearInterval(timer); timer=null; } }
+/* E6 FIX - clearAccountState() nulls docSource/docOwner, which are exactly what the save guards
+   read. A save already queued behind the failing one therefore woke up with no evidence of where
+   its document belonged, rebuilt a BLANK portfolio, and wrote it to the identity-free store.
+   This flag does not depend on any state the wipe touches. */
+let appLocked=false;
+/* Separate from appLocked because loadPortfolio must still RUN during boot while saving is
+   forbidden. Without this, a reload left the app live and unlocked with state.portfolio===null and
+   docSource===null for the seconds the load took - long enough for a keyboard-reachable
+   "Reset portfolio" to write a blank document into the real user's mirror. */
+let booting=true;
+/* E6 FIX - the single way the app returns to the locked state. Previously a session could die
+   mid-use (revoked/expired refresh token, paused project) and NOTHING re-gated: the adapter
+   quietly fell through to the identity-free `web`/`native` store and the next save wrote the
+   account's portfolio over the shared server file, or over the device's only local book. */
+function lockOut(msg){
+  appLocked=true;
+  /* E6 FIX - a modal open at lock-out used to SURVIVE behind the gate (z-index 400 vs 80) with
+     live handlers closing over the previous account's data, and be revealed again by the next
+     showGate(false). The import modal's "Start fresh" would then overwrite the NEXT user's row. */
+  try{ closeModal(); }catch(e){}
+  clearAccountState();
+  stopAutoRefresh();
+  try{ renderAll(); }catch(e){}        // wipe the previous account's numbers off the screen
+  try{ renderAcctBtn(); }catch(e){}
+  showGate(true);
+  if(msg) gateMsg("err",msg);
 }
 async function sbRefresh(){
-  if(!sbSession||!sbSession.refresh_token) return null;
-  try{ return sbAdoptSession(await sbAuth("token?grant_type=refresh_token",{refresh_token:sbSession.refresh_token})); }
-  catch(e){ sbStoreSession(null); return null; }
+  if(!sbSession||!sbSession.refresh_token) return {ok:false,definitive:true};
+  try{
+    const sess=sbAdoptSession(await sbAuth("token?grant_type=refresh_token",{refresh_token:sbSession.refresh_token}));
+    return sess ? {ok:true,session:sess} : {ok:false,definitive:true};
+  }
+  catch(e){
+    /* E6 FIX - only a DEFINITIVE rejection may destroy the session. Clearing it on any error meant
+       a network blip or a paused backend signed the user out mid-session, which is exactly the
+       situation the offline fallback exists to survive.
+       The lock-out itself is NOT done here: sbApi owns it, so that the "no refresh token at all"
+       early return above cannot skip it. */
+    /* E6 FIX - the caller must be able to TELL THE DIFFERENCE. Returning null for both outcomes
+       made this whole distinction dead code: sbApi only tested truthiness, so a transient failure
+       (waking from sleep, captive portal, 429, 5xx) fell straight through to the definitive
+       lock-out two lines later and signed the owner out - precisely what this guards against. */
+    const definitive = e && (e.status===400 || e.status===401);
+    if(definitive) sbStoreSession(null);
+    else console.warn("token refresh failed transiently - keeping the session", e && e.message);
+    return {ok:false, definitive:!!definitive};
+  }
 }
 /* Any authenticated call goes through here: it refreshes ONCE on a 401 and retries, so an
    expired access token is invisible to the caller instead of surfacing as a failed save. */
 async function sbApi(path, opts, _retried){
   opts=opts||{};
-  if(!signedIn()) throw new Error("not signed in");
+  if(!signedIn()){ const e=new Error("not signed in"); e.authFailed=true; throw e; }
+  const epoch=sbEpoch;                                // whose session this request belongs to
   const headers=Object.assign({ "apikey":SB_KEY, "Authorization":"Bearer "+sbSession.access_token },opts.headers||{});
   const r=await fetch(SB_URL+path, Object.assign({},opts,{headers}));
-  if(r.status===401 && !_retried){ const s2=await sbRefresh(); if(s2) return sbApi(path,opts,true); }
+  /* 403 counts: PostgREST answers 403 when the token is valid but row-level security refuses the
+     row - which is the server saying "not you" just as plainly as a 401. Treating it as an outage
+     let a revoked user keep reading their account from the offline mirror. */
+  if(r.status===401 || r.status===403){
+    /* E6 FIX - a reply belonging to a PREVIOUS session must not touch the CURRENT one. Without
+       this, a slow request left over from user A landed after user B signed in and either
+       replayed A's write under B's token or force-signed-out B, wiping their state. */
+    if(epoch!==sbEpoch){ const e=new Error("a reply from a previous session was discarded"); e.stale=true; throw e; }
+    /* Captured HERE, before sbRefresh() below can null the session: reading it afterwards gave ""
+       on the commonest path (an expired/rotated refresh token), so the mirror drop underneath was
+       a silent no-op and the plaintext copy outlived the rejection it was meant to follow. */
+    const uid=sbUserId();
+    if(r.status===401 && !_retried){
+      const rr=await sbRefresh();
+      if(rr.ok) return sbApi(path,opts,true);
+      if(!rr.definitive){                             // an OUTAGE, not a rejection: keep the session
+        const e=new Error("could not reach the sign-in service"); e.transient=true; throw e;
+      }
+    }
+    /* E6 FIX - a 401 we cannot refresh is the ONE definitive "you are not this user any more".
+       Every route to it converges here: an expired/rotated/revoked refresh token, and the case
+       where the stored session carries no refresh token at all (sbRefresh returns early, so a
+       lock-out placed inside its catch would have been skipped - which let a forged session run
+       on, unauthenticated, displaying the previous account's offline mirror).
+       The thrown error is marked so callers know this was a REJECTION, not an outage: the offline
+       fallback must not be served for it. */
+    /* The server has definitively refused this identity. Drop the offline mirror with it: it is a
+       plaintext copy of an account this browser is no longer entitled to, and leaving it behind is
+       what made a hand-written localStorage session worth forging. */
+    sbStoreSession(null);
+    // 403 can also mean a missing grant after a deploy, not only "not you" - either way, file any
+    // unsaved copy before dropping it.
+    try{ dropMirror(uid); }catch(e2){}
+    const err=new Error("your session is no longer valid"); err.authFailed=true; err.status=r.status;
+    try{ lockOut("Your session is no longer valid. Please sign in again."); }catch(e2){}
+    throw err;
+  }
   return r;
 }
 
@@ -1427,40 +1714,74 @@ async function sbApi(path, opts, _retried){
    based on; ZERO rows affected means somebody else wrote first - that is the conflict, and
    it is surfaced to the user, never merged. */
 const CLOUD_TABLE="/rest/v1/portfolios";
+/* E6 FIX - cloudLoadPortfolio used to write state.baseRevision/cloudRowExists the instant it
+   returned, i.e. BEFORE loadPortfolio could check whether the reply still belonged to this session.
+   A slow reply from a previous session therefore stamped its revision over the live one, and the
+   "restore the snapshot" repair could not help: the snapshot was taken at the STALE load's start,
+   so it held the old account's numbers too. The result is parked here instead and applied by
+   loadPortfolio only after the session check passes. */
+let _cloudMeta=null;
 async function cloudLoadPortfolio(){
   const uid=sbUserId(); if(!uid) throw new Error("not signed in");
-  const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&limit=1",
+  const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&order=revision.desc&limit=1",
     { headers:{ "Accept":"application/json" } });
   if(!r.ok) throw new Error("cloud load failed: HTTP "+r.status);
   const rows=await r.json();
-  if(!rows||!rows.length) return null;                  // no row yet - the first save creates it
+  if(!rows||!rows.length){ _cloudMeta={revision:0,rowExists:false}; return null; }   // no row yet - the first save creates it
   const row=rows[0], p=row.data||null;
   if(p && isNum(row.revision)) p.revision=row.revision; // the row column is the source of truth
+  _cloudMeta={ revision:isNum(row.revision)?row.revision:0, rowExists:true };   // E6 FIX: the CONFIRMED server revision
   return p;
 }
 async function cloudSavePortfolio(p){
   const uid=sbUserId(); if(!uid) throw new Error("not signed in");
-  const next=isNum(p.revision)?p.revision:1;            // stampPortfolioMeta already incremented it
-  const base=next-1;
+  /* E6 FIX - the concurrency base must be the revision the SERVER last confirmed, not
+     (document revision - 1). Deriving it from the document assumed every previous save landed,
+     so one failed save desynced them permanently and every later save looked like a conflict on
+     a device that was never contended.
+     And if the confirmed base is unknown, REFUSE. The old fallback to
+     (document revision - 1); after an offline edit the mirror's revision is server+1, so that
+     guess produced a base equal to the server's revision and a stale document then matched the
+     PATCH filter and overwrote a newer one. An unknown base means "reload first", never "guess". */
+  if(!isNum(state.baseRevision))
+    throw new Error("this device is not in sync with your account - reload the page before saving");
+  const base=state.baseRevision;
+  const next=base+1;
+  p.revision=next;                                      // keep the document consistent with the write
   const payload={ data:p, revision:next, schema_version:isNum(p.schemaVersion)?p.schemaVersion:1 };
   const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&revision=eq."+base,
     { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
       body: JSON.stringify(payload) });
   if(r.ok){
     const rows=await r.json();
-    if(rows && rows.length) return;                     // updated cleanly
+    if(rows && rows.length){                            // updated cleanly
+      const rev=rows[0] && rows[0].revision;
+      state.baseRevision=isNum(rev)?rev:next;           // only a CONFIRMED write advances the base
+      return;
+    }
     // Zero rows: either no row exists yet, or someone else wrote. Distinguish them.
     const probe=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=revision&limit=1");
-    const existing=probe.ok?await probe.json():[];
+    // E6 FIX: a FAILED probe is not evidence that the row is absent. Collapsing it to [] fell
+    // through to the INSERT path against a live row (which the user_id primary key then rejects
+    // with a 409 reported as a network problem, so the losing edit was never stashed).
+    if(!probe.ok) throw new Error("cloud save failed: could not verify the account row (HTTP "+probe.status+")");
+    const existing=await probe.json();
     if(existing && existing.length){
       const err=new Error("This account was changed on another device.");
       err.conflict=true; err.serverRevision=existing[0].revision; throw err;
     }
   }
+  if(!r.ok){                                          // a non-2xx PATCH is a real error, not "no row yet"
+    const t=await r.text();
+    throw new Error("cloud save failed: HTTP "+r.status+" "+t.slice(0,120));
+  }
   const ins=await sbApi(CLOUD_TABLE,
     { method:"POST", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
       body: JSON.stringify(Object.assign({user_id:uid},payload)) });
   if(!ins.ok){ const t=await ins.text(); throw new Error("cloud save failed: HTTP "+ins.status+" "+t.slice(0,120)); }
+  try{ const irows=await ins.json(); const irev=irows&&irows[0]&&irows[0].revision;
+       state.baseRevision=isNum(irev)?irev:next; }catch(e){ state.baseRevision=next; }
+  state.cloudRowExists=true;                        // the row exists now - do not re-offer the import
 }
 const YUA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 let _crumb=null;
@@ -1796,31 +2117,119 @@ async function loadScreenerQuotes(){
 async function loadPortfolio(){
   let p=null;
   const _ad=storageAdapter();                      // E6.2: one seam, one branch
+  const uid=sbUserId();                            // captured BEFORE any await - the session can die mid-load
+  const epoch=(typeof sbEpoch==="number")?sbEpoch:0;
+  const stale=()=> sbUserId()!==uid || appLocked || (typeof sbEpoch==="number" && sbEpoch!==epoch);
+  _cloudMeta=null;
+  state.docSource=_ad.name; state.docOwner=(_ad.name==="cloud")?uid:null;
   if(_ad.fallback){
-    try{ p=await _ad.load(); state.syncStatus=_ad.name; if(p&&_ad.mirror) nativeSavePortfolio(p); }   // keep a local mirror of the shared book
-    catch(e){ console.error("remote load failed",e); state.syncStatus=_ad.name+"-failed"; p=_ad.fallback(); }
+    try{
+      p=await _ad.load(); state.syncStatus=_ad.name;
+      /* E6 FIX - the session can end DURING the load. Without this the reply from a request the
+         signed-out user started re-created the mirror that signing out had just deleted, and a
+         reply that landed after someone else signed in hydrated the previous account's document
+         into the new session. */
+      if(stale()){ console.warn("discarding a load that belongs to a previous session"); return; }
+      if(_ad.name==="cloud" && _cloudMeta){          // only NOW may it touch the live session
+        state.baseRevision=_cloudMeta.revision; state.cloudRowExists=_cloudMeta.rowExists;
+      }
+      if(_ad.mirror==="cloud"){
+        // Stash FIRST in both cases. A confirmed-empty account with a dirty mirror means a first
+        // save never landed: that mirror is the user's only copy.
+        const kept=stashUnsyncedMirror(p,uid);
+        if(kept==="failed"){
+          // Do NOT overwrite: the mirror holds the only copy of work the server never took.
+          state.syncError="unsaved work on this device could not be filed - it is still in the local copy";
+        } else if(p) cloudMirrorSave(p,uid,false);
+        if(!p) state.portfolio=null;                 // a CONFIRMED empty account - nothing to show
+        // A confirmed read supersedes an earlier save failure: whatever it lost is in the stash,
+        // and the badge must describe the state we are in NOW, not the one we were in.
+        if(kept!=="failed") state.syncError=null;
+      }
+      else if(p&&_ad.mirror) nativeSavePortfolio(p);
+    }
+    catch(e){
+      console.error("remote load failed",e);
+      /* E6 FIX - the FAILURE branch needs the same session check as the success branch, and for a
+         sharper reason: `uid` is the uid captured before the await, so _ad.fallback(uid) reads
+         THAT account's mirror. Without this, a stalled request belonging to a signed-out user
+         resolved inside the NEXT user's session and hydrated the previous account's holdings,
+         contributions and history into it - or, when that mirror was absent, nulled the live
+         document and left the app refusing every save. sbApi's own `stale` error lands here. */
+      if(stale()){ console.warn("discarding a failed load that belongs to a previous session"); return; }
+      state.syncStatus=_ad.name+"-failed";
+      /* Distinguish REJECTED from OFFLINE. The offline mirror exists to survive an outage; serving
+         it after the server said "not you" turned a dead session into a viewer for whatever that
+         uid last had on this browser. */
+      if(e && e.authFailed){ state.baseRevision=null; state.portfolio=null; return; }
+      p=_ad.fallback(uid);
+      // If the fallback has nothing, do NOT leave the previous account's document standing.
+      if(!p) state.portfolio=null;
+      /* The base revision is now UNKNOWN: whatever the mirror carries is this device's own
+         number, never one the server confirmed. Saving against it is how a stale document
+         silently overwrote a newer one. cloudSavePortfolio refuses while this is null. */
+      state.baseRevision=null;
+    }
   } else {
     p=await _ad.load();
+    if(stale()) return;
     if(_ad===STORAGE_ADAPTERS.native) state.syncStatus="local";
   }
-  if(p){ state.portfolio=p; if(p.weights)state.weights=p.weights; if(p.overrides)state.overrides=p.overrides; if(p.penalty)state.penalty=p.penalty;
-    if(p.themeTickers)state.themeTickers=p.themeTickers;
-    if(p.themes)state.themes=p.themes;
+  // The lock can be raised from deep inside the awaits above; do not repopulate state behind the gate.
+  if(appLocked) return;
+  if(p) hydrateFromDocument(p);
+  rebuildThemeOf();
+}
+/* E6 FIX - extracted so the IMPORT path can reuse it. It used to assign state.portfolio directly
+   and skip all of this, so an imported book was uploaded stripped of its themes, theme membership,
+   watchlist, metric list, per-metric config, presets, overrides, cap, weights and penalty - while
+   the modal promised "its full history comes with it". */
+function hydrateFromDocument(p){
+  { state.portfolio=p;
+    /* Absent means "the default", never "keep whatever the last document left in memory". The
+       leftover values were being written straight back into the next document on its first save. */
+    state.weights  = (p.weights  && typeof p.weights ==="object") ? p.weights  : Object.assign({},DEFAULT_CONFIG.weights);
+    state.overrides= (p.overrides&& typeof p.overrides==="object") ? p.overrides: {};
+    state.penalty  = (p.penalty  && typeof p.penalty ==="object") ? p.penalty  : Object.assign({},DEFAULT_CONFIG.penalty);
+    /* E6 FIX: null is MEANINGFUL here ("use the defaults") - it is exactly what
+       restoreDefaultThemes()/deleteTheme write. A truthiness guard could never move state back
+       to null, so a theme deleted on one device was resurrected by the next save from another. */
+    state.themeTickers=(p.themeTickers && typeof p.themeTickers==="object") ? p.themeTickers : null;
+    state.themes=Array.isArray(p.themes) ? p.themes : null;
     if(Array.isArray(p.watchlist))state.watchlist=p.watchlist.map(w=>(typeof w==="string"?{sym:w,theme:null}:w));
     else if(Array.isArray(p.otherList))state.watchlist=p.otherList.map(s=>({sym:s,theme:null}));   // migrate old 'Other' list
+    else state.watchlist=[];
     state.metrics = (Array.isArray(p.metrics)&&p.metrics.length) ? validateMetrics(p.metrics) : null;   // E2.1: reattach descriptors by key; null/absent => defaults
     state.metricCfg = (p.metricCfg&&typeof p.metricCfg==='object'&&!Array.isArray(p.metricCfg)) ? p.metricCfg : null;   // E2.4: per-metric overrides; null/absent => defaults
     if(state.metricCfg){ Object.keys(state.metricCfg).forEach(k=>{ if(!catalogByKey(k)) delete state.metricCfg[k]; }); if(!Object.keys(state.metricCfg).length) state.metricCfg=null; }   // drop entries for keys no longer in the catalog
     state.presets = Array.isArray(p.presets) ? p.presets.map(sanitizePreset).filter(Boolean) : [];   // E2.5: preset library (not versioned)
     ['peg','ev','dfcf','pe','mcap','mom'].forEach(k=>{ if(!(k in state.weights)) state.weights[k]=DEFAULT_CONFIG.weights[k]; });   // E2.3: backfill missing default weights WITHOUT nuking activated catalog metrics
     backfillPenalty();   // restore any missing default-metric penalty (peg/ev/dfcf/pe) — no-op when complete
-    if(isNum(p.cap)) state.cap=p.cap;
+    state.cap = isNum(p.cap) ? p.cap : null;   // E6 FIX: an absent cap means the default, not "keep the last one"
     state.computeFromStatements = (p.computeFromStatements!==false);   // E3.4: data-source preference (default on); non-versioned
     migrateVersions(p); }
-  rebuildThemeOf();
 }
-async function savePortfolio(){
+/* E6 FIX - saves are SERIALISED. savePortfolio is wired to `change` handlers (weight sliders,
+   the cap field) and to undo/redo, so two could overlap, both read the same baseRevision, and the
+   second would be rejected as a "conflict" - manufacturing a cross-device warning, and a
+   destructive reload, out of a single-device race. */
+let _saveChain=Promise.resolve();
+function savePortfolio(){
+  const run=()=>_savePortfolioInner();
+  const next=_saveChain.then(run,run);
+  _saveChain=next.catch(()=>{});
+  return next;
+}
+async function _savePortfolioInner(){
+  /* E6 FIX - refuse outright once the app is locked. A save queued behind a failing one used to
+     dequeue AFTER lockOut() had wiped the state its guards depend on, rebuild an empty document,
+     and write it over the shared server file (or, on iOS, over the device's only copy). */
+  if(appLocked){ console.warn("save refused - the app is locked"); return false; }
+  if(booting){ console.warn("save refused - still loading this account"); return false; }
   if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
+  /* Captured now, so the rescue write in the catch below still knows whose document this is even
+     if the session dies (and clearAccountState runs) part-way through. */
+  const _owner=state.docOwner, _doc=state.portfolio;
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
@@ -1831,28 +2240,98 @@ async function savePortfolio(){
   state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];   // E2.5: preset library
   stampPortfolioMeta(state.portfolio);             // E6.1: schemaVersion + monotonic revision + updatedAt
   const _ad=storageAdapter();                      // E6.2
+  state.syncError=null;
+  /* ---- E6 FIX: the adapter must not change under the document -------------------------
+     This is the only path that could actually destroy the user's book. A document loaded from
+     a cloud ACCOUNT must never be written to the identity-free `web` or `native` store, which
+     is what happened when a session died mid-session: storageAdapter() silently fell through,
+     and the next autosave wrote the account's portfolio over the shared server portfolio.json
+     (web) or over pb_portfolio_v1, the device's ONLY copy (native). Refuse, keep the work in
+     the owner's own mirror, and re-gate. */
+  if(state.docSource==="cloud" && (!signedIn() || (state.docOwner && sbUserId()!==state.docOwner))){
+    const owner=_owner||state.docOwner;
+    state.syncError="the session ended before this change was saved";
+    try{
+      cloudMirrorSave(_doc,owner,true);            // unsynced: the server never took this
+      if(owner) localStorage.setItem("pb_unsynced_"+owner+"_"+Date.now(), JSON.stringify(_doc));
+    }catch(e){ console.error("could not keep the unsaved change",e); }
+    console.error("refusing to save an account document to the "+_ad.name+" store");
+    lockOut("Your session ended before that change was saved. Sign in again - the change is kept on this device.");
+    return false;
+  }
+  if(state.docSource && state.docSource!=="cloud" && _ad.name==="cloud"){
+    // The mirror image of the same problem: a local book must not be pushed into an account
+    // except through the deliberate import flow, which sets docSource itself.
+    console.error("refusing to save a local document into an account without an explicit import");
+    state.syncError="this portfolio was not loaded from your account";
+    renderSyncBadge();
+    return false;
+  }
   if(_ad.mirror){
     try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
     catch(e){
+      state.syncError=(e&&e.message)||"save failed";
       console.error("remote save failed",e);
       state.syncStatus=_ad.name+"-failed";
       // E6.5: a CONFLICT is not a transient failure - another device wrote first. Financial
       // records must never be auto-merged, so reload the server copy and say so plainly.
       if(e && e.conflict){
-        state.portfolio.revision=isNum(e.serverRevision)?e.serverRevision:state.portfolio.revision;
+        // keep the edit that lost the race BEFORE anything reloads over it
+        const owner=_owner||state.docOwner||sbUserId();
+        if(owner){ try{ localStorage.setItem("pb_conflict_"+owner+"_"+Date.now(), JSON.stringify(_doc)); }catch(err){} }
+        /* E6 FIX - do NOT adopt e.serverRevision here. Setting the base from the error object
+           claimed the client was caught up to a revision whose CONTENT it had not loaded; if the
+           reload below then failed, the next save matched that base and overwrote the other
+           device's work. Only a load that actually returns content may set the base. */
+        state.baseRevision=null;
         try{
           await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
-          toast("This account was changed on another device - reloaded that version. Re-apply your change if you still want it.");
+          /* loadPortfolio does NOT throw when the read fails - it quietly serves the local mirror.
+             Saying "reloaded that version" then told the user they were looking at the winning
+             document when they were looking at the one that lost. */
+          const got = state.syncStatus==="cloud" && isNum(state.baseRevision);
+          setTimeout(()=>toast(got
+            ? "Changed on another device - reloaded that version. Your edit was kept aside, not applied."
+            : "Changed on another device, and that version could not be fetched - this is the local copy. Refresh before editing."),400);
         }catch(err){ console.error("conflict reload failed",err);
-          toast("This account was changed elsewhere and the reload failed - refresh the page before editing."); }
-        return;
+          state.baseRevision=null;      // still unknown - keep refusing saves until a real load succeeds
+          setTimeout(()=>toast("Changed elsewhere and the reload failed - refresh the page before editing."),400); }
+        renderSyncBadge();
+        return false;
       }
-      if(_ad.name==="cloud") toast("Could not reach your account - saved locally, will sync when it is back.");
+      if(_ad.name==="cloud"){
+        /* Deferred so a caller's own "saved" toast cannot immediately paper over it, and honest
+           about the fact that nothing retries automatically. */
+        setTimeout(()=>toast("NOT saved to your account - kept on this device only. Reload when your connection is back."),400);
+      }
+      if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,true); else nativeSavePortfolio(_doc);
+      renderSyncBadge();
+      return false;                          // E6 FIX: tell the caller it did NOT save
     }
-    nativeSavePortfolio(state.portfolio);   // always keep a local mirror so data survives going offline
+    if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,false); else nativeSavePortfolio(_doc);
   } else {
-    await _ad.save(state.portfolio);
+    // E6 FIX: this branch used to THROW, so web-path callers got an unhandled rejection that
+    // aborted the rest of the handler with nothing shown at all. Fail the same way as above.
+    try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
+    catch(e){
+      state.syncError=(e&&e.message)||"save failed"; console.error("save failed",e);
+      setTimeout(()=>toast("NOT saved - "+state.syncError),400);
+      renderSyncBadge(); return false;
+    }
   }
+  /* The restored copy is now safely in the account - but only drop it if what just saved really
+     IS that work. It used to be consumed by ANY successful save, so restoring a stash and then
+     resetting the portfolio deleted the kept-aside book without ever storing it. */
+  /* Judge against _doc - the document this save actually wrote - not against whatever is on
+     screen by the time the network returns. And only forget the stash when it really was the
+     thing saved; clearing it either way meant a restored-then-edited document was re-offered
+     on every future sign-in. */
+  if(state.pendingStashKey && state.pendingStashSig && docSig(_doc)===state.pendingStashSig){
+    stashDrop(state.pendingStashKey);
+    state.pendingStashKey=null; state.pendingStashSig=null;
+  }
+  renderSyncBadge();
+  return true;
 }
 
 /* ======================================================================
@@ -1947,11 +2426,33 @@ function setReturnUnit(u){
    SESSION opens the app even when the backend is unreachable (the free tier pauses after a
    week idle) - it falls back to the local mirror. The gate is there to keep strangers out,
    not to lock the owner out of their own portfolio during an outage. */
+let gateSetMode=null;                       // assigned by wireGate so showGate can reset the form
 function showGate(show){
   const g=$("#gate"); if(!g) return;
+  const wasHidden=g.hidden!==false;
   g.hidden=!show;
   document.documentElement.classList.toggle("gated",!!show);
-  if(show) setTimeout(()=>{ const el=$("#gateEmail"); if(el&&!el.value) el.focus(); },40);
+  /* E6 FIX - the gate was only a z-index cover. setupEvents() has already wired the app beneath
+     it, so Tab walked straight off the gate's own controls into live buttons - including
+     "Reset portfolio", and the account button, which opened a second, unguarded sign-in path. */
+  const app=document.querySelector(".app");
+  if(app){
+    if(show){ app.setAttribute("inert",""); app.setAttribute("aria-hidden","true"); }
+    else    { app.removeAttribute("inert"); app.removeAttribute("aria-hidden"); }
+  }
+  // Only reset on the way IN. A second lockOut while the user is typing must not blank the form.
+  if(show && wasHidden){
+    /* E6 FIX - the form is wiped on the way IN. It used to keep the previous user's email address
+       on screen after a sign-out (disclosing who was last here on a shared machine), keep a stale
+       error message, and keep `mode` on "signup" - so the next press of a button labelled
+       "Sign in" actually attempted a registration. */
+    const em=$("#gateEmail"), pw=$("#gatePass"), ms=$("#gateMsg"), b=$("#gateGo");
+    if(em) em.value=""; if(pw) pw.value="";
+    if(ms){ ms.className="auth-msg"; ms.textContent=""; }
+    if(b){ b.disabled=false; }
+    if(gateSetMode) gateSetMode("signin");
+    setTimeout(()=>{ if(em) em.focus(); },40);
+  }
 }
 function gateMsg(kind,text){
   const m=$("#gateMsg"); if(!m) return;
@@ -1969,6 +2470,7 @@ function wireGate(){
     $("#gateToggle").textContent= m==="signin"?"Create an account":"I already have an account";
     $("#gatePass").setAttribute("autocomplete", m==="signin"?"current-password":"new-password");
   };
+  gateSetMode=setMode;                      // so showGate() can reset the form
   $("#gateToggle").addEventListener("click",()=>setMode(mode==="signin"?"signup":"signin"));
   $("#gateForgot").addEventListener("click",async()=>{
     const email=($("#gateEmail").value||"").trim();
@@ -1989,9 +2491,32 @@ function wireGate(){
           return;
         }
       } else { await sbSignIn(email,pass); }
+      /* E6 FIX - dismissal is conditioned on an ACTUAL session, not merely on "nothing threw".
+         sbAdoptSession returns null without throwing for any 2xx that carries no access_token,
+         which would have dropped the gate for an unauthenticated visitor. */
+      if(!signedIn()) throw new Error("Sign-in did not return a session. Please try again.");
+      /* E6 FIX - start from nothing. Boot could previously leave a dead session's data hydrated in
+         memory (lockOut fires mid-await, the rest of loadPortfolio carries on and repopulates), and
+         the sign-in path never cleared it - so the next account inherited the previous one's
+         presets, weights, penalty, cap, themes, membership and watchlist, and wrote them into its
+         own row on the first save. */
+      appLocked=false;
+      try{ closeModal(); }catch(e){}     // nothing from the previous session may outlive the gate
+      clearAccountState();
       $("#gatePass").value="";
+      /* E6 FIX - the app is loaded BEFORE the gate comes down. Dropping it first meant the new
+         user stared at the PREVIOUS user's holdings, totals and history - still painted in the
+         DOM underneath - for the several seconds bootSignedIn spends on the network. */
+      b.textContent="Loading your portfolio\u2026";
+      try{ await bootSignedIn(); } finally{ booting=false; }
+      /* E6 FIX - re-check AFTER the load. bootSignedIn swallows its own errors, so a session that
+         died during it (raising the gate via lockOut) would otherwise have the gate torn straight
+         back down here, leaving the app running unauthenticated with the price timer started. */
+      if(!signedIn() || appLocked) throw new Error("Your session ended while loading. Please sign in again.");
+      b.disabled=false; b.textContent="Sign in";
       showGate(false);
-      await bootSignedIn();
+      setupAutoRefresh();                          // start the price timer only once past the gate
+      await postSignInPrompts();                   // only now can the user actually see a dialog
     }catch(e){
       b.disabled=false; setMode(mode);
       gateMsg("err", e.message==="Invalid login credentials"
@@ -2000,7 +2525,9 @@ function wireGate(){
     }
   };
   $("#gateGo").addEventListener("click",submit);
-  ["gateEmail","gatePass"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{ if(e.key==="Enter")submit(); }));
+  // E6 FIX: Enter bypassed the button's disabled flag, so a held key started overlapping submits.
+  ["gateEmail","gatePass"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !$("#gateGo").disabled) submit(); }));
   setMode("signin");
 }
 /* Load everything for a signed-in session. Used both on boot and right after signing in. */
@@ -2009,20 +2536,121 @@ async function bootSignedIn(){
   rebuildThemeOf();
   try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }
   catch(e){ console.error(e); toast("Some market data failed to load - using fallback"); }
-  renderAcctBtn(); renderAll();
-  if(!isInit()) await offerImportIfLocalExists();   // E6.6
+  renderAcctBtn(); renderSyncBadge(); renderAll();
+}
+/* E6 FIX - the modal prompts MUST NOT live inside bootSignedIn().
+   The gate is opaque and sits at z-index 400; a modal renders at 80. bootSignedIn() is awaited by
+   the gate submit WHILE THE GATE IS STILL UP, so awaiting a modal from in here meant waiting
+   forever on a dialog painted underneath an opaque overlay - a permanent deadlock on the very
+   path E6.6 exists for (first sign-in, empty account, a local book to import). Only a page reload
+   escaped it. These now run after showGate(false), from both boot paths. */
+async function postSignInPrompts(){
+  if(!signedIn() || appLocked) return;
+  /* "Empty account" means NO ROW, not "no holdings": an account undone back past its first
+     checkpoint, or reset, was declared empty over a live row - and "Start fresh" then wrote an
+     empty document over its entire checkpoint history on the next autosave. */
+  if(state.cloudRowExists===false) await offerImportIfLocalExists();   // E6.6
+  /* Always offered, never in an else: the likeliest way to HAVE kept-aside work is a session that
+     died before the first successful save, which is exactly when the account is still empty. */
+  offerStashRecovery();
 }
 /* E6.6 - the account is empty. Is there a portfolio on THIS MACHINE worth importing?
-   The gate means the local book is no longer sitting in memory, so read it from local storage
-   directly rather than assuming what is on screen. The local file is only ever READ here. */
+   The local store is only ever READ here. Three guards decide whether to even ask:
+
+   1. The account must be CONFIRMED empty. A cloud read that FAILED is not an empty account -
+      announcing "this account is empty" over a real book, on a paused project, pushed the user
+      toward "Start fresh".
+   2. The book must not already belong to somebody else. localStorage is per-browser, not
+      per-user: without a claim, the second person to sign in on this machine was shown the
+      first person's holdings, checkpoints and contributed dollars, and could upload them.
+   3. The server-side portfolio.json is only consulted on a PRIVATE host. On a shared
+      deployment /api/portfolio carries no user identity at all, so it is one file for
+      everybody - never a candidate for "your" book. */
+/* Two separate ideas, which one key used to conflate:
+   OWNER  - somebody imported this device's book into their account, so it is now THEIR data and
+            must never be shown to anyone else. Set only on a successful import.
+   SEEN   - this particular user has already been asked and said no. Stops the nagging without
+            claiming the book, so the machine's actual owner can still import it later.
+   Conflating them meant a guest who sensibly declined ("that book isn't mine") permanently locked
+   the real owner out of importing their own portfolio. */
+const LOCAL_OWNER_KEY="pb_local_owner", LOCAL_CLAIM_KEY="pb_local_claim";
+function localOwner(){
+  try{ return localStorage.getItem(LOCAL_OWNER_KEY)||localStorage.getItem(LOCAL_CLAIM_KEY)||""; }catch(e){ return ""; }
+}
+function setLocalOwner(uid){ try{ if(uid) localStorage.setItem(LOCAL_OWNER_KEY,uid); }catch(e){} }
+function importAsked(uid){ try{ return !!uid && localStorage.getItem("pb_import_asked_"+uid)==="1"; }catch(e){ return false; } }
+function setImportAsked(uid){ try{ if(uid) localStorage.setItem("pb_import_asked_"+uid,"1"); }catch(e){} }
+function isPrivateHost(){
+  const h=(location.hostname||"").toLowerCase();
+  return h===""||h==="localhost"||h==="127.0.0.1"||h==="[::1]"||h==="::1";
+}
 async function offerImportIfLocalExists(){
   if(!signedIn()) return;
-  let localP=null;
-  try{ localP = NATIVE ? nativeLoadPortfolio() : await webLoadPortfolio(); }
-  catch(e){ console.error("local probe failed",e); return; }
+  const uid=sbUserId();
+  const own=localOwner();
+  if(own && own!==uid) return;                     // guard 2: this device's book belongs to another account
+  if(importAsked(uid)) return;                     // already asked this user; do not nag
+  if(state.syncStatus!=="cloud" || state.cloudRowExists!==false){   // guard 1: a CONFIRMED empty account
+    console.warn("skipping the import offer - the account was not confirmed empty ("+state.syncStatus+"/"+state.cloudRowExists+")");
+    return;
+  }
+  let localP=null, src="";
+  try{ localP=nativeLoadPortfolio(); if(localP) src="in this browser"; }catch(e){}
+  if(!localP && isPrivateHost()){                  // guard 3
+    try{ localP=await webLoadPortfolio(); if(localP) src="on this computer"; }catch(e){}
+  }
   const n = localP && localP.holdings ? Object.keys(localP.holdings).length : 0;
   if(!n) return;                                   // nothing local worth importing
-  openImportChoice(localP);
+  /* AWAITED. openImportChoice used to return as soon as the modal was painted, so the stash
+     prompt that runs next overwrote #modalRoot and the import offer was never seen - in exactly
+     the situation (empty account + kept-aside work) the two were meant to cover together. */
+  await openImportChoice(localP,src);
+}
+/* E6 FIX - "we kept your edit aside" was a write-only promise: nothing in the app ever read
+   pb_unsynced_/pb_conflict_ back. This is the reader. */
+function offerStashRecovery(){
+  if(!signedIn()) return;
+  const items=stashList(sbUserId());
+  if(!items.length) return;
+  const rows=items.map((it,i)=>`<div class="card pad" style="margin:8px 0;background:var(--surface2)">
+      <div class="small"><b>${it.holdings}</b> holdings &middot; <b>${it.versions}</b> checkpoint${it.versions===1?"":"s"}
+        &middot; ${it.kind==="conflict"?"lost a save race":"edited offline"}</div>
+      <div class="xs muted" style="margin-top:3px">${new Date(it.when).toLocaleString()}</div>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn sm" data-load="${i}">Put it on screen</button>
+        <button class="btn sm ghost" data-drop="${i}">Discard</button>
+      </div></div>`).join("");
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="stashModal"><div class="modal-card card pad" style="max-width:480px">
+    <h2 style="font-size:16px">Unsaved work was kept aside</h2>
+    <p class="small muted" style="margin:6px 0 0">${items.length===1?"A change":"Changes"} on this device never reached your
+      account &mdash; saved while offline, or overtaken by another device. Nothing here has been applied.</p>
+    ${rows}
+    <p class="xs muted" style="margin:10px 0 0">"Put it on screen" loads that version so you can look at it. It is
+      <b>not</b> saved to your account until you make a change or press save yourself &mdash; and if you do,
+      it <b>replaces</b> what the account holds now. A copy of that is kept aside too.</p>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" id="stashClose">Close</button></div>
+  </div></div>`;
+  $("#stashClose").addEventListener("click",closeModal);
+  $("#stashModal").addEventListener("click",e=>{ if(e.target.id==="stashModal") closeModal(); });
+  $("#stashModal").addEventListener("click",e=>{
+    const l=e.target.closest("[data-load]"), d=e.target.closest("[data-drop]");
+    if(l){ const it=items[+l.dataset.load]; closeModal();
+      /* Keep what is about to be replaced. Saving a restored document overwrites the account's
+         CURRENT content with no conflict raised (the base revision is still the confirmed one),
+         so the thing being displaced needs a copy too. */
+      try{
+        const owner=state.docOwner||sbUserId();
+        if(owner && state.portfolio) localStorage.setItem("pb_conflict_"+owner+"_"+Date.now(), JSON.stringify(state.portfolio));
+      }catch(err){ console.error("could not keep the replaced document",err); }
+      hydrateFromDocument(JSON.parse(JSON.stringify(it.doc)));
+      /* Kept until the work is safely in the account - dropping it here would lose the copy if
+         the user never saves, and keeping it forever would re-offer stale work on every boot. */
+      state.pendingStashKey=it.key; state.pendingStashSig=docSig(state.portfolio);
+      rebuildThemeOf(); rebuildFundamentals(); renderAll();
+      toast("Loaded the kept-aside version - review it, then save if you want to keep it"); return; }
+    if(d){ const it=items[+d.dataset.drop]; stashDrop(it.key); closeModal();
+      toast("Discarded"); offerStashRecovery(); }
+  });
 }
 
 function renderAcctBtn(){
@@ -2032,17 +2660,17 @@ function renderAcctBtn(){
   else{ b.textContent="Sign in"; b.classList.remove("on");
         b.title="Sign in to sync this portfolio to your account"; }
 }
-function authMsg(kind,text){
-  const m=$("#authMsg"); if(!m) return;
-  m.className="auth-msg show "+(kind==="ok"?"ok":"err"); m.textContent=text;
-}
 function openAccount(){
-  if(signedIn()){
+  /* E6 FIX: with a mandatory gate there is exactly one sign-in path. This used to render a second
+     one, invisible BEHIND the gate but fully wired, which authenticated without ever clearing
+     appLocked - leaving the user signed in with every save silently refused. That form, its
+     adoptAccountPortfolio() flow and the authMsg() helper it used were deleted, not disabled. */
+  if(appLocked || !signedIn()){ showGate(true); return; }
+  {
     $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
       <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio saves to your account, with a local copy kept as a fallback.</p>
-      <div id="authMsg" class="auth-msg"></div>
       <div class="row" style="justify-content:space-between;margin-top:16px">
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
@@ -2050,110 +2678,39 @@ function openAccount(){
     $("#acctClose").addEventListener("click",closeModal);
     $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
     $("#acctSignOut").addEventListener("click",async()=>{
-      await sbSignOut(); closeModal(); renderAcctBtn();
-      showGate(true);                       // E6.8: signing out returns to the landing page
+      const uid=sbUserId();
+      await sbSignOut(); closeModal();
+      /* The offline mirror is a plaintext copy of this account's book. With a mandatory login
+         gate it is only ever useful WHILE signed in, so an explicit sign-out clears it rather
+         than leaving it in a shared browser. Kept-aside work (pb_unsynced_/pb_conflict_) is
+         deliberately NOT cleared - losing unsaved work would be the worse failure. */
+      try{ dropMirror(uid); }catch(e){}
+      lockOut();                            // E6.8: clears state, stops the timer, returns to the landing page
       toast("Signed out");
     });
     return;
   }
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
-    <h2 style="font-size:16px" id="authTitle">Sign in</h2>
-    <p class="small muted" style="margin:6px 0 0" id="authSub">Your portfolio syncs to your account and follows you between devices.</p>
-    <label class="auth-field" for="authEmail">Email</label>
-    <input class="auth-in" type="email" id="authEmail" autocomplete="username" placeholder="you@example.com">
-    <label class="auth-field" for="authPass">Password</label>
-    <input class="auth-in" type="password" id="authPass" autocomplete="current-password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022">
-    <div id="authMsg" class="auth-msg"></div>
-    <div class="row" style="gap:8px;margin-top:14px">
-      <button class="btn primary" id="authGo" style="flex:1">Sign in</button>
-      <button class="btn" id="acctClose">Cancel</button>
-    </div>
-    <div class="auth-alt">
-      <button class="linkish" id="authToggle">Create an account</button>
-      <button class="linkish" id="authForgot">Forgot password?</button>
-    </div></div></div>`;
-  let mode="signin";
-  const setMode=m=>{ mode=m;
-    $("#authTitle").textContent = m==="signin"?"Sign in":"Create an account";
-    $("#authSub").textContent  = m==="signin"
-      ? "Your portfolio syncs to your account and follows you between devices."
-      : "You will get an email to confirm the address before your first sign-in.";
-    $("#authGo").textContent   = m==="signin"?"Sign in":"Create account";
-    $("#authToggle").textContent = m==="signin"?"Create an account":"I already have an account";
-    $("#authPass").setAttribute("autocomplete", m==="signin"?"current-password":"new-password");
-  };
-  $("#acctClose").addEventListener("click",closeModal);
-  $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
-  $("#authToggle").addEventListener("click",()=>setMode(mode==="signin"?"signup":"signin"));
-  $("#authForgot").addEventListener("click",async()=>{
-    const email=($("#authEmail").value||"").trim();
-    if(!email){ authMsg("err","Enter your email address first, then press this again."); return; }
-    try{ await sbRecover(email);
-      authMsg("ok","If that address has an account, a reset link is on its way. Check your inbox.");
-    }catch(e){ authMsg("err",e.message||"Could not send the reset email."); }
-  });
-  const submit=async()=>{
-    const email=($("#authEmail").value||"").trim(), pass=$("#authPass").value||"";
-    if(!email||!pass){ authMsg("err","Email and password are both required."); return; }
-    const btn=$("#authGo"); btn.disabled=true; btn.textContent="Working\u2026";
-    try{
-      if(mode==="signup"){
-        const r=await sbSignUp(email,pass);
-        if(r.needsConfirmation){
-          authMsg("ok","Account created. Confirm the link in your email, then sign in.");
-          btn.disabled=false; setMode("signin"); return;
-        }
-      } else {
-        await sbSignIn(email,pass);
-      }
-      closeModal(); renderAcctBtn();
-      await adoptAccountPortfolio();
-    }catch(e){
-      btn.disabled=false; setMode(mode);
-      authMsg("err", e.message==="Invalid login credentials"
-        ? "That email and password did not match an account."
-        : (e.message||"Sign-in failed."));
-    }
-  };
-  $("#authGo").addEventListener("click",submit);
-  ["authEmail","authPass"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{ if(e.key==="Enter")submit(); }));
-  setMode("signin");
-  setTimeout(()=>{ const el=$("#authEmail"); if(el) el.focus(); },30);
 }
-/* ===== E6.6 - what happens on the first sign-in to an EMPTY account =====================
-   The old behaviour was implicit and quietly dangerous: whatever portfolio happened to be on
-   screen became the account's portfolio on the next save. Sign in to a real account while
-   sitting on the dev server and you would silently upload the wrong book.
-   Now the choice is explicit, and the local file is never modified either way. */
-async function adoptAccountPortfolio(){
-  const localSnapshot = state.portfolio ? deepCopy(state.portfolio) : null;
-  const hadLocal = isInit();
-  let cloudRow=null;
-  try{ cloudRow = await cloudLoadPortfolio(); }
-  catch(e){ console.error("cloud load failed",e);
-    toast("Signed in, but your account could not be reached - showing the local copy."); renderAcctBtn(); return; }
-
-  if(cloudRow){                                   // the account already has a portfolio: it wins
-    try{
-      await loadPortfolio(); rebuildThemeOf();
-      try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); }catch(e){}
-      rebuildFundamentals(); renderAll(); renderAcctBtn();
-      toast("Signed in - portfolio loaded from your account");
-    }catch(e){ console.error(e); toast("Signed in, but loading your account failed."); }
-    return;
-  }
-  renderAcctBtn();
-  if(hadLocal && localSnapshot){ openImportChoice(localSnapshot); return; }   // it was already in memory
-  await offerImportIfLocalExists();               // otherwise read local storage and ask
-}
-function openImportChoice(local){
+/* E6 FIX - the modal sign-in form and adoptAccountPortfolio() were DELETED here, not disabled.
+   With a mandatory gate there is exactly one way into the app, and a second auth path that
+   nothing could reach was pure hazard: it authenticated without clearing appLocked, without
+   clearing the previous account's state, and without re-checking the session after loading -
+   none of the safeguards the gate path carries. Two reviews flagged it as latent; latent code
+   becomes live the moment somebody relaxes the gate. The account modal above (sign out / close)
+   is all that remains. */
+function openImportChoice(local,src){
+ return new Promise(resolveChoice=>{
+  // If anything else tears the modal down (lockOut calls closeModal), the awaiting caller must
+  // still be released - otherwise bootSignedIn stays suspended for the rest of the page's life.
+  _modalResolve=resolveChoice;
+  const where=src||"on this computer";
   const h=Object.keys((local&&local.holdings)||{}).length;
   const v=((local&&local.versions)||[]).length;
   const contributed=(local&&isNum(local.totalContributed))?money(local.totalContributed,0):"-";
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="impModal"><div class="modal-card card pad" style="max-width:460px">
     <h2 style="font-size:16px">This account is empty</h2>
     <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b>. There is no portfolio
-      stored against it yet. You have one open on this computer:</p>
+      stored against it yet. One was found ${where}:</p>
     <div class="card pad" style="margin:12px 0;background:var(--surface2)">
       <div class="small"><b>${h}</b> holdings &middot; <b>${v}</b> checkpoint${v===1?"":"s"} &middot; ${contributed} contributed</div>
       <div class="xs muted" style="margin-top:4px">Its full history comes with it - every rebalance stays undoable.</div>
@@ -2166,28 +2723,72 @@ function openImportChoice(local){
     <p class="xs muted" style="margin:12px 0 0">Either way your local file is left exactly as it is, so
       nothing here can lose it.</p>
   </div></div>`;
-  const close=()=>{ closeModal(); };
+  const close=()=>{ closeModal(); };                    // closeModal resolves via _modalResolve
   $("#impNo").addEventListener("click",async()=>{
-    close();
+    /* E6 FIX - re-check, exactly as the import button does. Without it a modal that outlived its
+       session could be answered against a DIFFERENT account, and this handler would overwrite
+       that account's holdings and entire checkpoint history with an empty document. */
+    let live=null;
+    try{ live=await cloudLoadPortfolio(); }
+    catch(e){ close(); toast("Could not confirm the account is empty - nothing was changed."); return; }
+    if(live){ close(); toast("This account already has a portfolio - loaded that instead.");
+      await bootSignedIn(); return; }
+    /* NOTE: close() is deliberately NOT called here. It resolves the awaiting caller, which then
+       paints the kept-aside-work prompt - and a restore from that prompt, landing while this
+       INSERT was still in flight, made the blank document's own save drop the restored stash. */
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
     state.themeTickers=null; state.themes=null; state.watchlist=[];
+    // A fresh account starts on the DEFAULTS, not on whatever the previous session left in memory.
+    state.presets=[]; state.metrics=null; state.metricCfg=null; state.overrides={};
+    state.weights=Object.assign({},DEFAULT_CONFIG.weights);
+    state.penalty=Object.assign({},DEFAULT_CONFIG.penalty);
+    state.cap=null; state.computeFromStatements=true;
+    state.docSource="cloud"; state.docOwner=sbUserId();
     rebuildThemeOf(); rebuildFundamentals(); renderAll();
-    toast("Started fresh - this account has its own empty portfolio");
+    // Actually create the row, rather than only claiming to have done so.
+    const ok=await savePortfolio();
+    if(ok) setImportAsked(sbUserId());   // only once it actually took: a failed write must be re-offerable
+    close();                             // release the next prompt only now
+    toast(ok ? "Started fresh - this account has its own empty portfolio"
+             : "Started fresh here, but the account could not be written yet - see the sync badge");
   });
   $("#impYes").addEventListener("click",async()=>{
     const b=$("#impYes"); b.disabled=true; b.textContent="Importing\u2026";
     try{
-      state.portfolio=local;                      // the in-memory book is already this; be explicit
-      state.portfolio.revision=0;                 // the account has no row: the first write starts at 1
-      await savePortfolio();                      // stamps revision 1 and INSERTs the row
+      /* Re-check: the row may have appeared since the prompt opened (another device, or a
+         retry). A re-check that FAILS must abort - swallowing it treated "could not check" as
+         "confirmed empty" and imported over a live account. */
+      let existing=null;
+      try{ existing=await cloudLoadPortfolio(); }
+      catch(e){ throw new Error("could not confirm the account is empty ("+(e.message||"check failed")+")"); }
+      if(existing){ close(); setImportAsked(sbUserId());
+        await bootSignedIn();                     // load FIRST, then report - it can fail
+        toast(state.cloudRowExists && state.syncStatus==="cloud"
+                ? "This account already has a portfolio - loaded that instead of importing."
+                : "This account already has a portfolio, but it could not be loaded just now.");
+        return; }
+      /* E6 FIX - go through the SAME hydration a normal load uses. Assigning state.portfolio
+         directly skipped it, and savePortfolio then overwrote the document's config from the
+         module defaults still sitting in state: the imported book arrived in the account with
+         its themes, theme membership, watchlist, metric list, per-metric config, presets,
+         overrides, cap, weights and penalty all wiped - and a legacy file never got its version
+         history migrated, because migrateVersions() lives in that hydration too. */
+      hydrateFromDocument(local);
+      state.docSource="cloud"; state.docOwner=sbUserId();
+      state.baseRevision=0;                       // confirmed no row: the first write becomes revision 1
+      state.portfolio.revision=0;
+      const ok=await savePortfolio();             // INSERTs the row
+      if(!ok) throw new Error(state.syncError||"the write did not reach your account");
+      setLocalOwner(sbUserId()); setImportAsked(sbUserId());   // now genuinely this account's data
       rebuildThemeOf(); rebuildFundamentals(); renderAll();
-      close(); toast("Imported - "+h+" holdings and "+v+" checkpoint"+(v===1?"":"s")+" now live in your account");
+      close(); toast("Imported - "+h+" holdings and "+v+" checkpoint"+(v===1?"":"s")+" now in your account");
     }catch(e){
       console.error("import failed",e); b.disabled=false; b.textContent="Import it into my account";
       const m=$("#impMsg"); if(m){ m.className="auth-msg show err"; m.textContent="Import failed: "+(e.message||"unknown error")+". Your local copy is untouched."; }
     }
   });
   $("#impModal").addEventListener("click",e=>{ if(e.target.id==="impModal") close(); });
+ });
 }
 
 function renderOverview(){
@@ -3017,9 +3618,10 @@ async function applyRebalance(plan){
   state.portfolio.holdings=h;
   state.portfolio.totalContributed=totalContributed()+plan.addCash;
   pushVersion(buildTxn("REBALANCE",plan.mode,plan.addCash,plan.cur0,plan));
-  await savePortfolio();
+  const _saved=await savePortfolio();
   lastPlan=null;
-  toast("Rebalance applied & saved");
+  toast(_saved ? "Rebalance applied & saved"
+              : "Rebalance applied on screen - NOT saved to your account. See the sync badge in the header.");
   renderAll();
 }
 
@@ -3260,7 +3862,14 @@ function openSwap(newSym, themeKey){
   $("#swapConfirm").addEventListener("click",()=>{ const sel=$("input[name=swapTarget]:checked");
     if(!sel){ toast("Pick a holding to replace"); return; } doSwap(themeKey, sel.value, newSym); });
 }
-function closeModal(){ const m=$("#modalRoot"); if(m)m.innerHTML=""; }
+/* E6 FIX - a modal that something ELSE tears down must still release whoever is awaiting its
+   answer. lockOut() calls closeModal(), so an import prompt closed by a mid-flight session death
+   would otherwise leave bootSignedIn suspended for the rest of the page's life. */
+let _modalResolve=null;
+function closeModal(){
+  const m=$("#modalRoot"); if(m)m.innerHTML="";
+  if(_modalResolve){ const r=_modalResolve; _modalResolve=null; try{ r(); }catch(e){} }
+}
 
 /* ---- membership editing: shared primitive for swap / add / remove (E1.2) ----------------------
    Apply a new ticker list to ONE theme. Enforces one-theme-per-ticker (a newly-present name is pulled
@@ -3663,18 +4272,38 @@ function renderContext(){
     Object.keys(h).length+" holdings · "+themes().length+" themes";
 }
 function kpi(k,v){ return `<span class="kpi"><span class="k">${k}</span><span class="v num">${v}</span></span>`; }
+/* E6 FIX - a failed cloud save used to be a toast that vanished. The state has to stay visible,
+   because "did my rebalance actually save?" is not a question a toast can answer. */
+function renderSyncBadge(){
+  const b=$("#syncBadge"); if(!b) return;
+  if(!signedIn()){ b.hidden=true; return; }
+  if(state.syncError){ b.hidden=false; b.className="tag pen"; b.textContent="not synced";
+    b.title="The last change did not reach your account: "+state.syncError; return; }
+  /* E6 FIX - syncError is only set by SAVES. After a failed READ the badge happily read "synced"
+     while the user was looking at the offline mirror and every save was being refused. */
+  if(state.syncStatus!=="cloud" || !isNum(state.baseRevision)){
+    b.hidden=false; b.className="tag pen"; b.textContent="offline copy";
+    b.title="Showing the copy kept on this device - your account could not be read, so changes cannot be saved until you reload.";
+    return;
+  }
+  b.hidden=false; b.className="tag live"; b.textContent="synced";
+  b.title="Saved to your account (revision "+state.baseRevision+")";
+}
 
 async function refreshPrices(showToast){
+  if(appLocked || !signedIn()) return;            // E6 FIX: nothing runs behind the gate
   $("#refreshBtn").disabled=true;
   try{ await loadQuotes(); renderStatus(); renderContext(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }   // E5 fix: the context bar is on the refresh path, else it shows stale money beside live money
   catch(e){ toast("Price refresh failed"); }
   finally{ $("#refreshBtn").disabled=false; }
 }
 
+let _autoRefreshWired=false;
 function setupAutoRefresh(){
   const sel=$("#refreshSel");
   function arm(){ if(timer){clearInterval(timer);timer=null;} const s=parseInt(sel.value,10); if(s>0)timer=setInterval(()=>refreshPrices(false),s*1000); }
-  sel.addEventListener("change",arm); arm();
+  if(!_autoRefreshWired){ sel.addEventListener("change",arm); _autoRefreshWired=true; }   // once, not once per sign-in
+  arm();
 }
 
 function setupEvents(){
@@ -3775,19 +4404,29 @@ async function init(){
   initTheme();                                            // E5.0: before first paint, so there's no flash
   sbLoadSession();                                        // E6.4: restore a signed-in session before any load
   wireGate();                                             // E6.8
+  // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
+  // only sets `gated` (mouse), so keyboard focus could reach the app during dsLoadUniverse().
+  if(!signedIn()){ appLocked=true; showGate(true); }
   setupEvents();
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
   // E6.8: no session -> stop here and show the landing page. A stored session continues, even if
   // the backend turns out to be unreachable (loadPortfolio falls back to the local mirror).
-  if(!signedIn()){ showGate(true); setupAutoRefresh(); return; }
+  /* E6 FIX - appLocked, not just the overlay. Without it a signed-out boot left every save guard
+     disarmed (docSource is null when nothing was ever loaded), so a keyboard-reachable
+     "Reset portfolio" behind the gate could POST an empty document over the server's real file. */
+  if(!signedIn()){ appLocked=true; showGate(true); booting=false; return; }
+  appLocked=false;
   showGate(false);
-  try{ await loadPortfolio(); }catch(e){ console.error(e); }
-  rebuildThemeOf();
-  try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }   // E3: load statements + overlay computed metrics
-  catch(e){ console.error(e); toast("Some data failed to load — using fallback"); }
-  renderAcctBtn();                                        // E6.4
-  renderAll();
+  /* E6 FIX - ONE signed-in boot path. init() used to repeat bootSignedIn()'s sequence inline,
+     so the two drifted: reloading the page skipped the sync badge, the import offer and the
+     kept-aside-work prompt, all of which only ran when you signed in through the gate. */
+  try{ await bootSignedIn(); }
+  finally{ booting=false; }
+  // The same post-load re-check the gate path does: bootSignedIn swallows its own errors, so a
+  // session that died during it must not be followed by a price timer running behind the gate.
+  if(!signedIn() || appLocked){ showGate(true); return; }
   setupAutoRefresh();
+  await postSignInPrompts();
 }
 /* E5 fix: the value chart's viewBox is built from its measured box, so re-render it when that box
    changes (window resize, or the rail collapsing at 900px) instead of leaving stale W/Ht. */

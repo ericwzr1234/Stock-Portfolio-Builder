@@ -33,7 +33,7 @@ points that branch on `NATIVE`:
 | `dsStatements(syms)` *(E3)* | `GET /api/statements` | `nativeStatements` → `CapacitorHttp` to Yahoo `fundamentals-timeseries` |
 | `dsSearch(q)` *(E1)* | `GET /api/search` | `nativeSearch` → Yahoo search v1 |
 | `dsPeers(sym)` *(E1)* | `GET /api/peers` | native branch → Yahoo `recommendationsbysymbol` |
-| `loadPortfolio` / `savePortfolio` | `GET`/`POST /api/portfolio` → `portfolio.json` | `localStorage["pb_portfolio_v1"]` |
+| `loadPortfolio` / `savePortfolio` | **the signed-in account** (see below); `GET`/`POST /api/portfolio` → `portfolio.json` only pre-account | `localStorage["pb_portfolio_v1"]` |
 | `dsLoadUniverse()` | `window.__UNIVERSE` (from `data/universe.js`) | same |
 
 The native Yahoo client mirrors `server.py` for the cookie+crumb handshake (`yEnsureCrumb`), quotes,
@@ -56,6 +56,49 @@ consumed by the Screener watchlist table (`volFmt` renders the share counts, e.g
 exists and (b) routes `fetch`/`XHR` through native HTTP. Local assets are intentionally **not**
 fetched on native: `universe.js` is a `<script>` that sets `window.__UNIVERSE`, and the portfolio
 uses `localStorage` — so nothing depends on `fetch` to a bundled file.
+
+### Storage adapters and accounts (E6)
+
+`loadPortfolio`/`savePortfolio` no longer branch inline. They resolve one entry from a registry, and
+that is the single seam between the pure engine and wherever the bytes live:
+
+```js
+const STORAGE_ADAPTERS = { cloud, lan, native, web };
+function storageAdapter(){
+  if(signedIn()) return STORAGE_ADAPTERS.cloud;   // an account beats local storage
+  if(useRemote()) return STORAGE_ADAPTERS.lan;    // iOS + a configured computer URL
+  if(NATIVE)      return STORAGE_ADAPTERS.native;
+  return STORAGE_ADAPTERS.web;
+}
+```
+
+The `cloud` adapter talks to Supabase: GoTrue for auth (`/auth/v1/`), PostgREST for the document
+(`/rest/v1/portfolios`), one row per user, isolation enforced by **database** row-level security
+rather than by this code. Only the *publishable* key is in the client — it is public by design; the
+secret key carries `BYPASSRLS` and must never enter the repo.
+
+**The rules this layer must obey are not obvious, and were learned by breaking them.** Five
+adversarial review rounds found ~90 defects here, several of them introduced by the previous round's
+fix. Before changing anything in this area, read
+[`features/E6_database_design.md`](features/E6_database_design.md) §16–17, which states each
+invariant next to the failure that motivated it. The short list:
+
+- **`state.docSource` / `state.docOwner`** are captured at load time, before any `await`. A document
+  loaded from an account may never be written to the identity-free `web`/`native` store — that path
+  overwrote a shared server file, and on native would have destroyed the device's only copy.
+- **`state.baseRevision`** holds only a *server-confirmed* revision, or `null`. Saving is refused
+  while it is null. It is never derived from the document and never adopted from a conflict error.
+- **`appLocked` / `booting`** gate saving independently of the state a sign-out wipes, because
+  `clearAccountState()` nulls the very fields the save guards read.
+- **The offline mirror (`pb_cloud_mirror_<uid>`) carries a dirty bit** (`pb_mirror_dirty_<uid>`) set
+  only when a save *failed*. "Mirror differs from server" is the normal state after another device
+  writes, so comparing content manufactured false "unsaved work" prompts whose restoration reverted
+  the other device's work.
+- **Nothing is deleted without being filed first**: `dropMirror()` stashes a dirty mirror into
+  `pb_unsynced_<uid>_<ts>` before removing it, and `offerStashRecovery()` is the reader that hands
+  it back. A write-only rescue store is not a rescue.
+- **`sbApi` carries a session epoch**, so a slow reply belonging to a previous session cannot lock
+  out, replay into, or overwrite the current one.
 
 ### LAN sync (iOS and web share one portfolio.json)
 On iOS, `state.serverUrl` (persisted as `localStorage["pb_server_url"]`, set via History → Data sync)

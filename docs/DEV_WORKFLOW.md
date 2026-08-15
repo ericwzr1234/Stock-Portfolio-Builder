@@ -45,7 +45,10 @@ is gitignored, and Windows only ever runs `server.py` (Python stdlib). Regenerat
 
 ## 2. Branch model
 - **`main`** = **prod**: only finished, approved, integrated features. The Mac migrates iOS from here.
-- **`dev`** = where features are built and tested.
+- **`dev-newUI`** = where V2 web work is built and tested (E5 the UI overhaul, E6 accounts). This is
+  the active work branch.
+- **`dev`** = the **frozen V1 archive** (`e5ceb39`), kept because the shipped iOS app was built from
+  it. Do not build new web work here; it predates E5/E6.
 - **Integration** = merge `dev → main` once a feature is approved (`git checkout main && git merge dev`),
   then push. The Mac `git pull` and runs `npx cap sync ios` to pick up integrated web changes.
 
