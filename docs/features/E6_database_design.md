@@ -231,3 +231,70 @@ operations that never end.
 **Managed**, with the client talking REST-over-`fetch` so no dependency enters the browser. Self-hosting
 is the right answer when you want no vendor at any cost — but it buys control by taking on precisely the
 work (auth edge cases, TLS, backups) that has nothing to do with building a portfolio tool.
+
+
+---
+
+## 12. Threat model — what "secure" actually has to mean
+
+Security here is not one property; it is eight separate things that can each fail independently. This is
+who owns each one under either option.
+
+| # | Threat | Managed | Self-hosted |
+|---|---|---|---|
+| 1 | **Password storage** — a stolen database reveals passwords | Provider: salted, modern KDF, rotated | You. Python's `hashlib.scrypt` is genuinely adequate, but you own cost parameters, unique salts and constant-time comparison |
+| 2 | **Brute force / credential stuffing** | Provider rate-limits and locks out | You must build it, or logins can be guessed indefinitely |
+| 3 | **Cross-user leakage** — A reads B's holdings | **Row-level security: the database refuses**, even if the app code is wrong | A `WHERE user_id = ?` in every query. One omission = a silent leak |
+| 4 | **Interception in transit** | TLS by default, auto-renewed | You issue and renew certificates. An expired cert is an outage, and iOS will refuse the connection outright |
+| 5 | **Data at rest** — disk or backup is obtained | Encrypted by default | You configure volume encryption yourself |
+| 6 | **Secret leakage** | Anon key is public *by design*; the service key stays server-side | You hold DB credentials and a session secret; both must stay out of git |
+| 7 | **SQL injection** | Parameterised REST + RLS as a second line | You parameterise every query, with no second line |
+| 8 | **Patching (CVEs) & backups** | Provider, continuously | You, forever — including a restore you have actually tested |
+
+### The property that matters most
+
+Threat 3 is the one that would actually hurt you, because it exposes *other people's* positions and cost
+basis. Under RLS the guarantee is structural: the database will not return another user's row even if my
+API code has a bug. Self-hosted, the guarantee is "the developer never once forgot a filter." For a solo
+project those are not comparable levels of assurance, and it is the strongest single argument for managed.
+
+### Where MANAGED is dangerous — read this before choosing it
+
+Managed is not automatically safe. The database is internet-facing and the anon key is public, so **the
+entire defence rests on RLS being enabled and correct**. The classic, catastrophic mistake is creating a
+table and forgetting `enable row level security` — that table is then readable by anyone who has the anon
+key, which is everyone. Concretely, the rules for this project are:
+
+1. `alter table … enable row level security;` on **every** table, immediately at creation.
+2. Policies scoped to `auth.uid()` for select, insert, update **and** delete.
+3. The `service_role` key **never** appears in the client, the repo, or a screenshot.
+4. Registration disabled/invite-only, so an attacker cannot self-provision an account and probe.
+5. **E6.7 proves it with a second account** — attempt a cross-user read and write and confirm both fail
+   *at the database*. Not a code review; an actual test. No tester is invited until that passes.
+
+### Where SELF-HOSTED is dangerous
+
+The server must be reachable by your friends, so it is internet-facing too. That means you own SSH
+hardening, a firewall, keeping Postgres off the public interface, OS patching, and certificate renewal —
+indefinitely, including during the months you are not thinking about this project. The realistic failure
+is not a dramatic breach; it is drift: an unpatched host and an expired certificate six months from now.
+
+### Free, reachable, and secure — pick three
+
+The user's constraint is a **free** service for a handful of testers. That interacts with security more
+than it first appears:
+
+- **Managed free tiers** comfortably cover this scale (a few users, a few hundred KB). Typical limits are
+  inactivity pausing and short backup retention — irrelevant at this size.
+- **Self-hosted "free"** means either a free PaaS tier that sleeps, or the laptop itself. Serving from the
+  laptop to friends over the internet requires port-forwarding or a tunnel, which means exposing a home
+  network and a machine that also holds `portfolio.json` in the clear. That is a materially worse security
+  posture than a managed database, and it is the option most likely to be chosen by accident when
+  optimising for "free".
+- A properly secured VPS is ~$5/month — i.e. self-hosting *safely* is not actually free.
+
+### What is identical either way
+
+Invite-only registration, TLS-only, no secrets in the repo, collect the minimum (an email address and the
+portfolio — no names, no phone numbers), and support account deletion that really removes the row. These
+are not vendor features; they are choices, and they apply to both paths.
