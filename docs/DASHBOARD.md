@@ -11,10 +11,10 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 3 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 1 |
+| Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 41 |
+| Done | 42 |
 
 ---
 
@@ -49,14 +49,10 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (1)
+## Testing  (0)
 _Built; waiting for you to try it._
 
-- **E5.6** · _E5 · Web UI overhaul_ — **Equal-weight benchmark + return chart** _(web)_
-  - Overview value chart: 'Value' renamed 'Portfolio Value', the 'Invested' line removed, and a new 'Equal-weight Strategy Value' line added.
-  - Equal-weight counterfactual = same names, same cash, same dates, same RECORDED trade prices — but every holding weighted equally. Initial capital is split equally; at EVERY checkpoint (with or without new cash) the whole book is redistributed to exactly equal weight; between checkpoints it drifts with prices, mirroring the real portfolio. It therefore isolates the WEIGHTING model from selection and timing.
-  - Second chart: return vs invested for both strategies, with a % / $ toggle. Sanity-checked: at the INITIAL checkpoint both strategies read exactly the capital deployed and 0.00% return.
-  - Data is fully grounded — price coverage verified at 100% of held names across every checkpoint, so nothing is estimated.
+- _(none)_
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
@@ -68,7 +64,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (41)
+## Done  (42)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -130,7 +126,7 @@ _Integrated into the product (on main)._
 - **APP1** — Bring the iOS app to parity with web (E1–E4.5) · [spec](APP_MIGRATION.md)
 
 </details>
-<details><summary><b>E5 · Web UI overhaul</b> — 6 done</summary>
+<details><summary><b>E5 · Web UI overhaul</b> — 7 done</summary>
 
 - **E5.0** — App shell — rail, context bar, theme tokens · [spec](features/E5_web-ui-overhaul.md)
 - **E5.1** — Overview tab (replaces Prices)
@@ -138,5 +134,6 @@ _Integrated into the product (on main)._
 - **E5.3** — Rebalance tab (replaces Calculator)
 - **E5.4** — Research tab (replaces Screener)
 - **E5.5** — History tab
+- **E5.6** — Equal-weight benchmark + return chart
 
 </details>

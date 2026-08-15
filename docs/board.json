@@ -280,7 +280,7 @@
       "So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).",
       "Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone." ] },
 
-    { "id": "E5.6", "epic": "E5", "stage": "testing", "platform": "web",
+    { "id": "E5.6", "epic": "E5", "stage": "done", "platform": "web",
       "title": "Equal-weight benchmark + return chart", "notes": [
       "Overview value chart: 'Value' renamed 'Portfolio Value', the 'Invested' line removed, and a new 'Equal-weight Strategy Value' line added.",
       "Equal-weight counterfactual = same names, same cash, same dates, same RECORDED trade prices — but every holding weighted equally. Initial capital is split equally; at EVERY checkpoint (with or without new cash) the whole book is redistributed to exactly equal weight; between checkpoints it drifts with prices, mirroring the real portfolio. It therefore isolates the WEIGHTING model from selection and timing.",
