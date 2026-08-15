@@ -305,7 +305,7 @@
       "Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.",
       "No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically." ] },
 
-    { "id": "E6.3", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.2", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.3", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.2", "spec": "docs/features/E6_database_design.md",
       "title": "Choose provider; stand up schema + row-level security", "notes": [
       "NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.",
       "Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().",

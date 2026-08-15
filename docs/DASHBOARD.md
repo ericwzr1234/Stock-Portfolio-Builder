@@ -8,17 +8,17 @@ _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 7 |
+| Ideation | 6 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 2 |
+| Testing | 3 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 42 |
 
 ---
 
-## Ideation  (7)
+## Ideation  (6)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **APP2** · _APP · iOS app parity_ — **Rebuild the iOS app against the V2 web baseline** _(depends E5.5, ios)_
@@ -33,10 +33,6 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
-- **E6.3** · _E6 · Multi-user platform_ — **Choose provider; stand up schema + row-level security** _(depends E6.2, web)_ · [spec](features/E6_database_design.md)
-  - NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.
-  - Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().
-  - Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth.
 - **E6.4** · _E6 · Multi-user platform_ — **Login / register / logout + session handling** _(depends E6.3, web)_ · [spec](features/E6_database_design.md)
   - First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout.
 - **E6.5** · _E6 · Multi-user platform_ — **Cloud adapter with optimistic concurrency** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
@@ -60,7 +56,7 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (2)
+## Testing  (3)
 _Built; waiting for you to try it._
 
 - **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
@@ -70,6 +66,10 @@ _Built; waiting for you to try it._
 - **E6.2** · _E6 · Multi-user platform_ — **Extract a storage-adapter interface** _(depends E6.1, web)_ · [spec](features/E6_database_design.md)
   - Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.
   - No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically.
+- **E6.3** · _E6 · Multi-user platform_ — **Choose provider; stand up schema + row-level security** _(depends E6.2, web)_ · [spec](features/E6_database_design.md)
+  - NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.
+  - Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().
+  - Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._

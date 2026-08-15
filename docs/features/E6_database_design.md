@@ -449,3 +449,43 @@ rather than by reading the SQL.
 ### Cost conclusion
 **$0 today.** The natural moment to pay the **$25/month** is when you invite friends — that is exactly when
 "no pausing" and "daily backups" stop being conveniences and start being requirements. Not before.
+
+
+---
+
+## 15. Provisioned project (E6.3)
+
+| | |
+|---|---|
+| Vendor | **Supabase** (chosen 2026-08-15 — see §11–§14) |
+| Project URL | `https://uvzxdeiiwswhthfaqhtb.supabase.co` |
+| Publishable key | `sb_publishable_smrzMSuM7plL-NWtHNt2BA_TJP6_lEY` — **public by design**, safe in client source |
+| Secret key | **Never in this repo.** Held by the user only; grants `BYPASSRLS` |
+| Region | US |
+| Plan | Free (pauses after 1 week idle; no managed backups; 2 active projects) |
+
+### Artefacts
+- **`sql/001_portfolios.sql`** — the table, RLS policies, grants and integrity trigger. Idempotent;
+  paste into the dashboard SQL editor.
+- **`sql/002_isolation_test.md`** — the E6.7 gate: eight checks against two real accounts.
+
+### Decisions baked into the schema, and why
+- **`force row level security`**, not merely `enable` — plain ENABLE does not apply to the table owner,
+  so an owner-context query would bypass every policy.
+- **Every policy is `to authenticated` AND checks `auth.uid() is not null`** — the anonymous role cannot
+  match at all, and the documented null-token trap is closed explicitly rather than relied upon.
+- **`with check` on UPDATE as well as `using`** — without it a user could update their own row and
+  reassign `user_id`, writing into someone else's account.
+- **`revoke all … from anon`** — RLS filters rows, grants decide who may touch the table; the anonymous
+  role gets nothing.
+- **A `before update` trigger** stamps `updated_at` server-side, makes `user_id` immutable and forbids
+  `revision` from moving backwards, so those guarantees do not depend on a well-behaved client.
+- **Optimistic concurrency needs no stored procedure**: the client PATCHes with
+  `?user_id=eq.<uid>&revision=eq.<base>`; zero rows returned *is* the conflict signal.
+
+### Deferred, deliberately
+- **Invite-only** — signup is still open. With RLS correct this is not a data-exposure risk (a stranger
+  gets their own empty row); the cost is unwanted accounts and burnt email quota. Flip
+  *Allow new users to sign up* off before real testers.
+- **Custom SMTP** — the built-in sender is 2 emails/hour and vendor-labelled non-production. Required
+  before any invite or password-reset round (E6.4).
