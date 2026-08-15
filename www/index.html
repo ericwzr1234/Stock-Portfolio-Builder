@@ -794,7 +794,6 @@
         <div class="legend" id="allocLegend"></div>
         <div class="row" style="margin-top:12px;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="btn sm" id="newThemeBtn">➕ New theme</button>
-          <button class="btn sm" id="restoreThemesBtn">↺ Restore default 5</button>
         </div>
         <div class="row small" id="presetRow" style="margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="btn sm" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 — theme cap is left unchanged">↺ Reset to default 6</button>
@@ -924,23 +923,50 @@ const DEFAULT_THEME_TICKERS = {}; THEMES.forEach(t=>DEFAULT_THEME_TICKERS[t.key]
    which themes exist, plus each theme's key/name/color — is state.themes; null/empty => use THEMES.
    Read the live list ONLY through themes(); look one up via themeByKey(). Membership (the tickers
    inside a theme) stays dynamic via state.themeTickers / tickersOf(). */
-/* `null` means "use the five built-in themes" and always has - every existing portfolio relies on
-   it, so that meaning is left alone. A user who chooses "Start fresh" gets an explicit, persisted
-   `noDefaults` flag instead: their board is genuinely empty and stays empty. Documents written
-   before this flag existed simply lack it, so nothing about them changes. */
-function themes(){
-  const t=state.themes;
-  if(Array.isArray(t)&&t.length) return t;
-  if(state.noDefaults) return [];
-  return THEMES;
+/* E8 - THERE IS NO DEFAULT THEME SET. Every account builds its own, so `state.themes` is simply
+   the list: an array, possibly empty. This replaced a value whose meaning depended on a second
+   flag (`null` = "the five built-ins" unless `noDefaults`), which is what let one button delete a
+   user's themes and restore nothing. Documents written before E8 are migrated once, on load, by
+   migrateThemes() - they keep exactly the themes they were showing. */
+function themes(){ const t=state.themes; return Array.isArray(t)?t:[]; }
+/* THEMES / DEFAULT_THEME_TICKERS survive for exactly ONE purpose now: seeding the one-time
+   migration of a pre-E8 document (below). Nothing else in the app may read them - there is no
+   default theme set any more. */
+/* Pre-E8 documents leaned on TWO INDEPENDENT fallbacks, and both have to be migrated separately:
+     - `themes` null      MEANT "the five built-in themes";
+     - `themeTickers[k]` missing-or-empty MEANT "that theme's default five names".
+   Keying the migration on `themes` alone lost the second one: creating, renaming or deleting a theme
+   pre-E8 wrote a themes ARRAY while leaving themeTickers null, so those documents would have been
+   skipped and every theme left empty - 25 holdings suddenly belonging to nothing.
+   The marker is the schema version, not the shape, so a deliberately empty E8 board is never
+   "repaired" back into the built-ins. Version snapshots carried the same two sentinels, so undo and
+   revert are migrated as well. */
+function migrateThemes(p){
+  if(!p) return false;
+  if(isNum(p.schemaVersion) && p.schemaVersion>=2) return false;    // already E8
+  const builtins = ()=> THEMES.map(t=>({ key:t.key, name:t.name, color:t.color }));
+  const fillMembership = (list,tickers)=>{
+    const tk = (tickers && typeof tickers==="object" && !Array.isArray(tickers)) ? Object.assign({},tickers) : {};
+    (Array.isArray(list)?list:[]).forEach(t=>{
+      const def = DEFAULT_THEME_TICKERS[t && t.key];
+      if(def && (!Array.isArray(tk[t.key]) || !tk[t.key].length)) tk[t.key] = def.slice();
+    });
+    return tk;
+  };
+  if(!Array.isArray(p.themes)) p.themes = builtins();
+  p.themeTickers = fillMembership(p.themes, p.themeTickers);
+  (Array.isArray(p.versions)?p.versions:[]).forEach(v=>{
+    const snap = v && v.snapshot; if(!snap) return;
+    if(!Array.isArray(snap.themes)) snap.themes = builtins();
+    snap.themeTickers = fillMembership(snap.themes, snap.themeTickers);
+  });
+  p.schemaVersion = 2;
+  console.info("migrated a pre-E8 document: "+p.themes.length+" themes, "+
+               Object.keys(p.themeTickers).length+" membership lists, "+
+               ((p.versions||[]).length)+" checkpoints");
+  return true;
 }
-function isEmptyStart(){ return !!state.noDefaults && !themes().length; }
-/* `state.themes = null` means "use the built-in five" ONLY while noDefaults is false - so the two
-   must never be written apart. They were: restoreDefaultThemes() set themes=null and left
-   noDefaults true, which on a start-fresh account meant its "Restore default 5" button DELETED the
-   user's themes and restored nothing, while toasting success. Both writes now go through these. */
-function useDefaultThemes(){ state.noDefaults=false; state.themes=null; state.themeTickers=null; }
-function useNoThemes(){ state.noDefaults=true; state.themes=[]; state.themeTickers={}; }
+function useNoThemes(){ state.themes=[]; state.themeTickers={}; }
 // N-adaptive default cap (1.5/N => 30% at five themes); guarded so an empty board cannot divide by zero.
 function defaultCap(){ const n=themes().length; return n>0 ? clamp(1.5/n, 1/n+1e-9, 1) : 0.3; }
 function themeByKey(k){ return themes().find(x=>x.key===k); }
@@ -949,10 +975,7 @@ const THEME_PALETTE=["#13605C","#3A6EA5","#7E9C84","#5B6B8C","#B0894F","#8C5B6B"
 /* Theme membership is DYNAMIC — the Screener "swap" feature replaces a name within a theme.
    It lives in state.themeTickers (persisted in the portfolio + every version snapshot).
    When unset for a theme we fall back to that theme's default 5 core names above. */
-function tickersOf(key){ const m=state.themeTickers;
-  if(m&&Array.isArray(m[key])&&m[key].length) return m[key];
-  return state.noDefaults ? [] : (DEFAULT_THEME_TICKERS[key]||[]);   // a fresh start inherits no membership either
-}
+function tickersOf(key){ const m=state.themeTickers; return (m&&Array.isArray(m[key]))?m[key]:[]; }
 function membership(){ return themes().flatMap(t=>tickersOf(t.key)); }                 // every themed name (5×5)
 function holdingSyms(){ return Object.keys((state.portfolio&&state.portfolio.holdings)||{}); }
 function tradeUniverse(){ return [...new Set([...membership(), ...holdingSyms()])]; } // themed ∪ held; held-but-unthemed = a position to liquidate
@@ -972,18 +995,17 @@ const state = {
   cap:null,                       // max single-theme weight; null => N-adaptive default 1.5/N (=0.30 at 5 themes); excess redistributed
   overrides:{},                   // sym -> {peg?,ev?,marketCap?}
   asOf:null,
-  themes:null,                    // [{key,name,color}] dynamic theme LIST (E1.1); null => THEMES defaults
+  themes:[],                      // [{key,name,color}] the account's themes (E8: no defaults; the list IS the truth)
   metrics:null,                   // ordered scoring-metric list (E2.1); null => DEFAULT_METRICS. Persisted as [{key}]; weights/penalty stay in state.weights/state.penalty
   metricCfg:null,                 // {key:{penalty?,badData?,direction?}} per-metric overrides (E2.4); null/absent => baked-in descriptor defaults. Pruned on default.
   presets:[],                     // [{name,config,savedAt}] saved metric+weight models (E2.5); a user library, NOT versioned (excluded from snapshots)
   statements:{},                  // sym -> {sym, quarters:[{date,<lineItems>}], asOf, source} financial statements (E3); source for computed metrics
   pulled:{},                      // sym -> raw PULLED fundamentals (Yahoo pre-computed); state.fundamentals = this base, optionally overlaid with computed (E3)
   computeFromStatements:true,     // E3.4: compute metrics FROM statements (primary) vs pull Yahoo's pre-computed fields
-  noDefaults:false,               // "Start fresh": the board is genuinely empty; do NOT fall back to the 5 built-in themes
   metricSource:{},                // sym -> {field: 'computed'|'pulled'} provenance for the fundamentals table + detail page (E3.4)
   watchlist:[],                   // [{sym,theme}] watchlisted candidates (E1.3); staged in the Screener, NOT in the portfolio until added to a theme
   themeRecos:{},                  // {themeKey:{syms,sig}} runtime cache of keyword+peer recommendations for custom themes (E1.9)
-  themeTickers:null,              // {themeKey:[syms]} dynamic membership (swaps); null => defaults
+  themeTickers:{},                // {themeKey:[syms]} membership per theme (E8: no default membership)
   universe:null,                  // screener universe (window.__UNIVERSE / data/universe.json)
   screenerQuotes:{},              // sym -> quote for screener stocks (lazy-loaded, chunked)
   screenerLoaded:false,
@@ -1282,14 +1304,20 @@ function pushVersion(txn){
 
 function restoreVersion(i){
   const p=state.portfolio; p.head=i;
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.themeTickers=null; state.themes=null; state.watchlist=[]; state.metrics=null; state.metricCfg=null; rebuildThemeOf(); return; }   // before the initial build
+  /* E8 - going back BEFORE the initial build clears what the build created (holdings and
+     contributions); it no longer touches the themes. Pre-E8 this wrote `null`, which MEANT "the
+     built-in five" - the model was restored, not erased. With no defaults, writing null/[] here
+     would erase the user's themes instead, which is both destructive and not what undo means. */
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.watchlist=[]; state.metrics=null; state.metricCfg=null; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
   if(s.penalty)state.penalty=deepCopy(s.penalty);
   if(s.overrides!=null)state.overrides=deepCopy(s.overrides);
-  state.themeTickers = s.themeTickers!=null ? deepCopy(s.themeTickers) : null;
-  state.themes = s.themes!=null ? deepCopy(s.themes) : null;
+  // E8: a snapshot that predates the migration carries null; migrateThemes rewrites those in place
+  // on load, but be explicit here too so an unmigrated snapshot cannot blank the board.
+  state.themeTickers = (s.themeTickers && typeof s.themeTickers==="object") ? deepCopy(s.themeTickers) : {};
+  state.themes = Array.isArray(s.themes) ? deepCopy(s.themes) : [];
   state.watchlist = Array.isArray(s.watchlist) ? deepCopy(s.watchlist) : (Array.isArray(s.otherList) ? s.otherList.map(x=>({sym:x,theme:null})) : []);
   state.metrics = (Array.isArray(s.metrics)&&s.metrics.length) ? validateMetrics(s.metrics) : null;   // E2.1: reattach by key; null => defaults
   state.metricCfg = (s.metricCfg&&typeof s.metricCfg==='object'&&!Array.isArray(s.metricCfg)) ? deepCopy(s.metricCfg) : null;   // E2.4
@@ -1561,7 +1589,7 @@ function storageAdapter(){
    updatedAt     : ISO timestamp of the last successful stamp.
    These are document-level fields, deliberately NOT part of snapshotState(), so they never
    leak into the version timeline.                                                       */
-const PORTFOLIO_SCHEMA_VERSION=1;
+const PORTFOLIO_SCHEMA_VERSION=2;   // 2 = E8: themes AND membership are explicit; there is no default set
 function stampPortfolioMeta(p){
   if(!p) return p;
   p.schemaVersion=PORTFOLIO_SCHEMA_VERSION;
@@ -1670,7 +1698,7 @@ function clearAccountState(){
   state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null;
   state.docSource=null; state.docOwner=null; state.cloudRowExists=null;
   state.pendingStashKey=null; state.pendingStashSig=null;
-  state.themeTickers=null; state.themes=null; state.watchlist=[];
+  state.themeTickers={}; state.themes=[]; state.watchlist=[];
   state.metrics=null; state.metricCfg=null; state.overrides={};
   /* These are account data too. Leaving them behind meant the NEXT person to sign in on this
      browser wrote the previous person's preset library, weights, penalties and cap into their
@@ -1678,7 +1706,7 @@ function clearAccountState(){
   state.presets=[];
   state.weights=Object.assign({},DEFAULT_CONFIG.weights);
   state.penalty=Object.assign({},DEFAULT_CONFIG.penalty);
-  state.cap=null; state.computeFromStatements=true; state.noDefaults=false;
+  state.cap=null; state.computeFromStatements=true;
   // market data is keyed by the previous account's tickers - it is their data too
   state.quotes={}; state.pulled={}; state.statements={}; state.screenerQuotes={};
   state.metricSource={}; state.asOf=null;
@@ -1797,23 +1825,24 @@ async function sbApi(path, opts, _retried){
    based on; ZERO rows affected means somebody else wrote first - that is the conflict, and
    it is surfaced to the user, never merged. */
 const CLOUD_TABLE="/rest/v1/portfolios";
-/* E6 FIX - cloudLoadPortfolio used to write state.baseRevision/cloudRowExists the instant it
-   returned, i.e. BEFORE loadPortfolio could check whether the reply still belonged to this session.
-   A slow reply from a previous session therefore stamped its revision over the live one, and the
-   "restore the snapshot" repair could not help: the snapshot was taken at the STALE load's start,
-   so it held the old account's numbers too. The result is parked here instead and applied by
-   loadPortfolio only after the session check passes. */
-let _cloudMeta=null;
+/* E8 - the adapter RETURNS what it learned; it never reaches into shared state. A module-level
+   "meta" global was the previous compromise, and two loads resolving in the same microtask batch
+   could read each other's - which would stamp a revision that does not match the document on
+   screen, and the next PATCH would then match and silently overwrite a newer document. The
+   revision now travels ON the reply, so it cannot be crossed with another one.
+   `null` (no row) needs no carrier: loadPortfolio reads it as revision 0 / rowExists false. */
+const CLOUD_META="__pbMeta";
 async function cloudLoadPortfolio(){
   const uid=sbUserId(); if(!uid) throw new Error("not signed in");
   const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&order=revision.desc&limit=1",
     { headers:{ "Accept":"application/json" } });
   if(!r.ok) throw new Error("cloud load failed: HTTP "+r.status);
   const rows=await r.json();
-  if(!rows||!rows.length){ _cloudMeta={revision:0,rowExists:false}; return null; }   // no row yet - the first save creates it
+  if(!rows||!rows.length) return null;                 // no row yet - the first save creates it
   const row=rows[0], p=row.data||null;
   if(p && isNum(row.revision)) p.revision=row.revision; // the row column is the source of truth
-  _cloudMeta={ revision:isNum(row.revision)?row.revision:0, rowExists:true };   // E6 FIX: the CONFIRMED server revision
+  if(p) try{ Object.defineProperty(p,CLOUD_META,{ value:{ revision:isNum(row.revision)?row.revision:0, rowExists:true },
+                                                  enumerable:false, configurable:true }); }catch(e){}
   return p;
 }
 async function cloudSavePortfolio(p){
@@ -1839,8 +1868,7 @@ async function cloudSavePortfolio(p){
     const rows=await r.json();
     if(rows && rows.length){                            // updated cleanly
       const rev=rows[0] && rows[0].revision;
-      state.baseRevision=isNum(rev)?rev:next;           // only a CONFIRMED write advances the base
-      return;
+      return { revision:isNum(rev)?rev:next, rowExists:true };   // E8: reported, not assigned
     }
     // Zero rows: either no row exists yet, or someone else wrote. Distinguish them.
     const probe=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=revision&limit=1");
@@ -1862,9 +1890,9 @@ async function cloudSavePortfolio(p){
     { method:"POST", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
       body: JSON.stringify(Object.assign({user_id:uid},payload)) });
   if(!ins.ok){ const t=await ins.text(); throw new Error("cloud save failed: HTTP "+ins.status+" "+t.slice(0,120)); }
-  try{ const irows=await ins.json(); const irev=irows&&irows[0]&&irows[0].revision;
-       state.baseRevision=isNum(irev)?irev:next; }catch(e){ state.baseRevision=next; }
-  state.cloudRowExists=true;                        // the row exists now - do not re-offer the import
+  let irev=next;
+  try{ const irows=await ins.json(); const v=irows&&irows[0]&&irows[0].revision; if(isNum(v)) irev=v; }catch(e){}
+  return { revision:irev, rowExists:true };         // E8: reported, not assigned
 }
 const YUA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 let _crumb=null;
@@ -2197,71 +2225,84 @@ async function loadScreenerQuotes(){
   for(let i=0;i<syms.length;i+=45){ const chunk=syms.slice(i,i+45); try{ const d=await dsQuotes(chunk); Object.assign(out, d.quotes); }catch(e){ console.error(e); } }
   state.screenerQuotes=Object.assign({}, state.screenerQuotes, out);
 }
+/* ===== E8 - the persistence contract =====================================================
+   These functions coordinate shared state across network calls. For seven review rounds each
+   new guard was itself state-dependent and grew the same blind spot as the bug it fixed, so the
+   rules are now stated ONCE and enforced at ONE checkpoint per operation, instead of being
+   re-derived at each of the fourteen places these functions touched state.
+
+   C1  Every operation runs in a CONTEXT captured before its first await: which adapter, which
+       owner, which identity. Nothing after an await reads live state to decide what it meant.
+   C2  Nothing is applied or written on behalf of a context that is no longer current. Current
+       means: the app is not locked, the identity has not changed, the adapter has not changed,
+       and - for an account - the signed-in user is still the owner. A TOKEN REFRESH IS NOT an
+       identity change; treating it as one discarded a live portfolio on every stale reload.
+   C3  state.baseRevision is a revision the SERVER confirmed, or null. Saving is refused while
+       null. Only a load that returned content, or a confirmed write, may set it.
+   C4  Work that cannot reach the server is kept under the OWNER's keys BEFORE anything can
+       overwrite it, and is readable back through offerStashRecovery(). This holds even when the
+       context has gone stale - a rejected session is exactly when the copy matters most.
+   C5  A save returns true only if the write landed.                                          */
+function pctx(){
+  const ad=storageAdapter();
+  return { ad, name:ad.name, epoch:sbEpoch, owner:(ad.name==="cloud")?sbUserId():null };
+}
+function ctxCurrent(c){                          // C2, in one place
+  if(appLocked) return false;
+  if(c.epoch!==sbEpoch) return false;            // identity changed (a refresh does not bump this)
+  const now=storageAdapter();
+  if(now.name!==c.name) return false;            // the adapter changed under the document
+  if(c.name==="cloud" && sbUserId()!==c.owner) return false;
+  return true;
+}
+/* C4. Returns false only if the copy could not be stored at all. */
+function keepAside(kind,owner,doc){
+  if(!owner||!doc) return false;
+  try{ localStorage.setItem("pb_"+kind+"_"+owner+"_"+Date.now(), JSON.stringify(doc)); return true; }
+  catch(e){ console.error("could not keep the change aside",e); return false; }
+}
+
 async function loadPortfolio(){
-  let p=null;
-  const _ad=storageAdapter();                      // E6.2: one seam, one branch
-  const uid=sbUserId();                            // captured BEFORE any await - the session can die mid-load
-  const epoch=(typeof sbEpoch==="number")?sbEpoch:0;
-  const stale=()=> sbUserId()!==uid || appLocked || (typeof sbEpoch==="number" && sbEpoch!==epoch);
-  _cloudMeta=null;
-  state.docSource=_ad.name; state.docOwner=(_ad.name==="cloud")?uid:null;
-  if(_ad.fallback){
-    try{
-      p=await _ad.load(); state.syncStatus=_ad.name;
-      /* E6 FIX - the session can end DURING the load. Without this the reply from a request the
-         signed-out user started re-created the mirror that signing out had just deleted, and a
-         reply that landed after someone else signed in hydrated the previous account's document
-         into the new session. */
-      if(stale()){ console.warn("discarding a load that belongs to a previous session"); return; }
-      if(_ad.name==="cloud" && _cloudMeta){          // only NOW may it touch the live session
-        state.baseRevision=_cloudMeta.revision; state.cloudRowExists=_cloudMeta.rowExists;
-      }
-      if(_ad.mirror==="cloud"){
-        // Stash FIRST in both cases. A confirmed-empty account with a dirty mirror means a first
-        // save never landed: that mirror is the user's only copy.
-        const kept=stashUnsyncedMirror(p,uid);
-        if(kept==="failed"){
-          // Do NOT overwrite: the mirror holds the only copy of work the server never took.
-          setMirrorUnfiled(uid,true);
-          state.syncError="unsaved work on this device could not be filed - it is still in the local copy";
-        } else if(p){ cloudMirrorSave(p,uid,false); setMirrorUnfiled(uid,false); }
-        if(!p) state.portfolio=null;                 // a CONFIRMED empty account - nothing to show
-        // A confirmed read supersedes an earlier save failure: whatever it lost is in the stash,
-        // and the badge must describe the state we are in NOW, not the one we were in.
-        if(kept!=="failed") state.syncError=null;
-      }
-      else if(p&&_ad.mirror) nativeSavePortfolio(p);
-    }
-    catch(e){
-      console.error("remote load failed",e);
-      /* E6 FIX - the FAILURE branch needs the same session check as the success branch, and for a
-         sharper reason: `uid` is the uid captured before the await, so _ad.fallback(uid) reads
-         THAT account's mirror. Without this, a stalled request belonging to a signed-out user
-         resolved inside the NEXT user's session and hydrated the previous account's holdings,
-         contributions and history into it - or, when that mirror was absent, nulled the live
-         document and left the app refusing every save. sbApi's own `stale` error lands here. */
-      if(stale()){ console.warn("discarding a failed load that belongs to a previous session"); return; }
-      state.syncStatus=_ad.name+"-failed";
-      /* Distinguish REJECTED from OFFLINE. The offline mirror exists to survive an outage; serving
-         it after the server said "not you" turned a dead session into a viewer for whatever that
-         uid last had on this browser. */
-      if(e && e.authFailed){ state.baseRevision=null; state.portfolio=null; return; }
-      p=_ad.fallback(uid);
-      // If the fallback has nothing, do NOT leave the previous account's document standing.
-      if(!p) state.portfolio=null;
-      /* The base revision is now UNKNOWN: whatever the mirror carries is this device's own
-         number, never one the server confirmed. Saving against it is how a stale document
-         silently overwrote a newer one. cloudSavePortfolio refuses while this is null. */
-      state.baseRevision=null;
-    }
-  } else {
-    p=await _ad.load();
-    if(stale()) return;
-    if(_ad===STORAGE_ADAPTERS.native) state.syncStatus="local";
+  const c=pctx();
+  let doc=null, err=null;
+  try{ doc=await c.ad.load(); }catch(e){ err=e; }
+  // The revision travels ON the reply, so it cannot be crossed with a concurrent load's.
+  const meta = doc ? doc[CLOUD_META] : { revision:0, rowExists:false };
+
+  if(!ctxCurrent(c)){                            // ---- the single checkpoint ----
+    console.warn("discarding a load whose context is no longer current");
+    return;
   }
-  // The lock can be raised from deep inside the awaits above; do not repopulate state behind the gate.
-  if(appLocked) return;
-  if(p) hydrateFromDocument(p);
+  // Past here the context holds, so it is safe to touch shared state.
+  state.docSource=c.name; state.docOwner=c.owner;
+
+  if(err){
+    console.error("load failed",err);
+    state.syncStatus=c.name+"-failed";
+    state.baseRevision=null;                     // C3
+    if(err.authFailed){ state.portfolio=null; return; }        // rejected, not offline: serve nothing
+    doc = c.ad.fallback ? c.ad.fallback(c.owner) : null;       // an outage may fall back to the local copy
+    if(!doc){ state.portfolio=null; return; }
+    hydrateFromDocument(doc); rebuildThemeOf();
+    return;
+  }
+
+  state.syncStatus=c.name;
+  if(c.name==="cloud"){
+    if(meta){ state.baseRevision=meta.revision; state.cloudRowExists=meta.rowExists; }
+    const kept=stashUnsyncedMirror(doc,c.owner);               // C4, before the mirror is replaced
+    if(kept==="failed"){
+      setMirrorUnfiled(c.owner,true);
+      state.syncError="unsaved work on this device could not be filed - it is still in the local copy";
+    } else {
+      if(doc){ cloudMirrorSave(doc,c.owner,false); setMirrorUnfiled(c.owner,false); }
+      state.syncError=null;                      // a confirmed read supersedes an earlier save failure
+    }
+    if(!doc) state.portfolio=null;               // a CONFIRMED empty account
+  }
+  else if(doc && c.ad.mirror) nativeSavePortfolio(doc);
+
+  if(doc) hydrateFromDocument(doc);
   rebuildThemeOf();
 }
 /* E6 FIX - extracted so the IMPORT path can reuse it. It used to assign state.portfolio directly
@@ -2273,6 +2314,7 @@ function hydrateFromDocument(p){
      is in front of the user - it must not be consumed by the next save. offerStashRecovery sets
      these again straight after it calls us. */
   state.pendingStashKey=null; state.pendingStashSig=null;
+  migrateThemes(p);                    // E8: a pre-E8 document keeps the themes it was showing
   { state.portfolio=p;
     /* Absent means "the default", never "keep whatever the last document left in memory". The
        leftover values were being written straight back into the next document on its first save. */
@@ -2282,8 +2324,8 @@ function hydrateFromDocument(p){
     /* E6 FIX: null is MEANINGFUL here ("use the defaults") - it is exactly what
        restoreDefaultThemes()/deleteTheme write. A truthiness guard could never move state back
        to null, so a theme deleted on one device was resurrected by the next save from another. */
-    state.themeTickers=(p.themeTickers && typeof p.themeTickers==="object") ? p.themeTickers : null;
-    state.themes=Array.isArray(p.themes) ? p.themes : null;
+    state.themeTickers=(p.themeTickers && typeof p.themeTickers==="object") ? p.themeTickers : {};
+    state.themes=Array.isArray(p.themes) ? p.themes : [];
     if(Array.isArray(p.watchlist))state.watchlist=p.watchlist.map(w=>(typeof w==="string"?{sym:w,theme:null}:w));
     else if(Array.isArray(p.otherList))state.watchlist=p.otherList.map(s=>({sym:s,theme:null}));   // migrate old 'Other' list
     else state.watchlist=[];
@@ -2295,7 +2337,6 @@ function hydrateFromDocument(p){
     backfillPenalty();   // restore any missing default-metric penalty (peg/ev/dfcf/pe) — no-op when complete
     state.cap = isNum(p.cap) ? p.cap : null;   // E6 FIX: an absent cap means the default, not "keep the last one"
     state.computeFromStatements = (p.computeFromStatements!==false);   // E3.4: data-source preference (default on); non-versioned
-    state.noDefaults = !!p.noDefaults;                                 // absent on every pre-existing document => false
     migrateVersions(p); }
 }
 /* E6 FIX - saves are SERIALISED. savePortfolio is wired to `change` handlers (weight sliders,
@@ -2304,166 +2345,144 @@ function hydrateFromDocument(p){
    destructive reload, out of a single-device race. */
 let _saveChain=Promise.resolve();
 function savePortfolio(){
-  /* E6 FIX (round 6) - _saveChain is a module global that nothing drains across a sign-out. A save
-     queued by user A could therefore dequeue inside user B's session (appLocked is cleared by B's
-     sign-in), rebuild a blank document and write it into B's mirror. Bind each queued save to the
-     identity that asked for it. */
-  const _at=sbEpoch;
+  const c=pctx();                                // C1: bound to the context that ASKED for this save
+  const queued=state.portfolio;                  // ...and to the document as it stood then
   const run=()=>{
-    if(sbEpoch!==_at){ console.warn("dropping a save queued in a previous session"); return false; }
-    return _savePortfolioInner();
+    if(!ctxCurrent(c)){
+      // C4: a save dropped because the session changed must not take the edit with it.
+      keepAside("unsynced", c.owner, queued);
+      console.warn("dropping a save whose context is no longer current - the edit was kept aside");
+      return false;
+    }
+    return _savePortfolioInner(c);
   };
   const next=_saveChain.then(run,run);
   _saveChain=next.catch(()=>{});
   return next;
 }
-async function _savePortfolioInner(){
-  /* E6 FIX - refuse outright once the app is locked. A save queued behind a failing one used to
-     dequeue AFTER lockOut() had wiped the state its guards depend on, rebuild an empty document,
-     and write it over the shared server file (or, on iOS, over the device's only copy). */
-  if(appLocked){ console.warn("save refused - the app is locked"); return false; }
-  if(booting){ console.warn("save refused - still loading this account"); return false; }
-  const _epoch0=sbEpoch;                       // the identity this save belongs to
+async function _savePortfolioInner(c){
+  if(booting){
+    // C4 + an honest badge: the refusal must not look like a successful save.
+    keepAside("unsynced", (state.docOwner||c.owner), state.portfolio);
+    state.syncError="the account was still loading - that change was not saved";
+    console.warn("save refused - still loading this account");
+    try{ renderSyncBadge(); }catch(e){}
+    return false;
+  }
   if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
-  /* Captured now, so the rescue write in the catch below still knows whose document this is even
-     if the session dies (and clearAccountState runs) part-way through. */
-  const _owner=state.docOwner, _doc=state.portfolio;
-  /* Signed BEFORE the persisted-field stamping below. Comparing after it could never match a stored
-     stash, because stamping adds fields (noDefaults, metricCfg, presets...) the stored copy predates
-     - so a restored-and-saved stash was re-offered on every future sign-in. */
-  const _preSig=docSig(_doc);
+  const doc=state.portfolio, owner=c.owner;      // C1
+
+  /* C2 restated against the DOCUMENT: what is on screen must belong where we are about to write.
+     This is the guard that stops an account's book reaching the identity-free store. */
+  if(state.docSource && state.docSource!==c.name){
+    /* C4 applies to a REFUSAL too. This is the path a dying session takes - the adapter falls back
+       to the identity-free store while the document on screen belongs to an account - and refusing
+       without keeping the edit would lose exactly the work the refusal exists to protect. */
+    keepAside("unsynced", state.docOwner, doc);
+    console.error("refusing to save a "+state.docSource+" document to the "+c.name+" store");
+    state.syncError="this portfolio was not loaded from "+(c.name==="cloud"?"your account":"this store");
+    renderSyncBadge(); return false;
+  }
+  if(c.name==="cloud" && state.docOwner && state.docOwner!==owner){
+    keepAside("unsynced", state.docOwner, doc);          // C4
+    console.error("refusing to save one account's document into another");
+    state.syncError="this portfolio belongs to a different account";
+    renderSyncBadge(); return false;
+  }
+
+  // ---- state -> document. Unchanged from V1: this is the persisted-field contract. ----
   if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
   if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
   state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
   state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
-  state.portfolio.noDefaults = !!state.noDefaults;
   state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
-  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1: persist the ordered key list only
-  state.portfolio.metricCfg = state.metricCfg || null;   // E2.4: per-metric config (null when all-default)
-  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];   // E2.5: preset library
-  stampPortfolioMeta(state.portfolio);             // E6.1: schemaVersion + monotonic revision + updatedAt
-  const _ad=storageAdapter();                      // E6.2
+  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1
+  state.portfolio.metricCfg = state.metricCfg || null;                                    // E2.4
+  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];            // E2.5
+  stampPortfolioMeta(state.portfolio);           // E6.1: schemaVersion + monotonic revision + updatedAt
   state.syncError=null;
-  /* ---- E6 FIX: the adapter must not change under the document -------------------------
-     This is the only path that could actually destroy the user's book. A document loaded from
-     a cloud ACCOUNT must never be written to the identity-free `web` or `native` store, which
-     is what happened when a session died mid-session: storageAdapter() silently fell through,
-     and the next autosave wrote the account's portfolio over the shared server portfolio.json
-     (web) or over pb_portfolio_v1, the device's ONLY copy (native). Refuse, keep the work in
-     the owner's own mirror, and re-gate. */
-  if(state.docSource==="cloud" && (!signedIn() || (state.docOwner && sbUserId()!==state.docOwner))){
-    const owner=_owner||state.docOwner;
-    state.syncError="the session ended before this change was saved";
-    try{
-      cloudMirrorSave(_doc,owner,true);            // unsynced: the server never took this
-      if(owner) localStorage.setItem("pb_unsynced_"+owner+"_"+Date.now(), JSON.stringify(_doc));
-    }catch(e){ console.error("could not keep the unsaved change",e); }
-    console.error("refusing to save an account document to the "+_ad.name+" store");
-    lockOut("Your session ended before that change was saved. Sign in again - the change is kept on this device.");
-    return false;
+
+  let err=null, wrote=null;
+  try{ wrote=await c.ad.save(doc); }catch(e){ err=e; }
+  const still=ctxCurrent(c);                     // ---- the single checkpoint ----
+
+  if(!err){
+    if(!still){                                  // the write landed, but not for the session on screen
+      console.warn("a save completed for a context that has since changed - not applying its result");
+      return true;
+    }
+    state.syncStatus=c.name;
+    // C3: only a CONFIRMED write advances the base, and only past the checkpoint.
+    if(wrote && isNum(wrote.revision)){ state.baseRevision=wrote.revision; state.cloudRowExists=true; }
+    if(still && c.ad.mirror==="cloud"){
+      /* The mirror may hold an offline edit that could not be FILED (a full localStorage). Only
+         that blocks the overwrite - a merely "dirty" mirror is an ancestor of what just landed. */
+      if(mirrorUnfiled(owner) && stashUnsyncedMirror(null,owner)==="failed"){
+        console.error("keeping the unfiled offline copy - not overwriting the mirror");
+        state.syncError="an earlier offline change is still only in this device's copy";
+      } else { cloudMirrorSave(doc,owner,false); setMirrorUnfiled(owner,false); }
+    }
+    else if(still && c.ad.mirror) nativeSavePortfolio(doc);
+    /* A restored stash is consumed by the first successful save after it was put on screen.
+       Anything that replaces the document wholesale clears the key first (hydrateFromDocument),
+       so this cannot consume work that was never saved. */
+    if(state.pendingStashKey){ stashDrop(state.pendingStashKey); state.pendingStashKey=null; state.pendingStashSig=null; }
+    renderSyncBadge();
+    return true;                                 // C5
   }
-  if(state.docSource && state.docSource!=="cloud" && _ad.name==="cloud"){
-    // The mirror image of the same problem: a local book must not be pushed into an account
-    // except through the deliberate import flow, which sets docSource itself.
-    console.error("refusing to save a local document into an account without an explicit import");
-    state.syncError="this portfolio was not loaded from your account";
+
+  // ---- the write did not land ----
+  state.syncError=(err&&err.message)||"save failed";
+  state.syncStatus=c.name+"-failed";
+  console.error("save failed",err);
+
+  if(err.conflict){
+    /* Another device wrote first. Financial records are never auto-merged: keep the losing edit,
+       reload the server's version, and say plainly which one is on screen.
+       If the copy could NOT be kept, do not reload - the reload replaces state.portfolio, and this
+       is the one place where that destroys the only remaining copy of the edit. */
+    if(!keepAside("conflict",owner,doc)){
+      state.syncError="changed on another device, and your edit could not be filed - it is only on screen";
+      setTimeout(()=>toast("Changed on another device. Your edit could NOT be saved or filed - copy it somewhere before reloading."),400);
+      renderSyncBadge();
+      return false;
+    }
+    state.baseRevision=null;                     // C3 - the server's revision is not yet loaded
+    try{
+      await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
+      const got = state.syncStatus==="cloud" && isNum(state.baseRevision);
+      setTimeout(()=>toast(got
+        ? "Changed on another device - reloaded that version. Your edit was kept aside, not applied."
+        : "Changed on another device, and that version could not be fetched - this is the local copy. Refresh before editing."),400);
+    }catch(e2){
+      console.error("conflict reload failed",e2); state.baseRevision=null;
+      setTimeout(()=>toast("Changed elsewhere and the reload failed - refresh the page before editing."),400);
+    }
     renderSyncBadge();
     return false;
   }
-  if(_ad.mirror){
-    try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
-    catch(e){
-      state.syncError=(e&&e.message)||"save failed";
-      console.error("remote save failed",e);
-      state.syncStatus=_ad.name+"-failed";
-      // E6.5: a CONFLICT is not a transient failure - another device wrote first. Financial
-      // records must never be auto-merged, so reload the server copy and say so plainly.
-      if(e && e.conflict){
-        // keep the edit that lost the race BEFORE anything reloads over it
-        const owner=_owner||state.docOwner||sbUserId();
-        if(owner){ try{ localStorage.setItem("pb_conflict_"+owner+"_"+Date.now(), JSON.stringify(_doc)); }catch(err){} }
-        /* E6 FIX - do NOT adopt e.serverRevision here. Setting the base from the error object
-           claimed the client was caught up to a revision whose CONTENT it had not loaded; if the
-           reload below then failed, the next save matched that base and overwrote the other
-           device's work. Only a load that actually returns content may set the base. */
-        state.baseRevision=null;
-        try{
-          await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
-          /* loadPortfolio does NOT throw when the read fails - it quietly serves the local mirror.
-             Saying "reloaded that version" then told the user they were looking at the winning
-             document when they were looking at the one that lost. */
-          const got = state.syncStatus==="cloud" && isNum(state.baseRevision);
-          setTimeout(()=>toast(got
-            ? "Changed on another device - reloaded that version. Your edit was kept aside, not applied."
-            : "Changed on another device, and that version could not be fetched - this is the local copy. Refresh before editing."),400);
-        }catch(err){ console.error("conflict reload failed",err);
-          state.baseRevision=null;      // still unknown - keep refusing saves until a real load succeeds
-          setTimeout(()=>toast("Changed elsewhere and the reload failed - refresh the page before editing."),400); }
-        renderSyncBadge();
-        return false;
-      }
-      if(_ad.name==="cloud"){
-        /* Deferred so a caller's own "saved" toast cannot immediately paper over it, and honest
-           about the fact that nothing retries automatically. */
-        setTimeout(()=>toast("NOT saved to your account - kept on this device only. Reload when your connection is back."),400);
-      }
-      if(sbEpoch!==_epoch0){
-        /* The session ended while this save was in flight - a definitive 401/403 does exactly this,
-           via sbStoreSession(null). Round 6 skipped the rescue write here, which meant the commonest
-           way to lose a session (an expired refresh token) ALSO lost the edit, while the toast said
-           "kept on this device only". Keep the work in the OWNER's stash - that is whose data it is -
-           but do NOT re-create the plain mirror, which an explicit sign-out deliberately deleted. */
-        if(_owner){
-          try{ localStorage.setItem("pb_unsynced_"+_owner+"_"+Date.now(), JSON.stringify(_doc)); }
-          catch(err){ console.error("could not keep the unsaved change",err); }
-        }
-      }
-      else if(_ad.mirror==="cloud") cloudMirrorSave(_doc,_owner,true); else nativeSavePortfolio(_doc);
-      renderSyncBadge();
-      return false;                          // E6 FIX: tell the caller it did NOT save
-    }
-    if(sbEpoch!==_epoch0){ console.warn("not writing a mirror for a session that has ended"); }
-    else if(_ad.mirror==="cloud"){
-      /* E6 FIX (round 6) - the mirror may still hold an offline edit that could NOT be filed into
-         the stash (a full localStorage). loadPortfolio and dropMirror both honour that; this path
-         did not, so the next successful save destroyed the copy the app had explicitly promised to
-         keep. Try to file it once more, and refuse to overwrite if that still fails. */
-      if(mirrorUnfiled(_owner) && stashUnsyncedMirror(null,_owner)==="failed"){
-        console.error("keeping the unfiled offline copy - not overwriting the mirror");
-        state.syncError="an earlier offline change is still only in this device's copy";
-      } else {
-        /* The mirror held an ancestor of what just saved; the server now has the newer document,
-           so the mirror is simply superseded - overwrite it rather than filing it as unsaved work. */
-        cloudMirrorSave(_doc,_owner,false);
-        setMirrorUnfiled(_owner,false);
-      }
-    } else nativeSavePortfolio(_doc);
-  } else {
-    // E6 FIX: this branch used to THROW, so web-path callers got an unhandled rejection that
-    // aborted the rest of the handler with nothing shown at all. Fail the same way as above.
-    try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
-    catch(e){
-      state.syncError=(e&&e.message)||"save failed"; console.error("save failed",e);
-      setTimeout(()=>toast("NOT saved - "+state.syncError),400);
-      renderSyncBadge(); return false;
-    }
-  }
-  /* The restored copy is now safely in the account - but only drop it if what just saved really
-     IS that work. It used to be consumed by ANY successful save, so restoring a stash and then
-     resetting the portfolio deleted the kept-aside book without ever storing it. */
-  /* A restored stash is consumed by the first successful save after it was put on screen -
-     including one the user edited first, which is the flow the modal actually describes ("not
-     saved until you make a change"). Comparing signatures could only ever match a byte-identical
-     re-save, so the prompt came back on every future sign-in and kept inviting the user to revert.
-     Anything that replaces the document wholesale (a load, a conflict reload, Reset) clears the
-     pending key instead - see hydrateFromDocument - so this cannot consume work that was never
-     saved. */
-  if(state.pendingStashKey){
-    stashDrop(state.pendingStashKey);
-    state.pendingStashKey=null; state.pendingStashSig=null;
-  }
+
+  /* C4, with ONE copy in the right place - not two.
+     While the context holds, the dirty mirror IS the kept copy: a later successful save supersedes
+     it, and a later LOAD files it as unsaved work if it never was superseded. Writing a stash here
+     as well would announce "unsaved work was kept aside" for work the next save then completed.
+     When the context has gone (a rejected session, a sign-out mid-flight) the mirror is not ours to
+     write - it may have been deleted deliberately - so the stash is the only safe home. */
+  /* C4 - and CHECK it. cloudMirrorSave returns false on a full localStorage and on an empty owner;
+     ignoring that left the toast promising the change was kept while nothing held it. */
+  let kept;
+  if(still && c.ad.mirror==="cloud") kept=cloudMirrorSave(doc,owner,true) || keepAside("unsynced",owner,doc);
+  else if(still && c.ad.mirror){ try{ nativeSavePortfolio(doc); kept=true; }catch(e2){ kept=keepAside("unsynced",owner,doc); } }
+  else kept=keepAside("unsynced",owner,doc);
+  if(!kept) state.syncError=(state.syncError||"save failed")+" - and it could NOT be kept on this device";
+
+  setTimeout(()=>toast(!kept
+    ? "NOT saved, and this device could not keep a copy either - your change exists only on screen."
+    : (c.name==="cloud"
+      ? "NOT saved to your account - the change is kept on this device. Reload when your connection is back."
+      : "NOT saved - "+state.syncError)),400);
   renderSyncBadge();
-  return true;
+  return false;                                  // C5
 }
 
 /* ======================================================================
@@ -2768,13 +2787,11 @@ function offerStashRecovery(){
   $("#stashModal").addEventListener("click",e=>{
     const l=e.target.closest("[data-load]"), d=e.target.closest("[data-drop]");
     if(l){ const it=items[+l.dataset.load]; closeModal();
-      /* Keep what is about to be replaced. Saving a restored document overwrites the account's
-         CURRENT content with no conflict raised (the base revision is still the confirmed one),
-         so the thing being displaced needs a copy too. */
-      try{
-        const owner=state.docOwner||sbUserId();
-        if(owner && state.portfolio) localStorage.setItem("pb_conflict_"+owner+"_"+Date.now(), JSON.stringify(state.portfolio));
-      }catch(err){ console.error("could not keep the replaced document",err); }
+      /* Deliberately NO copy of the current document here. Writing one on every VIEW produced an
+         unbounded pile of entries that the same prompt then advertised as "unsaved work that never
+         reached your account" - and restoring one of those reverts the account. The account's own
+         content is on the server until the user saves over it, and the version timeline (undo)
+         covers that step. */
       hydrateFromDocument(JSON.parse(JSON.stringify(it.doc)));
       /* Kept until the work is safely in the account - dropping it here would lose the copy if
          the user never saves, and keeping it forever would re-offer stale work on every boot. */
@@ -2873,7 +2890,7 @@ function openImportChoice(local,src){
     /* A BLANK board, not the five built-in themes with nothing in them. Leaving state.themes null
        MEANS "use the defaults", so "Start fresh" used to show the seed universe and a donut of
        target weights over themes the user had never chosen. */
-    useNoThemes(); state.watchlist=[];
+    useNoThemes(); state.watchlist=[];      // E8: an empty board is just an empty list
     // A fresh account starts on the DEFAULTS, not on whatever the previous session left in memory.
     state.presets=[]; state.metrics=null; state.metricCfg=null; state.overrides={};
     state.weights=Object.assign({},DEFAULT_CONFIG.weights);
@@ -3318,18 +3335,10 @@ function renderFundamentals(){
          portfolio starts.</p>
       <div class="row" style="justify-content:center;gap:8px">
         <button class="btn primary" id="emptyNewTheme">\u2795 Create your first theme</button>
-        <button class="btn" id="emptyRestore">\u21ba Use the built-in 5</button>
         <button class="linkish" id="emptyGuide">Show me how</button>
       </div></div>`;
-    const nt=$("#emptyNewTheme"), rs=$("#emptyRestore"), gd=$("#emptyGuide");
+    const nt=$("#emptyNewTheme"), gd=$("#emptyGuide");
     if(nt) nt.addEventListener("click",()=>{ const b=$("#newThemeBtn"); if(b) b.click(); });
-    if(rs) rs.addEventListener("click",async()=>{
-      useDefaultThemes();
-      rebuildThemeOf(); rebuildFundamentals();
-      const ok=await savePortfolio();       // confirm the write BEFORE painting it as done
-      renderAll();
-      toast(ok?"Loaded the five built-in themes":"Loaded them here, but the account could not be written - see the sync badge");
-    });
     if(gd) gd.addEventListener("click",()=>coachStart("fundamentals",true));
     return;
   }
@@ -3556,6 +3565,22 @@ function openMetricPicker(){
    Render: CALCULATOR view
    ====================================================================== */
 function renderCalc(){
+  /* E8 - no themes means no targets, and with no targets a rebalance would compute "sell
+     everything" for a book that still holds real positions. That must never be presented as the
+     ordinary flow, whether or not the account already has holdings. */
+  if(!themes().length){
+    const held=holdingSyms().length;
+    $("#calcMain").innerHTML="";
+    $("#calcUninit").innerHTML=`<div class="empty-note">
+      <h3>${held?"No themes to rebalance towards":"Build your themes first"}</h3>
+      <p>${held
+        ? "You still hold <b>"+held+"</b> position"+(held===1?"":"s")+", but every theme has been deleted — so there are no target weights to aim at, and rebalancing now would simply sell everything. Recreate a theme on <b>Model</b> and put those names back in it."
+        : "Rebalance turns target weights into share counts, and those targets come from your themes. Create a theme on <b>Model</b>, add some names, and come back."}</p>
+      <button class="btn primary" id="emptyGoModel">Go to Model</button></div>`;
+    const g=$("#emptyGoModel");
+    if(g) g.addEventListener("click",()=>{ switchView("fundamentals"); coachStart("fundamentals",true); });
+    return;
+  }
   if(!isInit()){ renderCalcInit(); $("#calcMain").innerHTML=""; }
   else { $("#calcUninit").innerHTML=""; renderCalcMain(); }
 }
@@ -4367,11 +4392,12 @@ function openEditTheme(key){
   const n=$("#etName"); if(n){ n.focus(); n.select(); }
 }
 
-/* ---- delete a theme / restore defaults (E1.6) ---- */
+/* ---- delete a theme (E1.6; E8: deleting the LAST one is allowed) ---- */
 async function deleteTheme(key){
   const t=themeByKey(key); if(!t) return;
   const live=themes();
-  if(live.length<=1){ toast("Can't delete your only theme — use “Restore default 5” instead"); return; }
+  // E8: no "restore the defaults" to fall back on, and an empty board is a valid state - so the
+  // last theme is deletable like any other. The Model view explains what to do next.
   const held=tickersOf(key).filter(s=>holdingSyms().includes(s));
   const msg = held.length
     ? ("Delete “"+t.name+"”?\n\nIts "+held.length+" held name(s) — "+held.slice(0,5).join(", ")+(held.length>5?"…":"")+" — will be SOLD to $0 on your next rebalance (they'll no longer belong to any theme).")
@@ -4384,15 +4410,9 @@ async function deleteTheme(key){
   renderAll();
   toast("Deleted “"+t.name+"”"+(held.length?" — its names will sell on the next rebalance":""));
 }
-async function restoreDefaultThemes(){
-  if(!confirm("Restore the default 5 themes?\n\nThis removes any themes you created and resets theme membership to the defaults. Your holdings aren't sold now, but names not in a default theme become exiting positions on your next rebalance.")) return;
-  useDefaultThemes();                 // clears noDefaults too - see the helper's comment
-  rebuildThemeOf();
-  const ok=await savePortfolio();
-  renderAll();
-  toast(ok ? "Restored the default 5 themes"
-           : "Restored them here, but the account could not be written - see the sync badge");
-}
+/* E8 - restoreDefaultThemes() and its button were DELETED. There is no default theme set
+   any more: every account builds its own, so "restore the five I happened to start with" is
+   not a meaningful action for anybody but the original author. */
 
 /* ---- search any ticker and add it to a theme (E1.3) ------------------------------------------
    Inline from the Fundamentals legend (scoped to a theme) and from the Screener (with a theme picker). */
@@ -4697,7 +4717,6 @@ function setupEvents(){
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addticker]"); if(b) openTickerSearch(b.dataset.addticker, true); });   // E4.3: '＋ ticker' in a theme section — add DIRECTLY (rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-editth]"); if(b) openEditTheme(b.dataset.editth); });   // E1.5: rename / recolour a theme
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-delth]"); if(b) deleteTheme(b.dataset.delth); });   // E1.6: delete a theme
-  if($("#restoreThemesBtn")) $("#restoreThemesBtn").addEventListener("click",restoreDefaultThemes);   // E1.6: restore default 5
   $("main").addEventListener("change",e=>{ const sel=e.target.closest("select.wl-add"); if(sel&&sel.value) commitFromWatchlist(sel.dataset.sym, sel.value); });   // E1.3: watchlist -> add to a theme (previews rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-wlsym]"); if(b) removeFromWatchlist(b.dataset.wlsym); });   // E1.3: drop from watchlist
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
@@ -4758,6 +4777,9 @@ function setupEvents(){
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
+    // The document was replaced wholesale, so a stash "put on screen" earlier is no longer what is
+    // being saved and must not be consumed by this save.
+    state.pendingStashKey=null; state.pendingStashSig=null;
     const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
     renderAll(); switchView("calc");
   });
