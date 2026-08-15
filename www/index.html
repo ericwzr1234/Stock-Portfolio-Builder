@@ -513,6 +513,22 @@
      "Apply & save" button stays reachable instead of being buried in a nested scroll. */
   .calc-plan #rebOut .tscroll{max-height:44vh;overflow:auto}
 
+  /* ===== E6.4 accounts ===== */
+  #acctBtn.on{border-color:var(--teal);color:var(--teal)}
+  .auth-field{display:block;margin:9px 0 3px;font-size:12px;color:var(--muted)}
+  .auth-in{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit}
+  .auth-in:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--teal) 18%,transparent)}
+  .auth-msg{margin-top:10px;font-size:12.5px;padding:8px 10px;border-radius:8px;display:none}
+  .auth-msg.show{display:block}
+  .auth-msg.err{background:color-mix(in srgb,var(--neg) var(--tint),var(--paper));color:var(--neg)}
+  .auth-msg.ok{background:color-mix(in srgb,var(--pos) var(--tint),var(--paper));color:var(--pos)}
+  .auth-alt{display:flex;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .linkish{background:none;border:0;padding:0;color:var(--teal);font-size:12px;cursor:pointer;
+    font-family:inherit;text-decoration:underline;text-underline-offset:2px}
+  .synced{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+  .synced .dot2{width:7px;height:7px;border-radius:99px;background:var(--pos);flex:none}
+
   /* ===== E5.4 Research: search left, watchlist right ===== */
   .res-layout{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
   @media(max-width:1040px){ .res-layout{grid-template-columns:1fr} }
@@ -605,6 +621,7 @@
     <div class="kpis" id="ctxKpis"></div>
     <div class="spacer"></div>
     <div class="ctrls">
+      <button class="btn sm ghost" id="acctBtn" title="Account">Sign in</button>
       <div class="themesw" role="group" aria-label="Colour theme">
         <button id="tLight" class="on" aria-pressed="true" title="Light theme">☀</button>
         <button id="tDark" aria-pressed="false" title="Dark theme">☾</button>
@@ -1257,12 +1274,15 @@ async function remotePutPortfolio(p){ const Http=capHttp(); await Http.request({
      fallback(): portfolio | null       — used only when load() throws
    Behaviour is deliberately identical to the pre-E6.2 inline branching.               */
 const STORAGE_ADAPTERS={
+  cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p), mirror:true,
+            fallback:()=>nativeLoadPortfolio() },                       // E6.5
   lan:    { name:"remote", load:remoteGetPortfolio, save:remotePutPortfolio, mirror:true,
             fallback:()=>nativeLoadPortfolio() },
   native: { name:"local",  load:async()=>nativeLoadPortfolio(), save:async p=>nativeSavePortfolio(p) },
   web:    { name:"web",    load:webLoadPortfolio,   save:webSavePortfolio }
 };
 function storageAdapter(){
+  if(typeof signedIn==="function" && signedIn()) return STORAGE_ADAPTERS.cloud;   // E6.5: an account beats local storage
   if(useRemote()) return STORAGE_ADAPTERS.lan;   // iOS + a configured computer URL
   if(NATIVE)      return STORAGE_ADAPTERS.native;
   return STORAGE_ADAPTERS.web;
@@ -1290,6 +1310,123 @@ function portfolioMeta(){                      // read-only view, for E6.5 and f
   return { schemaVersion:isNum(p.schemaVersion)?p.schemaVersion:null,
            revision:isNum(p.revision)?p.revision:null,
            updatedAt:p.updatedAt||null, adapter:storageAdapter().name };
+}
+
+/* ===== E6.4 - accounts (Supabase Auth over plain fetch) ================================
+   No SDK and no build step: GoTrue is an ordinary REST API and PostgREST is an ordinary
+   REST API, so the whole account layer is fetch() calls. Every endpoint below was verified
+   against the live project rather than assumed.
+
+   The publishable key is PUBLIC BY DESIGN. It identifies the project, not the user, and
+   grants nothing beyond what row-level security permits. The secret key (which carries
+   BYPASSRLS) must never appear here. */
+const SB_URL="https://uvzxdeiiwswhthfaqhtb.supabase.co";
+const SB_KEY="sb_publishable_smrzMSuM7plL-NWtHNt2BA_TJP6_lEY";
+const SB_SESSION_KEY="pb_sb_session";
+
+let sbSession=null;                                   // {access_token, refresh_token, expires_at, user}
+function sbLoadSession(){
+  try{ const raw=localStorage.getItem(SB_SESSION_KEY); sbSession=raw?JSON.parse(raw):null; }catch(e){ sbSession=null; }
+  return sbSession;
+}
+function sbStoreSession(sess){
+  sbSession=sess||null;
+  try{ if(sess) localStorage.setItem(SB_SESSION_KEY, JSON.stringify(sess));
+       else localStorage.removeItem(SB_SESSION_KEY); }catch(e){}
+}
+function signedIn(){ return !!(sbSession && sbSession.access_token); }
+function sbUserEmail(){ return (sbSession&&sbSession.user&&sbSession.user.email)||""; }
+function sbUserId(){ return (sbSession&&sbSession.user&&sbSession.user.id)||""; }
+
+async function sbAuth(path, body, method){
+  const r=await fetch(SB_URL+"/auth/v1/"+path,{ method:method||"POST",
+    headers:{ "apikey":SB_KEY, "Content-Type":"application/json" },
+    body: body?JSON.stringify(body):undefined });
+  let d=null; try{ d=await r.json(); }catch(e){}
+  if(!r.ok){ const msg=(d&&(d.msg||d.error_description||d.message))||("HTTP "+r.status);
+             const err=new Error(msg); err.status=r.status; err.code=d&&d.error_code; throw err; }
+  return d;
+}
+function sbAdoptSession(d){
+  if(!d||!d.access_token) return null;
+  const sess={ access_token:d.access_token, refresh_token:d.refresh_token,
+    expires_at: Math.floor(Date.now()/1000)+(isNum(d.expires_in)?d.expires_in:3600),
+    user:d.user||null };
+  sbStoreSession(sess); return sess;
+}
+async function sbSignIn(email,password){
+  return sbAdoptSession(await sbAuth("token?grant_type=password",{email,password}));
+}
+async function sbSignUp(email,password){
+  const d=await sbAuth("signup",{email,password});
+  // With "Confirm email" on, signup returns a user but NO session until the link is clicked.
+  return { session: sbAdoptSession(d), needsConfirmation: !(d&&d.access_token) };
+}
+async function sbRecover(email){ return sbAuth("recover",{email}); }
+async function sbSignOut(){
+  try{ if(signedIn()) await fetch(SB_URL+"/auth/v1/logout",{ method:"POST",
+        headers:{ "apikey":SB_KEY, "Authorization":"Bearer "+sbSession.access_token } }); }catch(e){}
+  sbStoreSession(null);
+}
+async function sbRefresh(){
+  if(!sbSession||!sbSession.refresh_token) return null;
+  try{ return sbAdoptSession(await sbAuth("token?grant_type=refresh_token",{refresh_token:sbSession.refresh_token})); }
+  catch(e){ sbStoreSession(null); return null; }
+}
+/* Any authenticated call goes through here: it refreshes ONCE on a 401 and retries, so an
+   expired access token is invisible to the caller instead of surfacing as a failed save. */
+async function sbApi(path, opts, _retried){
+  opts=opts||{};
+  if(!signedIn()) throw new Error("not signed in");
+  const headers=Object.assign({ "apikey":SB_KEY, "Authorization":"Bearer "+sbSession.access_token },opts.headers||{});
+  const r=await fetch(SB_URL+path, Object.assign({},opts,{headers}));
+  if(r.status===401 && !_retried){ const s2=await sbRefresh(); if(s2) return sbApi(path,opts,true); }
+  return r;
+}
+
+/* ===== E6.5 - cloud storage adapter ====================================================
+   The FOURTH entry in the registry above. The engine and UI are untouched: this only has to
+   satisfy the same load()/save() contract as the other three.
+
+   Concurrency: the row's `revision` column is authoritative and is kept equal to the
+   document's own revision (stamped by E6.1). A save PATCHes filtered on the revision it was
+   based on; ZERO rows affected means somebody else wrote first - that is the conflict, and
+   it is surfaced to the user, never merged. */
+const CLOUD_TABLE="/rest/v1/portfolios";
+async function cloudLoadPortfolio(){
+  const uid=sbUserId(); if(!uid) throw new Error("not signed in");
+  const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&limit=1",
+    { headers:{ "Accept":"application/json" } });
+  if(!r.ok) throw new Error("cloud load failed: HTTP "+r.status);
+  const rows=await r.json();
+  if(!rows||!rows.length) return null;                  // no row yet - the first save creates it
+  const row=rows[0], p=row.data||null;
+  if(p && isNum(row.revision)) p.revision=row.revision; // the row column is the source of truth
+  return p;
+}
+async function cloudSavePortfolio(p){
+  const uid=sbUserId(); if(!uid) throw new Error("not signed in");
+  const next=isNum(p.revision)?p.revision:1;            // stampPortfolioMeta already incremented it
+  const base=next-1;
+  const payload={ data:p, revision:next, schema_version:isNum(p.schemaVersion)?p.schemaVersion:1 };
+  const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&revision=eq."+base,
+    { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
+      body: JSON.stringify(payload) });
+  if(r.ok){
+    const rows=await r.json();
+    if(rows && rows.length) return;                     // updated cleanly
+    // Zero rows: either no row exists yet, or someone else wrote. Distinguish them.
+    const probe=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=revision&limit=1");
+    const existing=probe.ok?await probe.json():[];
+    if(existing && existing.length){
+      const err=new Error("This account was changed on another device.");
+      err.conflict=true; err.serverRevision=existing[0].revision; throw err;
+    }
+  }
+  const ins=await sbApi(CLOUD_TABLE,
+    { method:"POST", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
+      body: JSON.stringify(Object.assign({user_id:uid},payload)) });
+  if(!ins.ok){ const t=await ins.text(); throw new Error("cloud save failed: HTTP "+ins.status+" "+t.slice(0,120)); }
 }
 const YUA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 let _crumb=null;
@@ -1662,7 +1799,22 @@ async function savePortfolio(){
   const _ad=storageAdapter();                      // E6.2
   if(_ad.mirror){
     try{ await _ad.save(state.portfolio); state.syncStatus=_ad.name; }
-    catch(e){ console.error("remote save failed",e); state.syncStatus=_ad.name+"-failed"; }
+    catch(e){
+      console.error("remote save failed",e);
+      state.syncStatus=_ad.name+"-failed";
+      // E6.5: a CONFLICT is not a transient failure - another device wrote first. Financial
+      // records must never be auto-merged, so reload the server copy and say so plainly.
+      if(e && e.conflict){
+        state.portfolio.revision=isNum(e.serverRevision)?e.serverRevision:state.portfolio.revision;
+        try{
+          await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
+          toast("This account was changed on another device - reloaded that version. Re-apply your change if you still want it.");
+        }catch(err){ console.error("conflict reload failed",err);
+          toast("This account was changed elsewhere and the reload failed - refresh the page before editing."); }
+        return;
+      }
+      if(_ad.name==="cloud") toast("Could not reach your account - saved locally, will sync when it is back.");
+    }
     nativeSavePortfolio(state.portfolio);   // always keep a local mirror so data survives going offline
   } else {
     await _ad.save(state.portfolio);
@@ -1753,6 +1905,118 @@ function setReturnUnit(u){
   if(dl){ dl.classList.toggle("on",RET_UNIT==="dol"); dl.setAttribute("aria-pressed",String(RET_UNIT==="dol")); }
   try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
 }
+/* ===== E6.4 - account UI ==============================================================
+   Deliberately additive: signed out, the app behaves exactly as before and keeps using
+   local storage. Signing in switches the storage adapter and nothing else. */
+function renderAcctBtn(){
+  const b=$("#acctBtn"); if(!b) return;
+  if(signedIn()){ b.textContent="\u25CF " + (sbUserEmail()||"Account"); b.classList.add("on");
+                  b.title="Signed in - your portfolio syncs to your account"; }
+  else{ b.textContent="Sign in"; b.classList.remove("on");
+        b.title="Sign in to sync this portfolio to your account"; }
+}
+function authMsg(kind,text){
+  const m=$("#authMsg"); if(!m) return;
+  m.className="auth-msg show "+(kind==="ok"?"ok":"err"); m.textContent=text;
+}
+function openAccount(){
+  if(signedIn()){
+    $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
+      <h2 style="font-size:16px">Account</h2>
+      <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
+      <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio saves to your account, with a local copy kept as a fallback.</p>
+      <div id="authMsg" class="auth-msg"></div>
+      <div class="row" style="justify-content:space-between;margin-top:16px">
+        <button class="btn" id="acctSignOut">Sign out</button>
+        <button class="btn" id="acctClose">Close</button>
+      </div></div></div>`;
+    $("#acctClose").addEventListener("click",closeModal);
+    $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
+    $("#acctSignOut").addEventListener("click",async()=>{
+      await sbSignOut(); closeModal(); renderAcctBtn();
+      toast("Signed out - back to local storage");
+      try{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); }catch(e){ console.error(e); }
+    });
+    return;
+  }
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
+    <h2 style="font-size:16px" id="authTitle">Sign in</h2>
+    <p class="small muted" style="margin:6px 0 0" id="authSub">Your portfolio syncs to your account and follows you between devices.</p>
+    <label class="auth-field" for="authEmail">Email</label>
+    <input class="auth-in" type="email" id="authEmail" autocomplete="username" placeholder="you@example.com">
+    <label class="auth-field" for="authPass">Password</label>
+    <input class="auth-in" type="password" id="authPass" autocomplete="current-password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022">
+    <div id="authMsg" class="auth-msg"></div>
+    <div class="row" style="gap:8px;margin-top:14px">
+      <button class="btn primary" id="authGo" style="flex:1">Sign in</button>
+      <button class="btn" id="acctClose">Cancel</button>
+    </div>
+    <div class="auth-alt">
+      <button class="linkish" id="authToggle">Create an account</button>
+      <button class="linkish" id="authForgot">Forgot password?</button>
+    </div></div></div>`;
+  let mode="signin";
+  const setMode=m=>{ mode=m;
+    $("#authTitle").textContent = m==="signin"?"Sign in":"Create an account";
+    $("#authSub").textContent  = m==="signin"
+      ? "Your portfolio syncs to your account and follows you between devices."
+      : "You will get an email to confirm the address before your first sign-in.";
+    $("#authGo").textContent   = m==="signin"?"Sign in":"Create account";
+    $("#authToggle").textContent = m==="signin"?"Create an account":"I already have an account";
+    $("#authPass").setAttribute("autocomplete", m==="signin"?"current-password":"new-password");
+  };
+  $("#acctClose").addEventListener("click",closeModal);
+  $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
+  $("#authToggle").addEventListener("click",()=>setMode(mode==="signin"?"signup":"signin"));
+  $("#authForgot").addEventListener("click",async()=>{
+    const email=($("#authEmail").value||"").trim();
+    if(!email){ authMsg("err","Enter your email address first, then press this again."); return; }
+    try{ await sbRecover(email);
+      authMsg("ok","If that address has an account, a reset link is on its way. Check your inbox.");
+    }catch(e){ authMsg("err",e.message||"Could not send the reset email."); }
+  });
+  const submit=async()=>{
+    const email=($("#authEmail").value||"").trim(), pass=$("#authPass").value||"";
+    if(!email||!pass){ authMsg("err","Email and password are both required."); return; }
+    const btn=$("#authGo"); btn.disabled=true; btn.textContent="Working\u2026";
+    try{
+      if(mode==="signup"){
+        const r=await sbSignUp(email,pass);
+        if(r.needsConfirmation){
+          authMsg("ok","Account created. Confirm the link in your email, then sign in.");
+          btn.disabled=false; setMode("signin"); return;
+        }
+      } else {
+        await sbSignIn(email,pass);
+      }
+      closeModal(); renderAcctBtn();
+      await adoptAccountPortfolio();
+    }catch(e){
+      btn.disabled=false; setMode(mode);
+      authMsg("err", e.message==="Invalid login credentials"
+        ? "That email and password did not match an account."
+        : (e.message||"Sign-in failed."));
+    }
+  };
+  $("#authGo").addEventListener("click",submit);
+  ["authEmail","authPass"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{ if(e.key==="Enter")submit(); }));
+  setMode("signin");
+  setTimeout(()=>{ const el=$("#authEmail"); if(el) el.focus(); },30);
+}
+/* After signing in: pull the account's portfolio. If the account has no row yet, keep what is
+   already on screen - the next save creates the row. (The explicit import UX is E6.6.) */
+async function adoptAccountPortfolio(){
+  try{
+    const before=isInit();
+    await loadPortfolio(); rebuildThemeOf();
+    try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); }catch(e){}
+    rebuildFundamentals(); renderAll(); renderAcctBtn();
+    toast(isInit()? "Signed in - portfolio loaded from your account"
+                  : (before? "Signed in - this portfolio will save to your account on the next change"
+                           : "Signed in"));
+  }catch(e){ console.error("adopt failed",e); toast("Signed in, but loading your account failed - showing the local copy"); }
+}
+
 function renderOverview(){
   const svg=$("#ovChart"); if(!svg) return;
   const init=isInit(), total=curTotal();
@@ -3244,6 +3508,7 @@ function setupEvents(){
   $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b)switchView(b.dataset.view); });
   /* E5.0: rail nav + theme toggle + 1-5 shortcuts */
   if($("#rail")) $("#rail").addEventListener("click",e=>{ const b=e.target.closest(".navlink[data-view]"); if(b)switchView(b.dataset.view); });
+  if($("#acctBtn")) $("#acctBtn").addEventListener("click",openAccount);
   if($("#retPct")) $("#retPct").addEventListener("click",()=>setReturnUnit("pct"));
   if($("#retDol")) $("#retDol").addEventListener("click",()=>setReturnUnit("dol"));
   if($("#tLight")) $("#tLight").addEventListener("click",()=>setTheme("light",true));
@@ -3335,12 +3600,14 @@ function setupEvents(){
 async function init(){
   if(NATIVE){ try{ document.documentElement.classList.add('native'); }catch(e){} try{ state.serverUrl=localStorage.getItem(SRV_KEY)||""; }catch(e){} }
   initTheme();                                            // E5.0: before first paint, so there's no flash
+  sbLoadSession();                                        // E6.4: restore a signed-in session before any load
   setupEvents();
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
   try{ await loadPortfolio(); }catch(e){ console.error(e); }
   rebuildThemeOf();
   try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }   // E3: load statements + overlay computed metrics
   catch(e){ console.error(e); toast("Some data failed to load — using fallback"); }
+  renderAcctBtn();                                        // E6.4
   renderAll();
   setupAutoRefresh();
 }

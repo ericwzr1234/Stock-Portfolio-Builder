@@ -311,11 +311,11 @@
       "Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().",
       "Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth." ] },
 
-    { "id": "E6.4", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.3", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.4", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.3", "spec": "docs/features/E6_database_design.md",
       "title": "Login / register / logout + session handling", "notes": [
       "First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout." ] },
 
-    { "id": "E6.5", "epic": "E6", "stage": "ideation", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.5", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
       "title": "Cloud adapter with optimistic concurrency", "notes": [
       "Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.",
       "On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.",
