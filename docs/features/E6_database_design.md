@@ -147,16 +147,87 @@ app ever holds data for people you don't know.
 **Sequencing note:** E6.1 and E6.2 are worth doing regardless of which provider is chosen — they are pure
 forward-compatibility and carry no vendor decision. E6.3 is the first step that needs your input.
 
-## 9. What I need from you before E6.3
+## 9. Decisions
 
-1. **Provider choice** — managed BaaS (recommended) vs self-hosted `server.py` + Postgres.
-2. **Confirmation that leaving "no API keys / fully free" behind is acceptable** for Phase 2. A public anon
-   key in the client is safe, but it is a change of character for this project.
-3. **Where the data may physically live** (region), since it is other people's financial holdings.
-4. **How testers are invited** — open registration vs invite-only. I recommend invite-only for Phase 2.
+### Settled (2026-08-15)
+- **Registration: INVITE-ONLY.** Only addresses explicitly allowed may register. No stranger can ever
+  create an account, which also keeps the market-data licensing question in personal-use territory
+  through Phase 2.
+- **Region: US.** Closest to the user and the testers; revisit before any public launch.
+- **Account creation is the user's, not the assistant's.** I do not create accounts or sign up for
+  services. The user creates the backend project; what reaches the repo is the project URL and the
+  **public anon key** only. The service/secret key never leaves the user's hands and is never committed.
+
+### Open
+- **Provider choice** — managed backend-as-a-service vs self-hosting `server.py` + Postgres.
+  Trade-off analysis in §11. This is the only thing blocking E6.3.
 
 ## 10. Explicit non-goals for Phase 2
 
 No public signup, no billing, no password-less-only flows, no cross-user features, no analytics on user
 data, no market-data redistribution (still Yahoo-for-personal-use — the licensing question is a **Phase 3**
 blocker before any public launch, see [`E6_multi-user-platform.md`](E6_multi-user-platform.md) §7).
+
+
+---
+
+## 11. Managed vs self-hosted — the detailed comparison
+
+### What you actually have to BUILD
+
+| | Managed backend | Self-hosted `server.py` + Postgres |
+|---|---|---|
+| Register / login / logout | provided | build it |
+| Password hashing | provided | build it (stdlib `hashlib.scrypt` is adequate — but it must be got right) |
+| Password **reset** | provided (emails included) | build it **and** solve email delivery |
+| Session tokens / expiry / rotation | provided | build it |
+| Rate limiting, lockout | provided | build it |
+| Per-user isolation | **row-level security, enforced by the database** | a `WHERE user_id = ?` you must never once forget |
+| Portfolio schema + adapter | build it | build it |
+| Login UI | build it | build it |
+
+### What you have to OPERATE, forever
+
+| | Managed | Self-hosted |
+|---|---|---|
+| TLS certificates | provided | issue + auto-renew, or the iOS app refuses to connect |
+| OS / dependency patching | provided | yours |
+| Backups **and a tested restore** | provided | yours |
+| Uptime | provided | yours |
+| Cost | free tier covers a handful of users | ~$5/month VPS, or a free tier that sleeps |
+
+### The failure mode that actually decides it
+
+**A tester forgets their password.** On managed, they click "forgot password" and get an email — done.
+Self-hosted, that flow does not exist until you build it, which means standing up transactional email
+(and fighting deliverability). Until then your only options are locking them out or hand-editing the
+database. For a test with friends, "I can't get in" is the most likely support ticket by far, and it is
+entirely avoidable.
+
+The second one: **a single missed `WHERE user_id = ?` leaks another person's holdings.** Row-level
+security makes that a database-enforced impossibility rather than a code-review promise. Given the data
+is other people's real positions and cost basis, that difference matters more than the vendor question.
+
+### The "no API keys" objection — smaller than it looks
+
+The anon key is **public by design**; it grants nothing beyond what RLS allows. And the client can talk
+to a managed Postgres over plain **REST with `fetch`** — no SDK, no bundler, no `node_modules`. So the
+project keeps its zero-dependency, no-build character in the browser; what changes is that a hosted
+service exists and a public key sits in the source.
+
+### Lock-in
+
+Moderate and mostly reversible: the data is ordinary Postgres and exports cleanly. The sticky part is
+**identities** — migrating auth providers means every tester resets their password once. At five users
+that is a non-event.
+
+### Effort
+
+Managed: E6.3–E6.6 in roughly 3–4 focused sessions. Self-hosted: realistically 2–3× that, plus
+operations that never end.
+
+### Recommendation
+
+**Managed**, with the client talking REST-over-`fetch` so no dependency enters the browser. Self-hosting
+is the right answer when you want no vendor at any cost — but it buys control by taking on precisely the
+work (auth edge cases, TLS, backups) that has nothing to do with building a portfolio tool.
