@@ -944,6 +944,23 @@ function themes(){ const t=state.themes; return Array.isArray(t)?t:[]; }
 function migrateThemes(p){
   if(!p) return false;
   if(isNum(p.schemaVersion) && p.schemaVersion>=2) return false;    // already E8
+  /* THREE inputs, not two. Pre-E8 also persisted `noDefaults`, and when it was true BOTH other
+     sentinels inverted: `themes:null` meant "nothing", and empty membership meant "empty", not
+     "that theme's five". A start-fresh account that undid past its initial build has exactly that
+     shape - and materialising the built-ins into it would hand somebody a 25-name model they never
+     chose, then offer to buy it. Honour the flag and migrate only the shape. */
+  if(p.noDefaults===true){
+    if(!Array.isArray(p.themes)) p.themes=[];
+    if(!p.themeTickers || typeof p.themeTickers!=="object" || Array.isArray(p.themeTickers)) p.themeTickers={};
+    (Array.isArray(p.versions)?p.versions:[]).forEach(v=>{
+      const sn=v&&v.snapshot; if(!sn) return;
+      if(!Array.isArray(sn.themes)) sn.themes=[];
+      if(!sn.themeTickers || typeof sn.themeTickers!=="object" || Array.isArray(sn.themeTickers)) sn.themeTickers={};
+    });
+    p.schemaVersion=2;
+    console.info("migrated a pre-E8 START-FRESH document: it stays empty");
+    return true;
+  }
   const builtins = ()=> THEMES.map(t=>({ key:t.key, name:t.name, color:t.color }));
   const fillMembership = (list,tickers)=>{
     const tk = (tickers && typeof tickers==="object" && !Array.isArray(tickers)) ? Object.assign({},tickers) : {};
@@ -1016,8 +1033,9 @@ const state = {
   cloudRowExists:null,            // E6: does this account HAVE a row? null => not established (a failed read is not "empty")
   docSource:null,                 // E6: which adapter the in-memory document came from ('cloud'|'web'|'local'|'remote')
   docOwner:null,                  // E6: the uid that document belongs to, captured at load time
-  pendingStashKey:null,           // E6: a kept-aside document put back on screen; dropped once it saves
-  pendingStashSig:null,           // E6: ...and only if what saved is still THAT document
+  pendingStashKey:null,           // E6: a kept-aside document put back on screen; dropped once it saves.
+                                  // What protects it is that every wholesale document replacement
+                                  // (hydrateFromDocument, Reset) clears this key first.
 };
 let curView="prices";
 let timer=null;
@@ -1697,7 +1715,7 @@ async function sbSignOut(){
 function clearAccountState(){
   state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null;
   state.docSource=null; state.docOwner=null; state.cloudRowExists=null;
-  state.pendingStashKey=null; state.pendingStashSig=null;
+  state.pendingStashKey=null;
   state.themeTickers={}; state.themes=[]; state.watchlist=[];
   state.metrics=null; state.metricCfg=null; state.overrides={};
   /* These are account data too. Leaving them behind meant the NEXT person to sign in on this
@@ -2313,7 +2331,12 @@ function hydrateFromDocument(p){
   /* The document is being replaced wholesale, so a stash "put on screen" earlier is no longer what
      is in front of the user - it must not be consumed by the next save. offerStashRecovery sets
      these again straight after it calls us. */
-  state.pendingStashKey=null; state.pendingStashSig=null;
+  state.pendingStashKey=null;
+  /* migrateVersions FIRST: it SYNTHESISES p.versions from a legacy `transactions` document, and
+     those snapshots carry no theme fields at all. Migrating themes before they exist left them
+     unmigrated, and restoreVersion now reads a missing snapshot theme list as "empty" rather than
+     the old "use the built-in five" - so a single Undo would have erased the model outright. */
+  try{ migrateVersions(p); }catch(e){ console.error("version migration failed",e); }
   migrateThemes(p);                    // E8: a pre-E8 document keeps the themes it was showing
   { state.portfolio=p;
     /* Absent means "the default", never "keep whatever the last document left in memory". The
@@ -2361,16 +2384,32 @@ function savePortfolio(){
   return next;
 }
 async function _savePortfolioInner(c){
+  if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
+  const doc=state.portfolio, owner=c.owner;      // C1
+
+  /* The state -> document copy happens BEFORE the refusals below, because a refusal has to keep the
+     edit that was refused. Nearly every setting - weights, penalty, cap, metrics, presets, themes,
+     membership, watchlist - lives only in state.* until this runs, so filing state.portfolio before
+     it stored the document WITHOUT the change, and (worse) a copy byte-identical to the account's
+     own, which the recovery prompt would then offer back as "unsaved work" that reverts it.
+     stampPortfolioMeta stays below: it bumps the revision, and a refused save must not consume one. */
+  if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
+  if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
+  state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
+  state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
+  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
+  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1
+  state.portfolio.metricCfg = state.metricCfg || null;                                    // E2.4
+  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];            // E2.5
+
   if(booting){
     // C4 + an honest badge: the refusal must not look like a successful save.
-    keepAside("unsynced", (state.docOwner||c.owner), state.portfolio);
+    keepAside("unsynced", (state.docOwner||owner), doc);
     state.syncError="the account was still loading - that change was not saved";
     console.warn("save refused - still loading this account");
     try{ renderSyncBadge(); }catch(e){}
     return false;
   }
-  if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
-  const doc=state.portfolio, owner=c.owner;      // C1
 
   /* C2 restated against the DOCUMENT: what is on screen must belong where we are about to write.
      This is the guard that stops an account's book reaching the identity-free store. */
@@ -2390,15 +2429,6 @@ async function _savePortfolioInner(c){
     renderSyncBadge(); return false;
   }
 
-  // ---- state -> document. Unchanged from V1: this is the persisted-field contract. ----
-  if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
-  if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
-  state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
-  state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
-  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
-  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1
-  state.portfolio.metricCfg = state.metricCfg || null;                                    // E2.4
-  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];            // E2.5
   stampPortfolioMeta(state.portfolio);           // E6.1: schemaVersion + monotonic revision + updatedAt
   state.syncError=null;
 
@@ -2426,7 +2456,7 @@ async function _savePortfolioInner(c){
     /* A restored stash is consumed by the first successful save after it was put on screen.
        Anything that replaces the document wholesale clears the key first (hydrateFromDocument),
        so this cannot consume work that was never saved. */
-    if(state.pendingStashKey){ stashDrop(state.pendingStashKey); state.pendingStashKey=null; state.pendingStashSig=null; }
+    if(state.pendingStashKey){ stashDrop(state.pendingStashKey); state.pendingStashKey=null; }
     renderSyncBadge();
     return true;                                 // C5
   }
@@ -2441,7 +2471,8 @@ async function _savePortfolioInner(c){
        reload the server's version, and say plainly which one is on screen.
        If the copy could NOT be kept, do not reload - the reload replaces state.portfolio, and this
        is the one place where that destroys the only remaining copy of the edit. */
-    if(!keepAside("conflict",owner,doc)){
+    if(!keepAside("conflict",owner,doc) && !cloudMirrorSave(doc,owner,true)){
+      // overwriting the existing mirror key often succeeds where a NEW key hits the quota
       state.syncError="changed on another device, and your edit could not be filed - it is only on screen";
       setTimeout(()=>toast("Changed on another device. Your edit could NOT be saved or filed - copy it somewhere before reloading."),400);
       renderSyncBadge();
@@ -2471,7 +2502,13 @@ async function _savePortfolioInner(c){
   /* C4 - and CHECK it. cloudMirrorSave returns false on a full localStorage and on an empty owner;
      ignoring that left the toast promising the change was kept while nothing held it. */
   let kept;
-  if(still && c.ad.mirror==="cloud") kept=cloudMirrorSave(doc,owner,true) || keepAside("unsynced",owner,doc);
+  if(still && c.ad.mirror==="cloud"){
+    /* The mirror may already hold an OFFLINE edit that could not be filed. Overwriting it here
+       destroys that copy - and a same-size overwrite succeeds under exactly the quota pressure
+       that made the filing fail in the first place. Keep this edit elsewhere instead. */
+    if(mirrorUnfiled(owner)) kept=keepAside("unsynced",owner,doc);
+    else kept=cloudMirrorSave(doc,owner,true) || keepAside("unsynced",owner,doc);
+  }
   else if(still && c.ad.mirror){ try{ nativeSavePortfolio(doc); kept=true; }catch(e2){ kept=keepAside("unsynced",owner,doc); } }
   else kept=keepAside("unsynced",owner,doc);
   if(!kept) state.syncError=(state.syncError||"save failed")+" - and it could NOT be kept on this device";
@@ -2795,7 +2832,7 @@ function offerStashRecovery(){
       hydrateFromDocument(JSON.parse(JSON.stringify(it.doc)));
       /* Kept until the work is safely in the account - dropping it here would lose the copy if
          the user never saves, and keeping it forever would re-offer stale work on every boot. */
-      state.pendingStashKey=it.key; state.pendingStashSig=docSig(state.portfolio);
+      state.pendingStashKey=it.key;
       rebuildThemeOf(); rebuildFundamentals(); renderAll();
       toast("Loaded the kept-aside version - review it, then save if you want to keep it"); return; }
     if(d){ const it=items[+d.dataset.drop]; stashDrop(it.key); closeModal();
@@ -4777,9 +4814,10 @@ function setupEvents(){
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
+    if(booting){ toast("Still loading your account - try again in a moment"); return; }
     // The document was replaced wholesale, so a stash "put on screen" earlier is no longer what is
     // being saved and must not be consumed by this save.
-    state.pendingStashKey=null; state.pendingStashSig=null;
+    state.pendingStashKey=null;
     const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
     renderAll(); switchView("calc");
   });
