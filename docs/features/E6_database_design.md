@@ -467,7 +467,7 @@ rather than by reading the SQL.
 ### Artefacts
 - **`sql/001_portfolios.sql`** — the table, RLS policies, grants and integrity trigger. Idempotent;
   paste into the dashboard SQL editor.
-- **`sql/002_isolation_test.md`** — the E6.7 gate: eight checks against two real accounts.
+- **`sql/ISOLATION_TEST.md`** — the E6.7 gate: eight checks against two real accounts.
 
 ### Decisions baked into the schema, and why
 - **`force row level security`**, not merely `enable` — plain ENABLE does not apply to the table owner,
