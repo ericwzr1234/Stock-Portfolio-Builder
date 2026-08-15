@@ -529,6 +529,15 @@
   /* keep the wide watchlist quote table inside its own scroller instead of stretching the page */
   .res-list .wl-scroll{max-height:calc(100vh - 230px);overflow:auto}
 
+  /* ===== E5.6 return chart ===== */
+  .ov-chart-sm{height:96px}
+  @media(min-width:1500px){ .ov-chart-sm{height:120px} }
+  .retsw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);flex:none}
+  .retsw button{border:0;background:none;padding:3px 11px;font-size:12px;color:var(--muted);cursor:pointer;
+    font-family:inherit;font-variant-numeric:tabular-nums;transition:background-color .15s ease,color .15s ease}
+  .retsw button.on{background:var(--teal);color:var(--on-accent);font-weight:650}
+  #ovRetChart .zero{stroke:var(--line)}
+
   /* ===== E5.5 History: chart + controls left, checkpoints right ===== */
   .hist-layout{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
   @media(max-width:1040px){ .hist-layout{grid-template-columns:1fr} }
@@ -550,6 +559,7 @@
     .metric-grid{grid-template-columns:repeat(3,minmax(96px,1fr) auto)}   /* 2 metric pairs -> 3 */
     .ov-donut{width:190px;height:190px}
     .ov-chart{height:150px}
+    .ov-chart-sm{height:118px}   /* MUST come after .ov-chart: same specificity, source order decides */
   }
   @media(min-width:1800px){
     .thm-stats{grid-template-columns:repeat(5,minmax(0,230px)) 1fr}       /* keep stats legible, not stretched */
@@ -637,6 +647,21 @@
           <svg id="ovChart" class="ov-chart"
                role="img" aria-label="Portfolio value and invested capital at each checkpoint"></svg>
           <div id="ovChartNote" class="xs muted"></div>
+        </div>
+        <div class="card pad">
+          <div class="ov-head">
+            <div>
+              <div class="ov-k">Return vs invested</div>
+              <div id="ovRetHead" class="small muted">—</div>
+            </div>
+            <div class="retsw" role="group" aria-label="Return units">
+              <button id="retPct" class="on" aria-pressed="true">%</button>
+              <button id="retDol" aria-pressed="false">$</button>
+            </div>
+          </div>
+          <svg id="ovRetChart" class="ov-chart ov-chart-sm"
+               role="img" aria-label="Return vs invested: our strategy versus equal weight"></svg>
+          <div class="ov-legend" id="ovRetLegend"></div>
         </div>
         <div class="card pad">
           <div class="ov-k" style="margin-bottom:4px">Allocation</div>
@@ -1623,6 +1648,14 @@ function valueHistory(){
   const _h=(typeof head==="function")?head():_all.length-1;
   const vs=_all.slice(0,Math.max(0,_h+1));
   const px={}, out=[];
+  /* EQUAL-WEIGHT COUNTERFACTUAL (E5.6): the same money, the same names, the same dates — but every
+     holding weighted equally. At each checkpoint the book is marked at that checkpoint's real traded
+     prices, this checkpoint's new capital is added, and the whole thing is redistributed to EXACTLY
+     equal weight across the names held then. Between checkpoints it simply drifts with prices, which
+     mirrors the real portfolio (no rebalance happens unless the user rebalances). It therefore isolates
+     the WEIGHTING model: same selection, same cash flows, same prices. All prices are recorded trade
+     prices — nothing is estimated. */
+  let ewShares={};
   vs.forEach(v=>{
     (v.trades||[]).forEach(tr=>{ if(tr&&tr.sym&&isNum(tr.price)) px[tr.sym]=tr.price; });
     const snap=v.snapshot||{}, h=snap.holdings||{};
@@ -1631,6 +1664,12 @@ function valueHistory(){
       const sh=h[sym]?h[sym].shares:0; if(!isNum(sh)||sh<=0) return;
       held++; if(isNum(px[sym])){ priced++; val+=sh*px[sym]; }
     });
+    // --- equal-weight book at this checkpoint ---
+    const mem=Object.keys(h).filter(sym=>{ const sh=h[sym]?h[sym].shares:0; return isNum(sh)&&sh>0&&isNum(px[sym]); });
+    let ewBefore=0; Object.keys(ewShares).forEach(sym=>{ if(isNum(px[sym])) ewBefore+=ewShares[sym]*px[sym]; });
+    const ewAfter=ewBefore+(isNum(v.cashIn)?v.cashIn:0);
+    if(mem.length&&ewAfter>0){ const slice=ewAfter/mem.length;
+      ewShares={}; mem.forEach(sym=>{ ewShares[sym]=slice/px[sym]; }); }
     // Prefer the value RECORDED at the checkpoint (buildTxn stores plan.newTotal) — that's the
     // authoritative figure. The mark-to-last-traded-price reconstruction above is only a fallback
     // for older versions that predate it. (Cross-checked on the real book: the reconstruction
@@ -1639,10 +1678,25 @@ function valueHistory(){
     out.push({ label:v.date||("#"+v.id), type:v.type||"",
       invested:isNum(snap.totalContributed)?snap.totalContributed:null,
       value: recorded!=null ? recorded : ((held>0&&priced===held)?val:null),
+      ew: (mem.length&&ewAfter>0)?ewAfter:null,
       estimated: recorded==null });
   });
-  if(isInit()) out.push({ label:"now", type:"LIVE", invested:totalContributed(), value:curTotal(), live:true });
+  if(isInit()){
+    // "now" = mark both books to LIVE prices; no rebalance happens here (the user hasn't rebalanced)
+    let ewNow=0, ewPriced=true;
+    Object.keys(ewShares).forEach(sym=>{ const p=price(sym);
+      if(isNum(p)) ewNow+=ewShares[sym]*p; else if(isNum(px[sym])) ewNow+=ewShares[sym]*px[sym]; else ewPriced=false; });
+    out.push({ label:"now", type:"LIVE", invested:totalContributed(), value:curTotal(),
+      ew: (Object.keys(ewShares).length&&ewPriced)?ewNow:null, live:true });
+  }
   return out;
+}
+function setReturnUnit(u){
+  RET_UNIT=(u==="dol")?"dol":"pct";
+  const pc=$("#retPct"), dl=$("#retDol");
+  if(pc){ pc.classList.toggle("on",RET_UNIT==="pct"); pc.setAttribute("aria-pressed",String(RET_UNIT==="pct")); }
+  if(dl){ dl.classList.toggle("on",RET_UNIT==="dol"); dl.setAttribute("aria-pressed",String(RET_UNIT==="dol")); }
+  try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
 }
 function renderOverview(){
   const svg=$("#ovChart"); if(!svg) return;
@@ -1673,7 +1727,7 @@ function renderOverview(){
   const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=Math.max(80,Math.round(svg.clientHeight||170)),
         PB=Math.max(10,Math.round(Ht*0.11)), PT=Math.max(6,Math.round(Ht*0.06));
   svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
-  const vals=H.flatMap(p=>[p.value,p.invested]).filter(isNum);
+  const vals=H.flatMap(p=>[p.value,p.ew]).filter(isNum);   // E5.6: scale to the two strategies, not the cash line
   let lo=Math.min(...vals), hi=Math.max(...vals);
   if(!(isFinite(lo)&&isFinite(hi))||hi<=lo){ lo=(lo||0)*0.98; hi=(hi||1)*1.02+1; }
   const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
@@ -1684,7 +1738,7 @@ function renderOverview(){
       if(!isNum(v)){ pen=false; return; }                 // gap: an unpriced checkpoint breaks the line
       d+=(pen?"L":"M")+X(i).toFixed(1)+","+Y(v).toFixed(1)+" "; pen=true; });
     return d.trim(); };
-  const vPath=path("value"), iPath=path("invested");
+  const vPath=path("value"), ewPath=path("ew");
   const lastV=[...H].reverse().find(p=>isNum(p.value));
   const area=vPath?`${vPath} L${X(H.length-1).toFixed(1)},${(Ht-PB).toFixed(1)} L${X(0).toFixed(1)},${(Ht-PB).toFixed(1)} Z`:"";
   svg.innerHTML=
@@ -1693,13 +1747,13 @@ function renderOverview(){
        <stop offset="100%" stop-color="var(--teal)" stop-opacity="0"/></linearGradient></defs>`+
     [0.25,0.5,0.75].map(f=>`<line class="gl" x1="0" y1="${(PT+(Ht-PB-PT)*f).toFixed(1)}" x2="${W}" y2="${(PT+(Ht-PB-PT)*f).toFixed(1)}" stroke-width="1"/>`).join("")+
     (area?`<path d="${area}" fill="url(#ovg)"/>`:"")+
-    (iPath?`<path d="${iPath}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="4 4" stroke-linejoin="round"/>`:"")+
+    (ewPath?`<path d="${ewPath}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>`:"")+
     (vPath?`<path d="${vPath}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`:"")+
     (lastV?`<circle class="dot" cx="${X(H.indexOf(lastV)).toFixed(1)}" cy="${Y(lastV.value).toFixed(1)}" r="4"/>`:"")+
     `<rect id="ovHit" x="0" y="0" width="${W}" height="${Ht}" fill="transparent"/>`;
   if(legend) legend.innerHTML=
-    `<span><i style="border-top:2.4px solid var(--teal)"></i>Value</span>`+
-    `<span><i style="border-top:1.6px dashed var(--muted)"></i>Invested</span>`;
+    `<span><i style="border-top:2.4px solid var(--teal)"></i>Portfolio Value</span>`+
+    `<span><i style="border-top:2px dashed var(--blue)"></i>Equal-weight Strategy Value</span>`;
   const gaps=H.filter(p=>!isNum(p.value)).length, est=H.filter(p=>p.estimated&&isNum(p.value)).length;
   const saves=H.filter(p=>!p.live).length;   // the appended "now" point is live, not a saved checkpoint
   if(note) note.textContent=`${saves} checkpoint${saves===1?"":"s"} · value as recorded at each save`+
@@ -1716,12 +1770,69 @@ function renderOverview(){
     let i = (ux!=null && W>8) ? Math.round(((ux-4)/(W-8))*(H.length-1))
                               : Math.round(((e.clientX-r.left)/r.width)*(H.length-1));
     i=Math.max(0,Math.min(H.length-1,i)); const p=H[i];
+    const vsEw=(isNum(p.value)&&isNum(p.ew))?p.value-p.ew:null;
     setHero(isNum(p.value)?money(p.value,0):"—",
       `<b>${p.label}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
-      (isNum(p.value)&&isNum(p.invested)?` · <span class="${p.value-p.invested>=0?'up':'down'}">${sgn(p.value-p.invested)}</span>`:""));
+      (isNum(p.value)&&isNum(p.invested)?` · <span class="${p.value-p.invested>=0?'up':'down'}">${sgn(p.value-p.invested)}</span>`:"")+
+      (vsEw!=null?` · equal-weight ${money(p.ew,0)} <span class="${vsEw>=0?'up':'down'}">(${vsEw>=0?'ahead by ':'behind by '}${money(Math.abs(vsEw),0)})</span>`:""));
   };
   svg.onmouseleave=heroDefault;
+  try{ renderReturnChart(H); }catch(e){ console.error("return chart",e); }
   renderOverviewDonut();
+}
+/* E5.6: return vs invested — our strategy against the equal-weight counterfactual.
+   Toggle shows either % of invested capital or absolute dollars. Both series use identical
+   cash flows on identical dates, so they are directly comparable. */
+let RET_UNIT="pct";
+function renderReturnChart(H){
+  const svg=$("#ovRetChart"), leg=$("#ovRetLegend"), head=$("#ovRetHead"); if(!svg) return;
+  const pts=(H||[]).filter(p=>isNum(p.invested)&&p.invested>0);
+  const val=(p,k)=>{ const v=p[k]; if(!isNum(v)) return null;
+    return RET_UNIT==="pct" ? (v-p.invested)/p.invested*100 : (v-p.invested); };
+  if(pts.length<2){ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null;
+    if(leg)leg.innerHTML=""; if(head)head.textContent="Needs at least two checkpoints."; return; }
+  const W=Math.max(240,Math.round(svg.clientWidth||520)), Ht=Math.max(70,Math.round(svg.clientHeight||96));
+  const PB=Math.max(8,Math.round(Ht*0.12)), PT=Math.max(5,Math.round(Ht*0.08));
+  svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
+  const series=["value","ew"];
+  const all=pts.flatMap(p=>series.map(k=>val(p,k))).filter(isNum);
+  let lo=Math.min(0,...all), hi=Math.max(0,...all);
+  if(hi<=lo){ hi=lo+1; }
+  const pad=(hi-lo)*0.15||1; lo-=pad; hi+=pad;
+  const X=i=>pts.length<2?4:(i/(pts.length-1))*(W-8)+4;
+  const Y=v=>Ht-PB-((v-lo)/(hi-lo))*(Ht-PB-PT);
+  const path=k=>{ let d="",pen=false;
+    pts.forEach((p,i)=>{ const v=val(p,k); if(!isNum(v)){ pen=false; return; }
+      d+=(pen?"L":"M")+X(i).toFixed(1)+","+Y(v).toFixed(1)+" "; pen=true; });
+    return d.trim(); };
+  const zeroY=Y(0);
+  svg.innerHTML=
+    `<line class="zero" x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke-width="1" stroke-dasharray="3 3"/>`+
+    (path("ew")?`<path d="${path("ew")}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>`:"")+
+    (path("value")?`<path d="${path("value")}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`:"")+
+    `<rect x="0" y="0" width="${W}" height="${Ht}" fill="transparent"/>`;
+  if(leg) leg.innerHTML=
+    `<span><i style="border-top:2.4px solid var(--teal)"></i>Our strategy</span>`+
+    `<span><i style="border-top:2px dashed var(--blue)"></i>Equal weight</span>`;
+  const fmt=v=>!isNum(v)?"—":(RET_UNIT==="pct"?signed(v,2)+"%":(v>=0?"+":"−")+money(Math.abs(v),0));
+  const last=pts[pts.length-1], a=val(last,"value"), e=val(last,"ew");
+  const setHead=(p)=>{ if(!head) return;
+    const av=val(p,"value"), ev=val(p,"ew"), d=(isNum(av)&&isNum(ev))?av-ev:null;
+    head.innerHTML=`<b class="${isNum(av)&&av>=0?'up':'down'}">${fmt(av)}</b> vs equal weight ${fmt(ev)}`+
+      (d!=null?` · <span class="${d>=0?'up':'down'}">${d>=0?"ahead":"behind"} by ${RET_UNIT==="pct"?Math.abs(d).toFixed(2)+"pp":money(Math.abs(d),0)}</span>`:"")+
+      `<span class="muted"> · ${p.live?"today":p.label}</span>`; };
+  setHead(last);
+  svg.onmousemove=ev2=>{
+    const r=svg.getBoundingClientRect(); if(!r.width) return;
+    let ux=null;
+    try{ const pt=svg.createSVGPoint(); pt.x=ev2.clientX; pt.y=ev2.clientY;
+      const m=svg.getScreenCTM(); if(m) ux=pt.matrixTransform(m.inverse()).x; }catch(err){}
+    let i=(ux!=null&&W>8)?Math.round(((ux-4)/(W-8))*(pts.length-1))
+                         :Math.round(((ev2.clientX-r.left)/r.width)*(pts.length-1));
+    i=Math.max(0,Math.min(pts.length-1,i));
+    setHead(pts[i]);
+  };
+  svg.onmouseleave=()=>setHead(last);
 }
 function renderOverviewDonut(){
   const svg=$("#ovDonut"), leg=$("#ovDonutLegend"); if(!svg||!leg) return;
@@ -3078,6 +3189,8 @@ function setupEvents(){
   $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b)switchView(b.dataset.view); });
   /* E5.0: rail nav + theme toggle + 1-5 shortcuts */
   if($("#rail")) $("#rail").addEventListener("click",e=>{ const b=e.target.closest(".navlink[data-view]"); if(b)switchView(b.dataset.view); });
+  if($("#retPct")) $("#retPct").addEventListener("click",()=>setReturnUnit("pct"));
+  if($("#retDol")) $("#retDol").addEventListener("click",()=>setReturnUnit("dol"));
   if($("#tLight")) $("#tLight").addEventListener("click",()=>setTheme("light",true));
   if($("#tDark"))  $("#tDark").addEventListener("click",()=>setTheme("dark",true));
   document.addEventListener("keydown",e=>{
@@ -3179,9 +3292,10 @@ async function init(){
 /* E5 fix: the value chart's viewBox is built from its measured box, so re-render it when that box
    changes (window resize, or the rail collapsing at 900px) instead of leaving stale W/Ht. */
 (function watchChartSize(){
-  const el=document.getElementById("ovChart"); if(!el) return;
+  const els=["ovChart","ovRetChart"].map(id=>document.getElementById(id)).filter(Boolean);
+  if(!els.length) return;
   let t=null; const redraw=()=>{ clearTimeout(t); t=setTimeout(()=>{ try{ renderOverview(); }catch(e){} },120); };
-  if(window.ResizeObserver){ try{ new ResizeObserver(redraw).observe(el); return; }catch(e){} }
+  if(window.ResizeObserver){ try{ const ro=new ResizeObserver(redraw); els.forEach(e=>ro.observe(e)); return; }catch(e){} }
   window.addEventListener("resize",redraw);
 })();
 init();

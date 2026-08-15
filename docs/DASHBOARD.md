@@ -11,7 +11,7 @@ _Updated 2026-06-26. Auto-generated from [`board.json`](board.json) by `tools/re
 | Ideation | 3 |
 | Design | 0 |
 | Implementation | 0 |
-| Testing | 0 |
+| Testing | 1 |
 | Refinement | 0 |
 | Integration | 0 |
 | Done | 41 |
@@ -49,10 +49,14 @@ _Being built on the dev branch._
 
 - _(none)_
 
-## Testing  (0)
+## Testing  (1)
 _Built; waiting for you to try it._
 
-- _(none)_
+- **E5.6** · _E5 · Web UI overhaul_ — **Equal-weight benchmark + return chart** _(web)_
+  - Overview value chart: 'Value' renamed 'Portfolio Value', the 'Invested' line removed, and a new 'Equal-weight Strategy Value' line added.
+  - Equal-weight counterfactual = same names, same cash, same dates, same RECORDED trade prices — but every holding weighted equally. Initial capital is split equally; at EVERY checkpoint (with or without new cash) the whole book is redistributed to exactly equal weight; between checkpoints it drifts with prices, mirroring the real portfolio. It therefore isolates the WEIGHTING model from selection and timing.
+  - Second chart: return vs invested for both strategies, with a % / $ toggle. Sanity-checked: at the INITIAL checkpoint both strategies read exactly the capital deployed and 0.00% return.
+  - Data is fully grounded — price coverage verified at 100% of held names across every checkpoint, so nothing is estimated.
 
 ## Refinement  (0)
 _Tested but not yet approved; new instructions → back to Implementation._
