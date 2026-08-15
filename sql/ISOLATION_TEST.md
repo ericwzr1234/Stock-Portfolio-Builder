@@ -86,6 +86,15 @@ curl -s "$URL/rest/v1/portfolios?select=*" -H "apikey: $KEY"
 **PASS:** no rows and no data. The `anon` role holds no grant on this table, so an unauthenticated
 caller cannot even attempt a read. This is the check that catches the `auth.uid()`-is-null trap.
 
+> ✅ **VERIFIED 2026-08-15**, live against the project immediately after `001_portfolios.sql` was applied.
+> Anonymous `select` → **HTTP 401** `{"code":"42501", "message":"permission denied for table portfolios"}`.
+> Anonymous `insert` → **HTTP 401**, same code. The table exists (the error is *permission denied*, `42501`,
+> not *relation does not exist*, `42P01`).
+>
+> ⚠️ That error carries a Postgres hint reading *"GRANT SELECT ON public.portfolios TO anon;"*. **Never
+> follow it** — it is generic advice that would open the table to anonymous callers. The refusal is the
+> control working.
+
 ---
 
 ## 5. Optimistic concurrency actually rejects a stale write
@@ -126,7 +135,7 @@ Delete user **A** in the dashboard, then check the table as **B** or via the SQL
 | 2 | A cannot read B (by id) | ☐ |
 | 3 | A cannot update B | ☐ |
 | 3 | A cannot insert as B | ☐ |
-| 4 | Anonymous read refused | ☐ |
+| 4 | Anonymous read refused | ✅ 2026-08-15 |
 | 5 | Stale write rejected | ☐ |
 | 5 | Revision cannot rewind | ☐ |
 | 6 | Account deletion cascades | ☐ |
