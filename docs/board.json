@@ -95,6 +95,15 @@
       "MADE IT UNREPEATABLE: check_syntax.py now fails when a CSS variable is used without a fallback and never defined. This class of bug is silent - nothing logs, nothing throws, it just renders wrong - so a gate is the only thing that would have caught it. Scanned the whole file: --surface was the only offender. Verified the check exits 1 on the reintroduced bug and 0 on the fixed file."
       ] },
 
+    { "id": "E11.12", "epic": "E11", "stage": "done", "platform": "web", "depends": "E3.5", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Fix: money scaled by sign instead of magnitude", "notes": [
+      "REPORTED BY THE OWNER 2026-08-16 from a screenshot: the Cash flow table mixed units - operating cash flow read $30.0B while capital expenditure on the row below read $-18829M.",
+      "ROOT CAUSE: bil() tested the SIGNED value (v>=1e9), so a negative could never reach the billions branch and fell straight through to millions. Every negative line - capex, dividends paid, buybacks, tax provision - was printed one scale too small. There was also no K branch at all, so anything under a million collapsed to $0M.",
+      "volFmt(), on the very next line of the file, had always used Math.abs() correctly. The two were never compared. Same lesson as the search tie-break: the right version of a thing often already exists nearby.",
+      "Now scales on Math.abs: >=1T T, >=1B B, >=1M M, otherwise K, with zero printed plainly as $0. Verified against the exact values in the screenshot plus both boundaries in each direction.",
+      "Also fixed share counts, which were hardcoded to billions - a company with 50 million shares read 0.05B. Routed through volFmt, which already scaled correctly."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",

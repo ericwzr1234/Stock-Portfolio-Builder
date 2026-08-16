@@ -1070,7 +1070,20 @@ function money(v,dp=0){ if(!isNum(v))return "—";
 function num(v,dp=2){ return isNum(v)?v.toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp}):"—"; }
 function pct(v,dp=1){ return isNum(v)?(v*100).toFixed(dp)+"%":"—"; }
 function signed(v,dp=2){ if(!isNum(v))return "—"; return (v>=0?"+":"")+v.toFixed(dp); }
-function bil(v){ if(!isNum(v))return "—"; if(v>=1e12)return "$"+(v/1e12).toFixed(2)+"T"; if(v>=1e9)return "$"+(v/1e9).toFixed(1)+"B"; return "$"+(v/1e6).toFixed(0)+"M"; }
+/* Scale by MAGNITUDE, not by the signed value. This tested v>=1e9 directly, so a negative never
+   reached the B branch and fell through to M: capital expenditure of -18.8 billion printed as
+   "$-18829M" in the same column where operating cash flow printed "$30.0B". There was also no K
+   branch at all, so anything under a million collapsed to "$0M". volFmt() on the next line has
+   always done this correctly - the two simply never got compared. */
+function bil(v){
+  if(!isNum(v)) return "—";
+  const a=Math.abs(v);
+  if(a===0)    return "$0";
+  if(a>=1e12)  return "$"+(v/1e12).toFixed(2)+"T";
+  if(a>=1e9)   return "$"+(v/1e9).toFixed(1)+"B";
+  if(a>=1e6)   return "$"+(v/1e6).toFixed(1)+"M";
+  return "$"+(v/1e3).toFixed(1)+"K";
+}
 function volFmt(v){ if(!isNum(v))return "—"; const a=Math.abs(v); if(a>=1e9)return (v/1e9).toFixed(2)+"B"; if(a>=1e6)return (v/1e6).toFixed(1)+"M"; if(a>=1e3)return (v/1e3).toFixed(1)+"K"; return String(Math.round(v)); }  // share counts (no $): 12.3M, 1.2B
 function median(arr){ const a=arr.filter(isNum).slice().sort((x,y)=>x-y); if(!a.length)return null;
   const m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
@@ -2261,7 +2274,9 @@ const STMT_DISPLAY = [
 function fmtStmtCell(field, x){
   if(!isNum(x)) return '—';
   if(field==='dilutedEPS') return num(x,2);
-  if(field==='dilutedShares'||field==='basicShares') return (x/1e9).toFixed(2)+'B';
+  // Share counts are not money, so no $ - but they need the same magnitude scaling, or a company
+  // with 50 million shares reads "0.05B". volFmt already does exactly this.
+  if(field==='dilutedShares'||field==='basicShares') return volFmt(x);
   return bil(x);   // money in $B
 }
 const DERIVED_OPERANDS={pfcf:['fcf'], ebitdaMargin:['ebitda','revenue'], fcfMargin:['fcf','revenue'], netCashPct:['cash','debt']};
