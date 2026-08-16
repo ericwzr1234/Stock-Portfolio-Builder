@@ -1311,7 +1311,18 @@ function currentVersion(){ const h=head(); return h>=0?versions()[h]:null; }
    have been trimmed away. Undo must then stop at the oldest one we still hold: head === -1 means
    "before the very first build" and WIPES holdings to zero, which becomes a lie - and a total
    data loss - the moment that first build is no longer the first thing in the list. */
-function timelineTrimmed(){ const v=versions(); return !!(v.length && isNum(v[0].id) && v[0].id>1); }
+function timelineTrimmed(){
+  /* MEASURED, not inferred. pushVersion records this the moment it drops a checkpoint. The first
+     cut derived it from `versions()[0].id > 1` - true, but resting on ids being intact, and a
+     single unusable id made it read "not trimmed", which lets undo walk to head -1 and WIPE
+     holdings. The id test stays as a fallback for a document trimmed before this flag existed, and
+     now fails SAFE: an id we cannot read counts as trimmed, because the only cost of being wrong
+     that way is one unavailable undo step, while being wrong the other way destroys the book. */
+  const p=state.portfolio;
+  if(p && p.versionsTrimmed) return true;
+  const v=versions();
+  return !!(v.length && (!isNum(v[0].id) || v[0].id>1));
+}
 function canUndo(){ return head() > (timelineTrimmed() ? 0 : -1); }
 function canRedo(){ return head() < versions().length-1; }
 function versionLabel(v){ return v?("#"+v.id+" "+v.type+(v.cashIn?(" +"+money(v.cashIn,0)):"")):"—"; }
@@ -1351,6 +1362,7 @@ function pushVersion(txn){
     p.versions=p.versions.slice(drop);
     p.head-=drop;
     if(p.versions[0]) p.versions[0].pxSeed=seed;
+    p.versionsTrimmed=true;                        // recorded, not inferred - see timelineTrimmed()
   }
 }
 
@@ -2563,7 +2575,12 @@ function valueHistory(){
      equal weight across the names held then. Between checkpoints it simply drifts with prices, which
      mirrors the real portfolio (no rebalance happens unless the user rebalances). It therefore isolates
      the WEIGHTING model: same selection, same cash flows, same prices. All prices are recorded trade
-     prices — nothing is estimated. */
+     prices — nothing is estimated.
+     ONE qualification since E10.1: if older checkpoints have been trimmed away, the series is
+     re-anchored at the oldest kept checkpoint (it opens holding what the book was really worth) and
+     the prices it starts from are carried across the trim in `pxSeed`. Those are still recorded
+     trade prices, but the OPENING BALANCE is an anchor, not a reconstruction - the comparison is
+     then over the kept window rather than since inception, which renderValueChart discloses. */
   let ewShares={};
   /* E10.1 - and it must OPEN holding whatever the book was already worth. vs[0] is no longer
      guaranteed to be the initial build: starting the counterfactual from zero capital there made
@@ -3017,6 +3034,11 @@ function renderOverview(){
   const gaps=H.filter(p=>!isNum(p.value)).length, est=H.filter(p=>p.estimated&&isNum(p.value)).length;
   const saves=H.filter(p=>!p.live).length;   // the appended "now" point is live, not a saved checkpoint
   if(note) note.textContent=`${saves} checkpoint${saves===1?"":"s"} · value as recorded at each save`+
+    /* E10.1 - once older checkpoints have been trimmed the equal-weight series is RE-ANCHORED at the
+       oldest kept one, so it covers that window while "invested" is still cumulative from the start.
+       The difference stays honest for the window, but the absolute figure is not a since-inception
+       number and must not read as one. */
+    (timelineTrimmed()?" · equal weight compared over the kept checkpoints only":"")+
     (H.some(p=>p.live)?" · plus today at live prices":"")+
     (est?` · ${est} reconstructed from traded prices`:"")+
     (gaps?` · ${gaps} not priced (line breaks there)`:"");
@@ -4131,7 +4153,7 @@ const TOURS = {
 
   history: { name:"History", steps:[
     { sel:"#histChart", title:"Every checkpoint",
-      body:"Each build and rebalance is saved with a snapshot of the holdings and settings that produced it. The 10 most recent are kept; older ones are dropped." },
+      body:`Each build and rebalance is saved with a snapshot of the holdings and settings that produced it. The ${MAX_VERSIONS} most recent are kept; older ones are dropped.` },
     { sel:"#historyBody", title:"Undo, redo, or revert to any kept point",
       body:"Rebalancing from an earlier point forks the timeline, like git - the abandoned future is dropped rather than silently merged." } ] }
 };
