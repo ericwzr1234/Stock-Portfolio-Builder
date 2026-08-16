@@ -41,14 +41,22 @@
       "The deliverable is the RESTORE, not the dump. An untested backup is a guess. Restore into a local supabase instance once and confirm the book opens.",
       "TRAP: GitHub disables scheduled workflows after 60 days without repo commits - the backup and any keep-alive die together, silently, exactly when the project is quiet enough to need them."
       ] },
-    { "id": "E11.2", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.0", "spec": "docs/features/E11_online-deployment.md",
-      "title": "Port the market-data proxy to a Cloudflare Worker", "notes": [
-      "Reuse the JS Yahoo client already in index.html for the native build (yEnsureCrumb, nativeQuotes, nativeFundamentals, nativeStatements, nativeSearch) - swap the CapacitorHttp transport for fetch. Not a rewrite of server.py's 823 lines.",
-      "Close the known nativeFundamentals gap so it returns the same ~21 E2 fields server.py does, or the Worker silently serves a thinner model than local dev.",
-      "Cache the crumb in Workers KV. The spike refetched it on every request, which is two wasted upstream calls each time.",
-      "DO NOT DEPLOY /api/portfolio. It reads and writes a portfolio.json next to the server with no authentication - fine on localhost, an open read/write endpoint on a public origin. E6 moved everything to Supabase; it is only reachable behind isPrivateHost() and must not exist in the deployed proxy.",
-      "Log 429s and surface the count. Cloudflare-vs-Yahoo is unmeasured territory; find out from telemetry rather than from prices going stale.",
-      "BEFORE CUTOVER: run both proxies side by side and diff responses field-by-field for the same symbols. A data-layer rewrite must not go in on inspection alone."
+    { "id": "E11.2a", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.0", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Worker: transport + quotes, search, peers", "notes": [
+      "DONE 2026-08-16. pb-proxy deployed. DIFFED against server.py: quotes IDENTICAL across 8 symbols and 112 fields, peers identical. The harness (tools/diff_proxy.py) is reusable and E11.2b needs it.",
+      "SEARCH RANKING BUG FOUND BY THE HARNESS, in server.py not the Worker: name matches all shared one rank and then tie-broke on SYMBOL LENGTH, so 'Maui Land & Pineapple' (MLP, 3 chars) outranked 'Apple Inc.' (AAPL, 4) for the query apple. Now ranked by WHERE the name matches - starts-with, then whole word, then anywhere.",
+      "OPEN DESIGN QUESTION, deliberately not decided here: server.py searches the cached SEC company directory, which lists operating companies and NOT ETFs, so it can never return VOO or SPY; the Worker uses Yahoo search, which can. After E11.3 the Worker IS production, so local dev would rank differently from prod. The harness asserts SHAPE (the client contract) and reports ranking as different-by-design rather than failing.",
+      "Split out of E11.2 so it fits a single session start-to-merge. A half-built data layer is exactly what must never be left outstanding.",
+      "The transport is the real work: swap CapacitorHttp for fetch, add the browser User-Agent (Yahoo blocks generic agents) and MANUAL cookie handling, because Workers have no cookie jar.",
+      "Cache the crumb across requests. The spike refetched it every time, which is two wasted upstream calls per request.",
+      "Diff every field against server.py for the same symbols before it counts as done. A data-layer rewrite must not go in on inspection alone."
+      ] },
+
+    { "id": "E11.2b", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2a", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Worker: fundamentals + statements", "notes": [
+      "The field-heavy pair. Includes closing the known nativeFundamentals gap so the Worker returns the same ~21 E2 fields server.py does - otherwise the deployed app silently serves a thinner model than local dev.",
+      "Both fan out one request per symbol; the shared yMapLimit caps that at 4.",
+      "DO NOT DEPLOY /api/portfolio - unauthenticated read/write of a server-side file. It is only reachable behind isPrivateHost() and must not exist in the deployed proxy."
       ] },
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [

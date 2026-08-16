@@ -14,7 +14,7 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 58 |
+| Done | 59 |
 
 ---
 
@@ -37,13 +37,10 @@ _A half-baked idea; can be pushed further down once fleshed out._
 ## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E11.2** · _E11 · Online, for invited users_ — **Port the market-data proxy to a Cloudflare Worker** _(depends E11.0, web)_ · [spec](features/E11_online-deployment.md)
-  - Reuse the JS Yahoo client already in index.html for the native build (yEnsureCrumb, nativeQuotes, nativeFundamentals, nativeStatements, nativeSearch) - swap the CapacitorHttp transport for fetch. Not a rewrite of server.py's 823 lines.
-  - Close the known nativeFundamentals gap so it returns the same ~21 E2 fields server.py does, or the Worker silently serves a thinner model than local dev.
-  - Cache the crumb in Workers KV. The spike refetched it on every request, which is two wasted upstream calls each time.
-  - DO NOT DEPLOY /api/portfolio. It reads and writes a portfolio.json next to the server with no authentication - fine on localhost, an open read/write endpoint on a public origin. E6 moved everything to Supabase; it is only reachable behind isPrivateHost() and must not exist in the deployed proxy.
-  - Log 429s and surface the count. Cloudflare-vs-Yahoo is unmeasured territory; find out from telemetry rather than from prices going stale.
-  - BEFORE CUTOVER: run both proxies side by side and diff responses field-by-field for the same symbols. A data-layer rewrite must not go in on inspection alone.
+- **E11.2b** · _E11 · Online, for invited users_ — **Worker: fundamentals + statements** _(depends E11.2a, web)_ · [spec](features/E11_online-deployment.md)
+  - The field-heavy pair. Includes closing the known nativeFundamentals gap so the Worker returns the same ~21 E2 fields server.py does - otherwise the deployed app silently serves a thinner model than local dev.
+  - Both fan out one request per symbol; the shared yMapLimit caps that at 4.
+  - DO NOT DEPLOY /api/portfolio - unauthenticated read/write of a server-side file. It is only reachable behind isPrivateHost() and must not exist in the deployed proxy.
 - **E11.3** · _E11 · Online, for invited users_ — **Deploy to Cloudflare Pages, same-origin /api/*** _(depends E11.2, web)_ · [spec](features/E11_online-deployment.md)
   - api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.
   - Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.
@@ -94,7 +91,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (58)
+## Done  (59)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -190,10 +187,11 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 5 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 6 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
+- **E11.2a** — Worker: transport + quotes, search, peers · [spec](features/E11_online-deployment.md)
 - **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
 - **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)

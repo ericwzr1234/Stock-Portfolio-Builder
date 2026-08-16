@@ -283,14 +283,23 @@ def search_directory(q):
     scored = []
     for it in data:
         sym = it["symbol"].upper()
+        nm = it["name"].upper()
+        # Name matches used to share ONE rank and then tie-break on symbol length, so "Maui Land &
+        # Pineapple" (MLP, 3 chars) outranked "Apple Inc." (AAPL, 4) for the query "apple", and the
+        # shortest ticker containing the substring anywhere won. Rank by WHERE the name matches
+        # first; symbol length only breaks ties within the same kind of match.
         if sym == qu:
             rank = 0
         elif sym.startswith(qu):
             rank = 1
         elif qu in sym:
             rank = 2
-        elif qu in it["name"].upper():
-            rank = 3
+        elif nm.startswith(qu):
+            rank = 3                      # the company is actually called this
+        elif (" " + qu) in nm:
+            rank = 4                      # a whole word inside the name
+        elif qu in nm:
+            rank = 5                      # ...anywhere, e.g. PINEAPPLE for "apple"
         else:
             continue
         scored.append((rank, len(it["symbol"]), it))
