@@ -95,7 +95,7 @@ jobs:
           rm -f dump.sql
           stat -c'encrypted: %s bytes' dump.sql.gpg
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: portfolio-db-${{ github.run_id }}
           path: dump.sql.gpg
