@@ -2549,10 +2549,53 @@ async function _savePortfolioInner(c){
 }
 
 /* ======================================================================
+   Market session - the ONE place that decides whether the market is open.
+   renderStatus and the auto-refresh gate both read from here, so the label the user sees and
+   the decision to send a request can never disagree.
+   ====================================================================== */
+const MKT_TZ="America/New_York";
+const MKT_OPEN_MIN=9*60+30, MKT_CLOSE_MIN=16*60;   // regular session, 09:30-16:00 exchange time
+
+/* Yahoo's own answer, from whichever holding reported it. null until a quote has been fetched. */
+function marketState(){
+  for(const s of membership()){ const q=state.quotes[s]; if(q&&q.marketState) return q.marketState; }
+  return null;
+}
+
+/* Clock-only, in EXCHANGE time. Costs nothing and needs no request, which is the point: it rules
+   out every night and weekend without asking Yahoo anything. Intl does the DST conversion, so
+   this stays correct across the March/November shifts and wherever the user happens to be.
+   It cannot know about holidays - marketState covers those, once we have a quote. */
+function withinRegularHours(now){
+  try{
+    const parts=new Intl.DateTimeFormat("en-US",{timeZone:MKT_TZ,weekday:"short",
+      hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(now||new Date());
+    const get=t=>(parts.find(x=>x.type===t)||{}).value;
+    const wd=get("weekday");
+    if(wd==="Sat"||wd==="Sun") return false;
+    const mins=parseInt(get("hour"),10)*60+parseInt(get("minute"),10);
+    return isNum(mins) && mins>=MKT_OPEN_MIN && mins<MKT_CLOSE_MIN;
+  }catch(e){ return true; }   // fail OPEN: never silently stop updating a money display
+}
+
+/* No AUTOMATIC request while the market is shut. A tab left open over a weekend used to poll
+   every 60 seconds for two days for data that cannot move - about 2,880 requests for nothing,
+   and pointless traffic is exactly what gets an IP throttled.
+   A manual Refresh is deliberately NOT gated: the user asked for that one explicitly. */
+let _lastAutoPoll=0;
+const CLOSED_PROBE_MS=10*60*1000;   // inside session hours but reported closed (a holiday): probe slowly
+function autoPollAllowed(){
+  if(!withinRegularHours()) return false;
+  const st=marketState();
+  if(st && st!=="REGULAR") return (Date.now()-_lastAutoPoll) >= CLOSED_PROBE_MS;
+  return true;
+}
+
+/* ======================================================================
    Render: header / status
    ====================================================================== */
 function renderStatus(){
-  let st=null; for(const s of membership()){ if(state.quotes[s]&&state.quotes[s].marketState){ st=state.quotes[s].marketState; break; } }
+  const st=marketState();
   const dot=$("#mktDot"), lab=$("#mktLabel");
   const map={REGULAR:["open","Market open"],PRE:["pre","Pre-market"],PREPRE:["pre","Pre-market (early)"],
     POST:["post","After hours"],POSTPOST:["post","After hours (late)"],CLOSED:["closed","Market closed"]};
@@ -2560,7 +2603,11 @@ function renderStatus(){
   dot.className="dot "+m[0]; lab.textContent=m[1];
   const anySeed=membership().some(s=>state.quotes[s]&&state.quotes[s].source==="seed");
   const t=state.asOf?new Date(state.asOf*1000):new Date();
-  $("#updated").textContent="Updated "+t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})+(anySeed?" · offline seed":"");
+  /* Without this the display just stops changing and looks broken. */
+  const _sel=$("#refreshSel"), _autoOn=_sel&&parseInt(_sel.value,10)>0;
+  const _paused=_autoOn && !autoPollAllowed();
+  $("#updated").textContent="Updated "+t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})
+    +(anySeed?" · offline seed":"")+(_paused?" · auto-refresh paused (market closed)":"");
 }
 
 /* ======================================================================
@@ -4822,7 +4869,14 @@ async function refreshPrices(showToast){
 let _autoRefreshWired=false;
 function setupAutoRefresh(){
   const sel=$("#refreshSel");
-  function arm(){ if(timer){clearInterval(timer);timer=null;} const s=parseInt(sel.value,10); if(s>0)timer=setInterval(()=>refreshPrices(false),s*1000); }
+  /* The timer keeps ticking and the GATE decides - rather than re-arming on session changes,
+     which would need something to notice the change in the first place. A tick costs nothing;
+     the request is what costs. This also self-corrects at the open without any extra machinery. */
+  function arm(){ if(timer){clearInterval(timer);timer=null;} const s=parseInt(sel.value,10);
+    if(s>0)timer=setInterval(()=>{
+      if(!autoPollAllowed()){ try{ renderStatus(); }catch(e){} return; }   // keep the label honest
+      _lastAutoPoll=Date.now(); refreshPrices(false);
+    },s*1000); }
   if(!_autoRefreshWired){ sel.addEventListener("change",arm); _autoRefreshWired=true; }   // once, not once per sign-in
   arm();
 }
