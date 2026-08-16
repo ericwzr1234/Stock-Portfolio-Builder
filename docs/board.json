@@ -66,14 +66,16 @@
       "Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.",
       "Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces."
       ] },
-    { "id": "E11.5", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.5", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Export and delete: the user's own data, in their hands", "notes": [
+      "DONE 2026-08-16. Export serialises the document that WOULD BE SAVED (syncStateIntoDocument), so it cannot drift from the thing it copies; verified to leak no session tokens. Deletion via a SECURITY DEFINER function - sql/002_delete_own_account.sql, INSTALLED and confirmed prosecdef=true with execute granted to authenticated. A failed delete reports the cause and leaves the session intact rather than claiming success.",
       "Export is the user-facing half of the backup story and the thing that makes 'no device copy' honest. JSON of holdings, checkpoints, themes, watchlist and settings.",
       "Self-serve account deletion with a confirmation. The database cascade is already proven (isolation gate 8/8) - this is the UI for it.",
       "Both are data-protection requirements the moment someone else's data is stored, and both are small."
       ] },
-    { "id": "E11.6", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.6", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Disclaimer and privacy note", "notes": [
+      "DONE 2026-08-16. Disclaimer plus what-we-store, reachable FROM THE GATE - which needed a new .over-gate class at z-index 500, because the gate is 400 and .modal-backdrop is 80, so it would have rendered invisibly behind it. Verified hit-testable at its own centre, not merely present in the DOM.",
       "The app currently contains NO legal text at all - zero matches for terms, privacy, disclaimer or 'not investment advice'.",
       "Free and non-commercial is what keeps this outside 'investment adviser': the Advisers Act test is Advice + Business + COMPENSATION + Securities, and only compensation is missing. The publisher's exemption would NOT rescue it - Lowe v. SEC requires IMPERSONAL advice, and this is personalised by design.",
       "So: informational only, not investment advice, no adviser relationship, data as-is with no warranty. Shown at signup and reachable from the app.",

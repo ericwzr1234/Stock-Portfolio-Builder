@@ -9,12 +9,12 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 6 |
+| Design | 4 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 56 |
+| Done | 58 |
 
 ---
 
@@ -34,7 +34,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (6)
+## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.2** · _E11 · Online, for invited users_ — **Port the market-data proxy to a Cloudflare Worker** _(depends E11.0, web)_ · [spec](features/E11_online-deployment.md)
@@ -56,15 +56,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.
   - Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.
   - Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces.
-- **E11.5** · _E11 · Online, for invited users_ — **Export and delete: the user's own data, in their hands** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
-  - Export is the user-facing half of the backup story and the thing that makes 'no device copy' honest. JSON of holdings, checkpoints, themes, watchlist and settings.
-  - Self-serve account deletion with a confirmation. The database cascade is already proven (isolation gate 8/8) - this is the UI for it.
-  - Both are data-protection requirements the moment someone else's data is stored, and both are small.
-- **E11.6** · _E11 · Online, for invited users_ — **Disclaimer and privacy note** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
-  - The app currently contains NO legal text at all - zero matches for terms, privacy, disclaimer or 'not investment advice'.
-  - Free and non-commercial is what keeps this outside 'investment adviser': the Advisers Act test is Advice + Business + COMPENSATION + Securities, and only compensation is missing. The publisher's exemption would NOT rescue it - Lowe v. SEC requires IMPERSONAL advice, and this is personalised by design.
-  - So: informational only, not investment advice, no adviser relationship, data as-is with no warranty. Shown at signup and reachable from the app.
-  - Plain privacy note: what is stored, where, who can see it, how to delete it. A posted policy has no size threshold under CalOPPA. NOT a full ToS/LLC/insurance stack - that is for commercial.
 - **E11.7** · _E11 · Online, for invited users_ — **Error monitoring and a feedback channel** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
   - 19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.
   - Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel.
@@ -103,7 +94,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (56)
+## Done  (58)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -199,10 +190,12 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 3 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 5 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
+- **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
+- **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 
 </details>
