@@ -1,7 +1,7 @@
 # E11 — Online, for invited users
 
-**Status (2026-08-16, end of session 2): 9 of 12 done.** Built, tested and merged to prod:
-`E11.0` `E11.1` `E11.2a` `E11.2b` `E11.5` `E11.6` `E11.8` `E11.9` `E11.10`.
+**Status (2026-08-16, end of session 2): 10 of 13 done.** Built, tested and merged to prod:
+`E11.0` `E11.1` `E11.2a` `E11.2b` `E11.5` `E11.6` `E11.8` `E11.9` `E11.10` `E11.3a`.
 Remaining: `E11.3` (deploy to Pages), `E11.4` (custom SMTP — needs the owner's credentials),
 `E11.7` (Sentry + feedback). **The app is still served from localhost; nothing is public yet.**
 

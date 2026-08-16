@@ -1,7 +1,7 @@
 # Session handoff — read this first
 
-**Prod `main` carries E1–E10 complete, and 9 of 12 E11 tickets.** The app is still served from
-localhost; **nothing is public yet**. Remaining in E11: `E11.3` deploy to Pages, `E11.4` custom SMTP,
+**Prod `main` carries E1–E10 complete, and 10 of 13 E11 tickets.** The app is still served from
+localhost; **nothing is public yet**. Remaining in E11: `E11.3` deploy to Pages (hygiene already done in `E11.3a`), `E11.4` custom SMTP,
 `E11.7` Sentry + feedback.
 
 **Working agreement (owner, 2026-08-16):** sessions are capped at **4 hours**. Every unit is started,
