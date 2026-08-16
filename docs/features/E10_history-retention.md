@@ -90,3 +90,20 @@ sensibly includes the themes that defined it. B leaves a known data-loss path op
 Server-side retention (a SQL trigger trimming `data->'versions'`) was considered and rejected for now:
 the document is read and written whole, so a client-side prune is sufficient, keeps the schema
 untouched, and avoids a second place where history semantics live.
+
+---
+
+## Note for the first real-account test (2026-08-16)
+
+The owner will register a **new account** and build from scratch; nothing is carried forward from the
+pre-account `portfolio.json` — deliberately, so the first-run path is exercised for real.
+
+**Expect the import prompt on first sign-in.** `portfolio.json` still exists on the machine (27
+holdings, 9 checkpoints, $95,000), and the app offers a one-time import whenever the account is
+confirmed empty and a local book is present. **Choosing "Start fresh" is the correct answer here** —
+it declines the import, marks this account as asked, and leaves the file untouched. The file remains
+as a pre-account backup; the app never writes it.
+
+If a genuinely empty first run is wanted without the prompt appearing at all, move `portfolio.json`
+aside before starting the server — but there is no need: declining is a supported path and is worth
+testing in its own right.

@@ -23,10 +23,12 @@ data or straight from the financial statements). It runs in two forms from **one
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-**Status (2026-08-15):** epics **E1** (themes), **E2** (metrics), **E3** (statement-driven data) and
-**E4/E4.5** (Fundamentals/Screener redesign) are shipped to `main`/prod. **E5** (the V2 web UI) and
-**E6** (accounts + hosted database) are **built and on `dev-newUI`, NOT yet merged** — they are
-waiting on the owner's own testing, and on the sync layer clearing a review (see below).
+**Status (2026-08-15):** everything through **E9 is shipped to `main`/prod** — E1 (themes),
+E2 (metrics), E3 (statement-driven data), E4/E4.5 (Fundamentals/Screener), **E5** (the V2 web UI),
+**E6** (accounts + hosted database), **E7** (first-run onboarding), **E8** (persistence rewrite; no
+default themes) and **E9** (no portfolio data stored on the device). The owner tests with a **fresh
+account** from 2026-08-16; nothing was carried forward from the pre-account book, by their decision,
+so that the first-run path gets exercised properly.
 
 - **E5** replaced the whole web UI: five views — **Overview · Model · Rebalance · Research ·
   History** — with the allocation donut, the portfolio-value chart against an **Equal-weight
@@ -115,15 +117,20 @@ This is now a managed, git-synced project. **Before developing, read
   is [`docs/board.json`](docs/board.json); regenerate the views with `tools/render_dashboard.py`.
 - **Each feature** has a spec in `docs/features/<id>_<name>.md`; its **iOS migration notes** are what
   the Mac session reads to replicate the web feature natively.
-- **Current focus: E5 + E6 on `dev-newUI`, awaiting testing and a clean review before merge.**
-  **Do not merge to `main` until the sync-layer review comes back converged** — five adversarial
-  rounds have run (36 → 30 → 19 → 6 → 3 findings) and *every* round has included defects introduced
-  by the previous round's fixes. Round 5's three are fixed but **unverified by a sixth round**.
-  Start there: `docs/features/E6_database_design.md` §16–18.
-  Three operator actions are also outstanding *before anyone else is invited* — see
-  `sql/ISOLATION_TEST.md`: confirm account-deletion cascades, configure custom SMTP (the built-in
-  sender is capped at 2 emails/hour), and switch signup to invite-only.
-  Next build ticket after that is **APP2** (rebuild iOS against the V2 baseline).
+- **Current focus: the owner tests from a FRESH ACCOUNT (from 2026-08-16).** Everything through E9
+  is in prod. Nothing was migrated from the pre-account book — by their decision, so the first-run
+  path gets exercised for real.
+  **Before inviting anyone else**, three owner-only Supabase actions remain, in order (see
+  [`sql/ISOLATION_TEST.md`](sql/ISOLATION_TEST.md)): **move to a paid tier**, **configure custom
+  SMTP** (the built-in sender is capped at 2 emails/hour, so invites and password resets stall), and
+  **switch signup to invite-only** (it is currently open).
+  Next build tickets: **E10.1 / E10.2** — history retention, requirements captured in
+  [`docs/features/E10_history-retention.md`](docs/features/E10_history-retention.md) — then **APP2**
+  (rebuild iOS against the V2 baseline).
+  **Before touching the persistence layer, read `docs/features/E6_database_design.md` §16–21.** It
+  records ~130 defects across fourteen review rounds and states each invariant next to the failure
+  that motivated it. The two rules that generalise: *a guard must measure the thing it guards
+  against*, and *a refusal that has already mutated is not a refusal*.
 
 ## How to run
 

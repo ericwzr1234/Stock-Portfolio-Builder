@@ -296,30 +296,30 @@
       "Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.",
       "NOT being built now. No accounts, no backend, no database, no paid services in Phase 1." ] },
 
-    { "id": "E6.1", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.0", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.1", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.0", "spec": "docs/features/E6_database_design.md",
       "title": "Forward-compat: schemaVersion + revision + updatedAt", "notes": [
       "Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.",
       "revision is the optimistic-concurrency token E6.5 needs; schemaVersion makes any future server-side migration mechanical.",
       "Deliberately kept OUT of E5 so savePortfolio stayed byte-identical to prod for a provably safe merge. Do this FIRST." ] },
 
-    { "id": "E6.2", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.1", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.2", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.1", "spec": "docs/features/E6_database_design.md",
       "title": "Extract a storage-adapter interface", "notes": [
       "Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.",
       "No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically." ] },
 
-    { "id": "E6.3", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.2", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.3", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.2", "spec": "docs/features/E6_database_design.md",
       "title": "Choose provider; stand up schema + row-level security", "notes": [
       "NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.",
       "Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().",
       "Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth." ] },
 
-    { "id": "E6.4", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.3", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.4", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.3", "spec": "docs/features/E6_database_design.md",
       "title": "Login / register / logout + session handling", "notes": [
       "First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout.",
       "Sign-out now clears every trace of the account (portfolio, revision, themes, watchlist, metrics, presets, weights, penalty, cap) - without it a different, empty account was offered the previous user's book to import. Verified with per-account markers across repeated sign-in cycles.",
       "A session that dies mid-use (revoked/expired refresh token, paused project) now re-gates the app. It used to keep running unauthenticated: the adapter fell through to the identity-free store and the next save wrote the account's portfolio over the shared server file." ] },
 
-    { "id": "E6.5", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.5", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
       "title": "Cloud adapter with optimistic concurrency", "notes": [
       "Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.",
       "On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.",
@@ -333,13 +333,13 @@
       "E8 REWRITE (2026-08-15): after 7 patch rounds and ~96 defects with a regression rate that never fell, loadPortfolio/_savePortfolioInner/the cloud adapter were rewritten around ONE context and ONE checkpoint (contract C1-C5, stated once). Six audits of the rewrite found 7/6/4/1/5/6 - the core loop held throughout; almost every finding was in the kept-aside recovery subsystem.",
       "E9 (2026-08-15, OWNER'S DECISION): NOTHING about a portfolio is written to the device. Deleted the mirror, the dirty/unfiled bits, the unsynced/conflict stashes, the recovery prompt and 11 functions. A save that cannot reach the account did not happen and says so; an unreachable account is reported, not replaced by a cached copy. purgeLegacyLocalCopies() clears anything earlier versions left behind. COST: reverses E6.8's 'a stored session keeps working while the backend is paused' - during a free-tier pause the app cannot show the portfolio." ] },
 
-    { "id": "E6.6", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.5", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.6", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E6_database_design.md",
       "title": "Import local portfolio.json + cutover", "notes": [
       "On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.",
       "Import re-checks for an existing row, hydrates through the SAME path a normal load uses (it previously uploaded a book stripped of themes, watchlist, metrics, presets, cap, weights and penalty), and fails loudly instead of reporting success. 'Empty account' now means no row - not a holdings count of zero.",
       "Cross-user guards verified as a truth table: claimed by another account, not offered; account read failed, not offered; clean and unclaimed, offered; claimed by me, offered. pb_portfolio_v1 stayed byte-identical (18,871 bytes) through every test." ] },
 
-    { "id": "E6.8", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.8", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.4", "spec": "docs/features/E6_database_design.md",
       "title": "Login landing page - sign-in required before anything", "notes": [
       "USER REQUEST (2026-08-15): a proper log-in landing page. Nobody reaches the app without signing in first.",
       "This CHANGES THE APP'S CHARACTER: today it runs fine signed-out on local storage. With a hard gate, no account = no app, and the local portfolio.json path becomes reachable only through the E6.6 import.",
@@ -348,7 +348,7 @@
       "The gate is visible in markup and taken down pre-paint only when a stored session exists, so the page fails closed if a boot fetch hangs. It lifts only AFTER the account's data has loaded - previously a new user saw the previous user's holdings for the seconds boot spent on the network.",
       "init() and the sign-in path now share one boot function; they had drifted, so reloading the page skipped the sync badge, the import offer and the kept-aside-work prompt." ] },
 
-    { "id": "E6.7", "epic": "E6", "stage": "testing", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
+    { "id": "E6.7", "epic": "E6", "stage": "done", "platform": "web", "depends": "E6.6", "spec": "docs/features/E6_database_design.md",
       "title": "Security review - GATE before inviting anyone", "notes": [
       "Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.",
       "Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.",
@@ -363,7 +363,7 @@
       "REMAINING before inviting anyone: custom SMTP (built-in sender is capped at 2 emails/hour, so invites and password resets stall) and flipping signup to invite-only (currently OPEN - the owner's own registration with a real email confirmed that).",
       "PRE-TESTING (owner, 2026-08-15): move Supabase to a PAID tier before formal testing. Free projects pause after a week idle and, since E9 removed every local copy, a paused project means testers see nothing rather than a cached portfolio. This retires the old E6.8 requirement that a stored session must keep working while the backend is asleep. Remaining pre-invite items: custom SMTP (built-in sender is 2 emails/hour) and invite-only signup." ] },
 
-    { "id": "E7.1", "epic": "E7", "stage": "testing", "platform": "web", "depends": "E6.6", "spec": "docs/features/E7_first-run-onboarding.md",
+    { "id": "E7.1", "epic": "E7", "stage": "done", "platform": "web", "depends": "E6.6", "spec": "docs/features/E7_first-run-onboarding.md",
       "title": "Start fresh means a genuinely empty board", "notes": [
       "USER-FOUND (2026-08-15): choosing Start fresh still showed the five built-in themes with no stocks in them, and a donut of target weights computed over themes the user never chose.",
       "Cause: state.themes=null MEANS 'use the defaults', and Start fresh left it null. Fixed with an explicit, persisted noDefaults flag rather than by changing what null means - every existing portfolio relies on that meaning, so no existing document changes behaviour.",
@@ -371,7 +371,7 @@
       "Start fresh now lands the user on Model with the guide open, because that is where a portfolio actually starts.",
       "E8: there are no default themes at all now (owner's decision) - the 5 built-ins were a single-user legacy. themes() is simply the list; 'Restore default 5' is deleted; deleting your last theme is allowed. Pre-E8 documents are migrated once, keyed on schemaVersion, handling the theme list and the membership independently (they were separate fallbacks) and covering version snapshots." ] },
 
-    { "id": "E7.2", "epic": "E7", "stage": "testing", "platform": "web", "depends": "E7.1", "spec": "docs/features/E7_first-run-onboarding.md",
+    { "id": "E7.2", "epic": "E7", "stage": "done", "platform": "web", "depends": "E7.1", "spec": "docs/features/E7_first-run-onboarding.md",
       "title": "Guided tour - one per view", "notes": [
       "USER REQUEST (2026-08-15): floating-bubble prompts that walk a first-time user through creating their first portfolio, one guide per page.",
       "Five tours: Model (7 steps: create a theme, add tickers, choose metrics, weight them, bad-data policy, cap, targets), Overview (4), Rebalance (4), Research (2), History (2).",
