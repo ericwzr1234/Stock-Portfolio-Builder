@@ -23,12 +23,13 @@ data or straight from the financial statements). It runs in two forms from **one
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-**Status (2026-08-15):** everything through **E9 is shipped to `main`/prod** — E1 (themes),
-E2 (metrics), E3 (statement-driven data), E4/E4.5 (Fundamentals/Screener), **E5** (the V2 web UI),
-**E6** (accounts + hosted database), **E7** (first-run onboarding), **E8** (persistence rewrite; no
-default themes) and **E9** (no portfolio data stored on the device). The owner tests with a **fresh
-account** from 2026-08-16; nothing was carried forward from the pre-account book, by their decision,
-so that the first-run path gets exercised properly.
+**Status:** **E1–E5 are in `main`/prod** — themes, metrics, statement-driven data, the
+Fundamentals/Screener redesign, and the V2 web UI. **E6–E9 are BUILT AND TESTED on `dev-newUI` but
+NOT MERGED**: accounts + hosted database (E6), first-run onboarding (E7), the persistence rewrite
+with no default themes (E8), and no portfolio data on the device (E9). `main` is 30 commits behind.
+
+**The merge is one short review pass away** — see
+[`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md), which is the file to read first.
 
 - **E5** replaced the whole web UI: five views — **Overview · Model · Rebalance · Research ·
   History** — with the allocation donut, the portfolio-value chart against an **Equal-weight

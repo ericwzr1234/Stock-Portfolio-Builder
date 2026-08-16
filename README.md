@@ -8,11 +8,12 @@ Nothing here costs money and there are no API keys. Data comes from Yahoo Financ
 Your portfolio lives in **your own account**, in a hosted database where row-level security makes it
 readable only by you. Nothing about your portfolio is stored on your device.
 
-> **Project status (2026-08-15):** the web app is **shipped** with user-defined themes and
-> metrics, statement-driven data, the **V2 UI** (Overview, Model, Rebalance, Research, History),
-> **accounts** (you sign in; your portfolio lives in your account and nowhere else), a first-run
-> guide, and no built-in default themes — you build your own. The native **iOS app** runs on a
-> physical iPhone but is **parked at V1**; it will be rebuilt against the new web baseline
+> **Project status:** shipped in `main` — user-defined themes and metrics, statement-driven data,
+> and the **V2 UI** (Overview, Model, Rebalance, Research, History). **Built on `dev-newUI` and
+> awaiting merge:** **accounts** (you sign in; your portfolio lives in your account and nowhere
+> else), a first-run guide, and the removal of built-in default themes — you build your own. This
+> README describes the post-merge app. The native **iOS app** runs on a physical iPhone but is
+> **parked at V1**; it will be rebuilt against the new web baseline
 > ([`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md)). Live progress board:
 > [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
 
