@@ -2,19 +2,19 @@
 
 _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 0 |
+| Design | 8 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 53 |
+| Done | 54 |
 
 ---
 
@@ -34,10 +34,52 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (0)
+## Design  (8)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- _(none)_
+- **E11.1** · _E11 · Online, for invited users_ — **Nightly pg_dump, and a restore actually performed** _(depends E6.5, web)_ · [spec](features/E11_online-deployment.md)
+  - Supabase Free provides ZERO backups in 2026 - no daily snapshots, no PITR, no retention. Their own docs tell free users to dump it themselves.
+  - With one JSON row per user, no device copy (E9) and no export, a single bad write is unrecoverable total loss for that user. Even Pro only restores the WHOLE project to a point in time; there is no row-level restore at any price.
+  - MUST use the session pooler on port 5432, not 6543 and not the direct endpoint: the direct endpoint is IPv6-only and GitHub runners are IPv4-only, so a direct dump fails with 'Network is unreachable'.
+  - The deliverable is the RESTORE, not the dump. An untested backup is a guess. Restore into a local supabase instance once and confirm the book opens.
+  - TRAP: GitHub disables scheduled workflows after 60 days without repo commits - the backup and any keep-alive die together, silently, exactly when the project is quiet enough to need them.
+- **E11.2** · _E11 · Online, for invited users_ — **Port the market-data proxy to a Cloudflare Worker** _(depends E11.0, web)_ · [spec](features/E11_online-deployment.md)
+  - Reuse the JS Yahoo client already in index.html for the native build (yEnsureCrumb, nativeQuotes, nativeFundamentals, nativeStatements, nativeSearch) - swap the CapacitorHttp transport for fetch. Not a rewrite of server.py's 823 lines.
+  - Close the known nativeFundamentals gap so it returns the same ~21 E2 fields server.py does, or the Worker silently serves a thinner model than local dev.
+  - Cache the crumb in Workers KV. The spike refetched it on every request, which is two wasted upstream calls each time.
+  - DO NOT DEPLOY /api/portfolio. It reads and writes a portfolio.json next to the server with no authentication - fine on localhost, an open read/write endpoint on a public origin. E6 moved everything to Supabase; it is only reachable behind isPrivateHost() and must not exist in the deployed proxy.
+  - Log 429s and surface the count. Cloudflare-vs-Yahoo is unmeasured territory; find out from telemetry rather than from prices going stale.
+  - BEFORE CUTOVER: run both proxies side by side and diff responses field-by-field for the same symbols. A data-layer rewrite must not go in on inspection alone.
+- **E11.3** · _E11 · Online, for invited users_ — **Deploy to Cloudflare Pages, same-origin /api/*** _(depends E11.2, web)_ · [spec](features/E11_online-deployment.md)
+  - api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.
+  - Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.
+  - Add a web app manifest and icon so it opens from the phone home screen without a URL bar - that IS the demo requirement.
+  - Show the app version in the UI, or the first bug report is unanswerable.
+  - server.py stays as the local dev server, unchanged. Two environments, one codebase.
+  - Supabase Auth: Site URL plus Redirect URLs as https://<host>/** - note the DOUBLE asterisk, /* does not match nested paths. Keep the localhost entries so local dev keeps working.
+- **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - OWNER-BLOCKING and not a free-tier issue: Supabase's built-in mailer 'will refuse to deliver messages to addresses that are not part of the project's team', per their docs. Paying for Pro does NOT fix it. Custom SMTP does, and is available on the Free plan.
+  - Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.
+  - Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.
+  - Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces.
+- **E11.5** · _E11 · Online, for invited users_ — **Export and delete: the user's own data, in their hands** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - Export is the user-facing half of the backup story and the thing that makes 'no device copy' honest. JSON of holdings, checkpoints, themes, watchlist and settings.
+  - Self-serve account deletion with a confirmation. The database cascade is already proven (isolation gate 8/8) - this is the UI for it.
+  - Both are data-protection requirements the moment someone else's data is stored, and both are small.
+- **E11.6** · _E11 · Online, for invited users_ — **Disclaimer and privacy note** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - The app currently contains NO legal text at all - zero matches for terms, privacy, disclaimer or 'not investment advice'.
+  - Free and non-commercial is what keeps this outside 'investment adviser': the Advisers Act test is Advice + Business + COMPENSATION + Securities, and only compensation is missing. The publisher's exemption would NOT rescue it - Lowe v. SEC requires IMPERSONAL advice, and this is personalised by design.
+  - So: informational only, not investment advice, no adviser relationship, data as-is with no warranty. Shown at signup and reachable from the app.
+  - Plain privacy note: what is stored, where, who can see it, how to delete it. A posted policy has no size threshold under CalOPPA. NOT a full ToS/LLC/insurance stack - that is for commercial.
+- **E11.7** · _E11 · Online, for invited users_ — **Error monitoring and a feedback channel** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - 19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.
+  - Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel.
+- **E11.8** · _E11 · Online, for invited users_ — **Tests and CI** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - There are no tests and no CI today - tools/ holds check_syntax.py and two generators.
+  - Playwright against the real page, running the same in-page assertions used by hand throughout E10. No login needed, so CI carries no secrets.
+  - Target the MATH, not coverage: computeAllocation, planTrades, applyRebalance, computeCarryover, applyThemeCap, the version timeline, and the equal-weight reconstruction across a trim. The dangerous bug in a portfolio tool is a plausible wrong number, not a crash - a crash gets reported.
+  - Justification, from this project's own history: E10.1 shipped a defect that made the Overview state a fabricated equal-weight return, and it survived my own testing and two review passes.
+  - Also in CI: check_syntax.py, and Dependabot on (free on private repos).
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -73,7 +115,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (53)
+## Done  (54)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -167,5 +209,10 @@ _Integrated into the product (on main)._
 - **E6.5** — Cloud adapter with optimistic concurrency · [spec](features/E6_database_design.md)
 - **E6.6** — Import local portfolio.json + cutover · [spec](features/E6_database_design.md)
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
+
+</details>
+<details><summary><b>E11 · Online, for invited users</b> — 1 done</summary>
+
+- **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 
 </details>

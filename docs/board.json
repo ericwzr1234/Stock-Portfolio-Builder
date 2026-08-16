@@ -21,9 +21,77 @@
     { "key": "E10",  "name": "E10 · History retention",   "color": "#4F8CB0" },
     { "key": "APP",  "name": "APP · iOS app parity",       "color": "#B0403A" },
     { "key": "E5",   "name": "E5 · Web UI overhaul",       "color": "#0E7C6B" },
-    { "key": "E6",   "name": "E6 · Multi-user platform",   "color": "#5B6B8C" }
+    { "key": "E6",   "name": "E6 · Multi-user platform",   "color": "#5B6B8C" },
+    { "key": "E11",  "name": "E11 · Online, for invited users", "color": "#7A6BA8" }
   ],
   "items": [
+    { "id": "E11.0", "epic": "E11", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Spike: does Yahoo work from a Cloudflare IP", "notes": [
+      "DONE 2026-08-16. Throwaway Worker doing only the cookie+crumb handshake plus one quote call, deployed to workers.dev and hit repeatedly.",
+      "RESULT: PASS. 0 failures in 10 runs, no rate limiting, 25-symbol batch returned 200 in 70ms, avg 310ms for five Yahoo calls with a FRESH crumb every time (worst case - real use caches it).",
+      "Also settled two open questions: /v8/finance/chart needs no cookie and no crumb; and the 10ms Workers CPU limit is not threatened by fetching, since all of that time is I/O which does not count against CPU.",
+      "WHY IT MATTERED: Yahoo deployed TLS fingerprinting in Apr 2025 and a Worker cannot control its TLS fingerprint. This is the only evidence that exists either way for Cloudflare specifically - a web search found none. Delete the spike Worker at cutover."
+      ] },
+    { "id": "E11.1", "epic": "E11", "stage": "design", "platform": "web", "depends": "E6.5", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Nightly pg_dump, and a restore actually performed", "notes": [
+      "Supabase Free provides ZERO backups in 2026 - no daily snapshots, no PITR, no retention. Their own docs tell free users to dump it themselves.",
+      "With one JSON row per user, no device copy (E9) and no export, a single bad write is unrecoverable total loss for that user. Even Pro only restores the WHOLE project to a point in time; there is no row-level restore at any price.",
+      "MUST use the session pooler on port 5432, not 6543 and not the direct endpoint: the direct endpoint is IPv6-only and GitHub runners are IPv4-only, so a direct dump fails with 'Network is unreachable'.",
+      "The deliverable is the RESTORE, not the dump. An untested backup is a guess. Restore into a local supabase instance once and confirm the book opens.",
+      "TRAP: GitHub disables scheduled workflows after 60 days without repo commits - the backup and any keep-alive die together, silently, exactly when the project is quiet enough to need them."
+      ] },
+    { "id": "E11.2", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.0", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Port the market-data proxy to a Cloudflare Worker", "notes": [
+      "Reuse the JS Yahoo client already in index.html for the native build (yEnsureCrumb, nativeQuotes, nativeFundamentals, nativeStatements, nativeSearch) - swap the CapacitorHttp transport for fetch. Not a rewrite of server.py's 823 lines.",
+      "Close the known nativeFundamentals gap so it returns the same ~21 E2 fields server.py does, or the Worker silently serves a thinner model than local dev.",
+      "Cache the crumb in Workers KV. The spike refetched it on every request, which is two wasted upstream calls each time.",
+      "DO NOT DEPLOY /api/portfolio. It reads and writes a portfolio.json next to the server with no authentication - fine on localhost, an open read/write endpoint on a public origin. E6 moved everything to Supabase; it is only reachable behind isPrivateHost() and must not exist in the deployed proxy.",
+      "Log 429s and surface the count. Cloudflare-vs-Yahoo is unmeasured territory; find out from telemetry rather than from prices going stale.",
+      "BEFORE CUTOVER: run both proxies side by side and diff responses field-by-field for the same symbols. A data-layer rewrite must not go in on inspection alone."
+      ] },
+    { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
+      "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",
+      "Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.",
+      "Add a web app manifest and icon so it opens from the phone home screen without a URL bar - that IS the demo requirement.",
+      "Show the app version in the UI, or the first bug report is unanswerable.",
+      "server.py stays as the local dev server, unchanged. Two environments, one codebase.",
+      "Supabase Auth: Site URL plus Redirect URLs as https://<host>/** - note the DOUBLE asterisk, /* does not match nested paths. Keep the localhost entries so local dev keeps working."
+      ] },
+    { "id": "E11.4", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Custom SMTP, so anyone but the owner can sign up", "notes": [
+      "OWNER-BLOCKING and not a free-tier issue: Supabase's built-in mailer 'will refuse to deliver messages to addresses that are not part of the project's team', per their docs. Paying for Pro does NOT fix it. Custom SMTP does, and is available on the Free plan.",
+      "Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.",
+      "Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.",
+      "Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces."
+      ] },
+    { "id": "E11.5", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Export and delete: the user's own data, in their hands", "notes": [
+      "Export is the user-facing half of the backup story and the thing that makes 'no device copy' honest. JSON of holdings, checkpoints, themes, watchlist and settings.",
+      "Self-serve account deletion with a confirmation. The database cascade is already proven (isolation gate 8/8) - this is the UI for it.",
+      "Both are data-protection requirements the moment someone else's data is stored, and both are small."
+      ] },
+    { "id": "E11.6", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Disclaimer and privacy note", "notes": [
+      "The app currently contains NO legal text at all - zero matches for terms, privacy, disclaimer or 'not investment advice'.",
+      "Free and non-commercial is what keeps this outside 'investment adviser': the Advisers Act test is Advice + Business + COMPENSATION + Securities, and only compensation is missing. The publisher's exemption would NOT rescue it - Lowe v. SEC requires IMPERSONAL advice, and this is personalised by design.",
+      "So: informational only, not investment advice, no adviser relationship, data as-is with no warranty. Shown at signup and reachable from the app.",
+      "Plain privacy note: what is stored, where, who can see it, how to delete it. A posted policy has no size threshold under CalOPPA. NOT a full ToS/LLC/insurance stack - that is for commercial."
+      ] },
+    { "id": "E11.7", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Error monitoring and a feedback channel", "notes": [
+      "19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.",
+      "Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel."
+      ] },
+    { "id": "E11.8", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Tests and CI", "notes": [
+      "There are no tests and no CI today - tools/ holds check_syntax.py and two generators.",
+      "Playwright against the real page, running the same in-page assertions used by hand throughout E10. No login needed, so CI carries no secrets.",
+      "Target the MATH, not coverage: computeAllocation, planTrades, applyRebalance, computeCarryover, applyThemeCap, the version timeline, and the equal-weight reconstruction across a trim. The dangerous bug in a portfolio tool is a plausible wrong number, not a crash - a crash gets reported.",
+      "Justification, from this project's own history: E10.1 shipped a defect that made the Overview state a fabricated equal-weight return, and it survived my own testing and two review passes.",
+      "Also in CI: check_syntax.py, and Dependabot on (free on private repos)."
+      ] },
+
     { "id": "C1", "epic": "core", "stage": "done", "title": "Themed 6-factor allocation model", "notes": [
       "Splits the book across the themes, then equal-weights the names inside each theme.",
       "Scores each theme on a market-cap-weighted blend of 6 factors: PEG, EV/EBITDA, Debt/FCF, P/E (cheaper ⇒ higher), log average market cap, and price momentum.",
