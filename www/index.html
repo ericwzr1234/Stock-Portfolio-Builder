@@ -1438,8 +1438,8 @@ async function remotePutPortfolio(p){
      name    string                     — also used for state.syncStatus
      load()  -> portfolio | null        — may throw; `fallback` decides what happens then
      save(p) -> void                    — may throw
-     mirror  boolean (optional)         — also write a local copy, so data survives going offline
-     fallback(): portfolio | null       — used only when load() throws
+     mirror  boolean (optional)         — iOS LAN sync only: also write the on-device copy
+     fallback(): portfolio | null       — iOS LAN sync only; the cloud adapter has none (E9)
    Behaviour is deliberately identical to the pre-E6.2 inline branching.               */
 const STORAGE_ADAPTERS={
   cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p) },   // E9: no local copy
@@ -1658,10 +1658,6 @@ async function sbApi(path, opts, _retried){
        this, a slow request left over from user A landed after user B signed in and either
        replayed A's write under B's token or force-signed-out B, wiping their state. */
     if(epoch!==sbEpoch){ const e=new Error("a reply from a previous session was discarded"); e.stale=true; throw e; }
-    /* Captured HERE, before sbRefresh() below can null the session: reading it afterwards gave ""
-       on the commonest path (an expired/rotated refresh token), so the mirror drop underneath was
-       a silent no-op and the plaintext copy outlived the rejection it was meant to follow. */
-    const uid=sbUserId();
     if(r.status===401 && !_retried){
       const rr=await sbRefresh();
       if(rr.ok) return sbApi(path,opts,true);
@@ -1674,14 +1670,10 @@ async function sbApi(path, opts, _retried){
        where the stored session carries no refresh token at all (sbRefresh returns early, so a
        lock-out placed inside its catch would have been skipped - which let a forged session run
        on, unauthenticated, displaying the previous account's offline mirror).
-       The thrown error is marked so callers know this was a REJECTION, not an outage: the offline
-       fallback must not be served for it. */
-    /* The server has definitively refused this identity. Drop the offline mirror with it: it is a
-       plaintext copy of an account this browser is no longer entitled to, and leaving it behind is
-       what made a hand-written localStorage session worth forging. */
+       The thrown error is marked so callers know this was a REJECTION, not an outage. */
     sbStoreSession(null);
-    // 403 can also mean a missing grant after a deploy, not only "not you" - either way, file any
-    // unsaved copy before dropping it.
+    // 403 can also mean a missing grant after a deploy, not only "not you" - either way, leave
+    // nothing of theirs on this device.
     try{ purgeLegacyLocalCopies(); }catch(e2){}   // E9: nothing of theirs stays on this device
     const err=new Error("your session is no longer valid"); err.authFailed=true; err.status=r.status;
     try{ lockOut("Your session is no longer valid. Please sign in again."); }catch(e2){}
@@ -2180,6 +2172,7 @@ async function loadPortfolio(){
     state.portfolio=null;
     state.syncError = err.authFailed ? "your session is no longer valid"
                                      : "your account could not be reached";
+    try{ renderSyncBadge(); }catch(e){}   // the badge must not keep saying "synced" after a failed read
     return;
   }
 
@@ -2193,6 +2186,7 @@ async function loadPortfolio(){
 
   if(doc) hydrateFromDocument(doc);
   rebuildThemeOf();
+  try{ renderSyncBadge(); }catch(e){}
 }
 /* E6 FIX - extracted so the IMPORT path can reuse it. It used to assign state.portfolio directly
    and skip all of this, so an imported book was uploaded stripped of its themes, theme membership,
@@ -2263,6 +2257,8 @@ function savePortfolio(){
   const run=()=>{
     if(!ctxCurrent(c)){
       console.warn("dropping a save whose context is no longer current");
+      state.syncError="the session changed before that could be saved";
+      try{ renderSyncBadge(); }catch(e){}
       return false;
     }
     return _savePortfolioInner(c);
@@ -2337,9 +2333,11 @@ async function _savePortfolioInner(c){
     try{
       await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
       const got = state.syncStatus==="cloud" && isNum(state.baseRevision);
+      /* E9 - say what actually happened. Nothing is kept aside any more, and on the failed-reload
+         branch the screen is EMPTY (loadPortfolio nulls the document), not "the local copy". */
       setTimeout(()=>toast(got
-        ? "Changed on another device - reloaded that version. Your edit was kept aside, not applied."
-        : "Changed on another device, and that version could not be fetched - this is the local copy. Refresh before editing."),400);
+        ? "Changed on another device - that version is now on screen. Your change was NOT applied; make it again if you still want it."
+        : "Changed on another device, and that version could not be fetched. Your change was NOT applied - reload when your connection is back."),400);
     }catch(e2){
       console.error("conflict reload failed",e2); state.baseRevision=null;
       setTimeout(()=>toast("Changed elsewhere and the reload failed - refresh the page before editing."),400);
@@ -2447,9 +2445,9 @@ function setReturnUnit(u){
    local storage. Signing in switches the storage adapter and nothing else. */
 /* ===== E6.8 - the gate ==================================================================
    Nobody reaches the app without a session. The safeguard that matters: a VALID STORED
-   SESSION opens the app even when the backend is unreachable (the free tier pauses after a
-   week idle) - it falls back to the local mirror. The gate is there to keep strangers out,
-   not to lock the owner out of their own portfolio during an outage. */
+   SESSION still opens the app, but E9 removed every local copy - so if the backend cannot be
+   reached the app says so rather than showing stale data. The gate is there to keep strangers
+   out; it is not what stops the portfolio loading during an outage. */
 let gateSetMode=null;                       // assigned by wireGate so showGate can reset the form
 function showGate(show){
   const g=$("#gate"); if(!g) return;
@@ -2575,8 +2573,6 @@ async function postSignInPrompts(){
      checkpoint, or reset, was declared empty over a live row - and "Start fresh" then wrote an
      empty document over its entire checkpoint history on the next autosave. */
   if(state.cloudRowExists===false) await offerImportIfLocalExists();   // E6.6
-  /* Always offered, never in an else: the likeliest way to HAVE kept-aside work is a session that
-     died before the first successful save, which is exactly when the account is still empty. */
 
 }
 /* E6.6 - the account is empty. Is there a portfolio on THIS MACHINE worth importing?
@@ -2649,7 +2645,7 @@ function openAccount(){
     $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
-      <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio saves to your account, with a local copy kept as a fallback.</p>
+      <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account. Nothing about it is stored on this device.</p>
       <div class="row" style="justify-content:space-between;margin-top:16px">
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
@@ -2659,10 +2655,8 @@ function openAccount(){
     $("#acctSignOut").addEventListener("click",async()=>{
       const uid=sbUserId();
       await sbSignOut(); closeModal();
-      /* The offline mirror is a plaintext copy of this account's book. With a mandatory login
-         gate it is only ever useful WHILE signed in, so an explicit sign-out clears it rather
-         than leaving it in a shared browser. Kept-aside work (pb_unsynced_/pb_conflict_) is
-         deliberately NOT cleared - losing unsaved work would be the worse failure. */
+      /* E9 - nothing of this account may remain on the device. This also sweeps up anything an
+         earlier version wrote before local copies were removed. */
       try{ purgeLegacyLocalCopies(); }catch(e){}
       lockOut();                            // E6.8: clears state, stops the timer, returns to the landing page
       toast("Signed out");
@@ -3156,6 +3150,16 @@ function renderFundamentals(){
 
   // per-theme fundamentals tables (E2.3: columns driven by metrics(); Cap is a special always-second column)
   const grid=$("#fundGrid"); grid.innerHTML="";
+  if(accountUnreachable()){                    // do NOT invite them to rebuild a portfolio they already have
+    grid.innerHTML=`<div class="empty-note">
+      <h3>Your account could not be reached</h3>
+      <p>Your portfolio is safe in your account &mdash; it just could not be loaded. Nothing is stored on
+         this device, so there is nothing to show until the connection is back.</p>
+      <button class="btn primary" id="emptyRetry">Try again</button></div>`;
+    const rt=$("#emptyRetry");
+    if(rt) rt.addEventListener("click",async()=>{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); });
+    return;
+  }
   if(!themes().length){                        // a genuinely empty board - not five themes with nothing in them
     grid.innerHTML=`<div class="empty-note">
       <h3>No themes yet</h3>
@@ -3397,6 +3401,14 @@ function renderCalc(){
   /* E8 - no themes means no targets, and with no targets a rebalance would compute "sell
      everything" for a book that still holds real positions. That must never be presented as the
      ordinary flow, whether or not the account already has holdings. */
+  if(accountUnreachable()){
+    $("#calcMain").innerHTML="";
+    $("#calcUninit").innerHTML=`<div class="empty-note">
+      <h3>Your account could not be reached</h3>
+      <p>Nothing can be rebalanced until your portfolio loads. Your data is in your account, not on
+         this device.</p></div>`;
+    return;
+  }
   if(!themes().length){
     const held=holdingSyms().length;
     $("#calcMain").innerHTML="";
@@ -4459,8 +4471,23 @@ function initTheme(){
 }
 
 /* ===== E5.0 context bar — portfolio numbers on every view ===== */
+/* E9 - "we could not read your account" and "you have not built anything yet" look identical once
+   there is no cached copy to fall back on: both leave state.portfolio null and themes empty. Telling
+   a user with a real portfolio that they have none - and inviting them to create their first theme -
+   is the failure this codebase already fixed once for the import prompt. Distinguish them. */
+function accountUnreachable(){
+  /* Specifically: the account could not be READ, so there is nothing to show. A failed SAVE also
+     stamps "<adapter>-failed", but there the portfolio IS loaded and the honest message is a
+     different one ("your change did not reach your account"), so both must be required here. */
+  return typeof state.syncStatus==="string" && state.syncStatus.indexOf("-failed")>0
+         && !state.portfolio && !isNum(state.baseRevision);
+}
 function renderContext(){
   const box=$("#ctxKpis"); if(!box) return;
+  if(accountUnreachable()){
+    box.innerHTML='<span class="small" style="color:var(--down)">Your account could not be reached \u2014 your portfolio is not shown. Reload to try again.</span>';
+    if($("#railFoot")) $("#railFoot").textContent="not connected";
+    return; }
   if(!isInit()){ box.innerHTML='<span class="small muted">'+(themes().length
       ? 'No portfolio yet \u2014 size it on Rebalance.'
       : 'No portfolio yet \u2014 start by creating a theme on Model.')+'</span>';
@@ -4496,13 +4523,19 @@ function kpi(k,v){ return `<span class="kpi"><span class="k">${k}</span><span cl
 function renderSyncBadge(){
   const b=$("#syncBadge"); if(!b) return;
   if(!signedIn()){ b.hidden=true; return; }
+  /* A read failure and a save failure are different things and must not share wording: telling a
+     user "the last change did not reach your account" when they made no change is just confusing. */
+  if(accountUnreachable()){
+    b.hidden=false; b.className="tag pen"; b.textContent="not connected";
+    b.title="Your account could not be reached, so your portfolio is not shown and changes cannot be saved. Reload when your connection is back.";
+    return; }
   if(state.syncError){ b.hidden=false; b.className="tag pen"; b.textContent="not synced";
     b.title="The last change did not reach your account: "+state.syncError; return; }
   /* E6 FIX - syncError is only set by SAVES. After a failed READ the badge happily read "synced"
      while the user was looking at the offline mirror and every save was being refused. */
   if(state.syncStatus!=="cloud" || !isNum(state.baseRevision)){
-    b.hidden=false; b.className="tag pen"; b.textContent="offline copy";
-    b.title="Showing the copy kept on this device - your account could not be read, so changes cannot be saved until you reload.";
+    b.hidden=false; b.className="tag pen"; b.textContent="not connected";
+    b.title="Your account could not be read, so nothing is shown and changes cannot be saved. Reload when your connection is back.";
     return;
   }
   b.hidden=false; b.className="tag live"; b.textContent="synced";
@@ -4619,8 +4652,6 @@ function setupEvents(){
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
-    // The document was replaced wholesale, so a stash "put on screen" earlier is no longer what is
-    // being saved and must not be consumed by this save.
       const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
     renderAll(); switchView("calc");
   });
@@ -4638,7 +4669,7 @@ async function init(){
   setupEvents();
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
   // E6.8: no session -> stop here and show the landing page. A stored session continues, even if
-  // the backend turns out to be unreachable (loadPortfolio falls back to the local mirror).
+  // the backend then turns out to be unreachable - in which case the app says so (E9: no local copy).
   /* E6 FIX - appLocked, not just the overlay. Without it a signed-out boot left every save guard
      disarmed (docSource is null when nothing was ever loaded), so a keyboard-reachable
      "Reset portfolio" behind the gate could POST an empty document over the server's real file. */
