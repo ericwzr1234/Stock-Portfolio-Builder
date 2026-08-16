@@ -1028,7 +1028,8 @@ const state = {
   screenerLoaded:false,
   serverUrl:"",                   // iOS: optional home-computer address for LAN sync (shared portfolio.json)
   syncStatus:"local",             // 'local' | 'remote' | 'remote-failed'
-  syncError:null,                 // E6: last save failure, shown persistently by the badge
+  syncError:null,                 // E6: last failure, shown persistently by the badge
+  syncFailure:null,               // E9: {short,detail,act,ours} - the precise reason a read failed
   baseRevision:null,              // E6: the revision the SERVER last CONFIRMED. null => unknown, saving is refused.
   cloudRowExists:null,            // E6: does this account HAVE a row? null => not established (a failed read is not "empty")
   docSource:null,                 // E6: which adapter the in-memory document came from ('cloud'|'web'|'local'|'remote')
@@ -1570,7 +1571,7 @@ async function sbSignOut(){
    empty account then found a book "already open" and offered to import it, so one person's holdings
    could be uploaded into another person's account. Everything session-scoped is dropped here. */
 function clearAccountState(){
-  state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null;
+  state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null; state.syncFailure=null;
   state.docSource=null; state.docOwner=null; state.cloudRowExists=null;
   state.themeTickers={}; state.themes=[]; state.watchlist=[];
   state.metrics=null; state.metricCfg=null; state.overrides={};
@@ -1644,12 +1645,28 @@ async function sbRefresh(){
 }
 /* Any authenticated call goes through here: it refreshes ONCE on a 401 and retries, so an
    expired access token is invisible to the caller instead of surfacing as a failed save. */
+const CLOUD_TIMEOUT_MS=15000;   // a request that never answers must become an error, not silence
 async function sbApi(path, opts, _retried){
   opts=opts||{};
   if(!signedIn()){ const e=new Error("not signed in"); e.authFailed=true; throw e; }
   const epoch=sbEpoch;                                // whose session this request belongs to
   const headers=Object.assign({ "apikey":SB_KEY, "Authorization":"Bearer "+sbSession.access_token },opts.headers||{});
-  const r=await fetch(SB_URL+path, Object.assign({},opts,{headers}));
+  /* Without this the app can wait forever on a blackholed connection and say NOTHING - the user
+     stares at a loading screen with no error and no idea whether their data is safe. A refused
+     connection rejects immediately; one that is silently dropped does not. */
+  let ctl=null, timer=null, timedOut=false;
+  try{ if("AbortController" in window){ ctl=new AbortController();
+        timer=setTimeout(()=>{ timedOut=true; try{ ctl.abort(); }catch(e){} },CLOUD_TIMEOUT_MS); } }catch(e){}
+  let r;
+  try{
+    r=await fetch(SB_URL+path, Object.assign({},opts,{headers, signal:ctl?ctl.signal:undefined}));
+  }catch(fe){
+    if(timedOut){ const e=new Error("your account did not respond"); e.timeout=true; throw e; }
+    // A network-layer rejection: offline, DNS, connection refused, CORS.
+    const e=new Error("could not reach your account");
+    e.offline = (typeof navigator!=="undefined" && navigator.onLine===false);
+    e.network = true; throw e;
+  }finally{ if(timer) clearTimeout(timer); }
   /* 403 counts: PostgREST answers 403 when the token is valid but row-level security refuses the
      row - which is the server saying "not you" just as plainly as a 401. Treating it as an outage
      let a revoked user keep reading their account from the offline mirror. */
@@ -1695,6 +1712,33 @@ async function sbApi(path, opts, _retried){
   }
   return r;
 }
+/* One place that turns a failure into words. Every branch names a DIFFERENT cause and says who can
+   do something about it, because "something went wrong" is not information anybody can act on. */
+function describeCloudFailure(e){
+  const d=(short,detail,act,ours)=>({short,detail,act,ours:!!ours});
+  if(!e) return d("unknown problem","Something went wrong reaching your account.","Reload to try again.");
+  if(e.serviceError) return d("service misconfigured",
+      "The database refused this app's request outright (permission denied). Your sign-in is fine.",
+      "Nothing you can do - this needs fixing on our side.", true);
+  if(e.authFailed)   return d("signed out","Your session is no longer valid.","Sign in again.");
+  if(e.timeout)      return d("no response",
+      "Your account did not respond within "+Math.round(CLOUD_TIMEOUT_MS/1000)+" seconds.",
+      "Check your connection and reload.");
+  if(e.offline)      return d("no connection","This device appears to be offline.","Reconnect and reload.");
+  if(e.network)      return d("could not connect",
+      "The account service could not be reached from this device.","Check your connection and reload.");
+  if(isNum(e.status)){
+    if(e.status===429) return d("too many requests","The service is rate-limiting requests right now.",
+        "Wait a minute, then reload.");
+    if(e.status>=500)  return d("service error","The database service returned an error (HTTP "+e.status+").",
+        "This is usually temporary - reload in a moment.");
+    if(e.status===404) return d("not found","The app asked the database for something that is not there (HTTP 404).",
+        "Nothing you can do - this needs fixing on our side.", true);
+    return d("refused (HTTP "+e.status+")","The database refused the request (HTTP "+e.status+").",
+        "Reload; if it keeps happening this needs fixing on our side.", true);
+  }
+  return d("could not connect","Your account could not be reached.","Check your connection and reload.");
+}
 
 /* ===== E6.5 - cloud storage adapter ====================================================
    The FOURTH entry in the registry above. The engine and UI are untouched: this only has to
@@ -1716,7 +1760,7 @@ async function cloudLoadPortfolio(){
   const uid=sbUserId(); if(!uid) throw new Error("not signed in");
   const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&order=revision.desc&limit=1",
     { headers:{ "Accept":"application/json" } });
-  if(!r.ok) throw new Error("cloud load failed: HTTP "+r.status);
+  if(!r.ok){ const e=new Error("cloud load failed: HTTP "+r.status); e.status=r.status; throw e; }   // status carried so it can be described accurately
   const rows=await r.json();
   if(!rows||!rows.length) return null;                 // no row yet - the first save creates it
   const row=rows[0], p=row.data||null;
@@ -2184,9 +2228,9 @@ async function loadPortfolio(){
     state.syncStatus=c.name+"-failed";
     state.baseRevision=null;                     // C3
     state.portfolio=null;
-    state.syncError = err.authFailed  ? "your session is no longer valid"
-                    : err.serviceError ? "the portfolio service is misconfigured - your sign-in is fine"
-                                       : "your account could not be reached";
+    const why=describeCloudFailure(err);
+    state.syncFailure=why;                          // the precise reason, for the badge and the panels
+    state.syncError=why.short;
     try{ renderSyncBadge(); }catch(e){}   // the badge must not keep saying "synced" after a failed read
     return;
   }
@@ -2195,7 +2239,7 @@ async function loadPortfolio(){
   if(c.name==="cloud"){
     if(meta){ state.baseRevision=meta.revision; state.cloudRowExists=meta.rowExists; }
     if(!doc) state.portfolio=null;               // a CONFIRMED empty account
-    state.syncError=null;
+    state.syncError=null; state.syncFailure=null;
   }
   else if(doc && c.ad.mirror) nativeSavePortfolio(doc);       // iOS LAN sync only
 
@@ -3166,10 +3210,12 @@ function renderFundamentals(){
   // per-theme fundamentals tables (E2.3: columns driven by metrics(); Cap is a special always-second column)
   const grid=$("#fundGrid"); grid.innerHTML="";
   if(accountUnreachable()){                    // do NOT invite them to rebuild a portfolio they already have
+    const why=state.syncFailure||describeCloudFailure(null);
     grid.innerHTML=`<div class="empty-note">
-      <h3>Your account could not be reached</h3>
-      <p>Your portfolio is safe in your account &mdash; it just could not be loaded. Nothing is stored on
-         this device, so there is nothing to show until the connection is back.</p>
+      <h3>Your portfolio could not be loaded</h3>
+      <p><b>${why.detail}</b><br>${why.act}</p>
+      <p class="xs muted" style="margin-top:-4px">Your data is safe in your account &mdash; nothing is stored on this
+         device, so there is nothing to show until it loads.${why.ours?" This one is our fault, not yours.":""}</p>
       <button class="btn primary" id="emptyRetry">Try again</button></div>`;
     const rt=$("#emptyRetry");
     if(rt) rt.addEventListener("click",async()=>{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); });
@@ -3418,10 +3464,11 @@ function renderCalc(){
      ordinary flow, whether or not the account already has holdings. */
   if(accountUnreachable()){
     $("#calcMain").innerHTML="";
+    const why=state.syncFailure||describeCloudFailure(null);
     $("#calcUninit").innerHTML=`<div class="empty-note">
-      <h3>Your account could not be reached</h3>
-      <p>Nothing can be rebalanced until your portfolio loads. Your data is in your account, not on
-         this device.</p></div>`;
+      <h3>Your portfolio could not be loaded</h3>
+      <p><b>${why.detail}</b><br>${why.act}</p>
+      <p class="xs muted" style="margin-top:-4px">Nothing can be rebalanced until it loads.</p></div>`;
     return;
   }
   if(!themes().length){
@@ -4500,7 +4547,8 @@ function accountUnreachable(){
 function renderContext(){
   const box=$("#ctxKpis"); if(!box) return;
   if(accountUnreachable()){
-    box.innerHTML='<span class="small" style="color:var(--down)">Your account could not be reached \u2014 your portfolio is not shown. Reload to try again.</span>';
+    const why=state.syncFailure||describeCloudFailure(null);
+    box.innerHTML='<span class="small" style="color:var(--down)">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
     if($("#railFoot")) $("#railFoot").textContent="not connected";
     return; }
   if(!isInit()){ box.innerHTML='<span class="small muted">'+(themes().length
@@ -4541,8 +4589,9 @@ function renderSyncBadge(){
   /* A read failure and a save failure are different things and must not share wording: telling a
      user "the last change did not reach your account" when they made no change is just confusing. */
   if(accountUnreachable()){
-    b.hidden=false; b.className="tag pen"; b.textContent="not connected";
-    b.title="Your account could not be reached, so your portfolio is not shown and changes cannot be saved. Reload when your connection is back.";
+    const why=state.syncFailure||describeCloudFailure(null);
+    b.hidden=false; b.className="tag pen"; b.textContent=why.short;
+    b.title=why.detail+" "+why.act;
     return; }
   if(state.syncError){ b.hidden=false; b.className="tag pen"; b.textContent="not synced";
     b.title="The last change did not reach your account: "+state.syncError; return; }
