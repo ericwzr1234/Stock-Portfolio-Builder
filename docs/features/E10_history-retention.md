@@ -36,10 +36,18 @@ number dropped **in the same operation**.
 One trap surfaced only in testing and is worth recording: trimming creates a **new floor for undo**.
 `head === -1` means *"before the very first build"* and `restoreVersion` wipes holdings and
 contributions to zero — correct while the first build is still in the list, a total data loss once it
-has been trimmed away. `timelineTrimmed()` detects the case from the data already present (ids start
-at 1 and only increase, so `versions()[0].id > 1` proves truncation) and `canUndo()` stops at index 0
+has been trimmed away. `timelineTrimmed()` reports the case and `canUndo()` then stops at index 0
 instead of -1. Verified: 15 pushes → 10 kept, ids 6–15, undo walks to index 0 and stops with holdings
 intact; and round-tripped through the database, where the server row genuinely holds 10.
+
+`timelineTrimmed()` **measures** the trim rather than inferring it: `pushVersion` sets
+`versionsTrimmed` on the document the moment it drops a checkpoint, and that flag round-trips through
+the database. The first cut inferred it from `versions()[0].id > 1` — true, but resting on ids being
+intact, and a single unusable id made it read *"not trimmed"*, which lets undo reach `head === -1`
+and wipe holdings. The id test survives as a fallback for documents trimmed before the flag existed
+(verified against exactly such a document), and it now **fails safe**: an id that cannot be read
+counts as trimmed, because being wrong that way costs one undo step, while being wrong the other way
+destroys the book.
 
 **Accepted consequence:** `valueHistory()` derives entirely from `versions()`, so the value-at-each-
 checkpoint chart now shows the last 10 checkpoints only. Preserving a longer chart would need a
