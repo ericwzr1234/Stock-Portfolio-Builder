@@ -1949,7 +1949,13 @@ async function yEnsureCrumb(force){
   if(_crumb && !force) return _crumb;
   try{ await yGet("https://fc.yahoo.com/"); }catch(e){}
   try{ const r=await yGet("https://query2.finance.yahoo.com/v1/test/getcrumb");
-       const c=String(typeof r.data==="string"?r.data:"").trim(); _crumb=(c && c.indexOf("<")<0 && c.length<40)?c:null; }
+       /* A crumb is a short token with NO WHITESPACE. Without that test an error body passes:
+          a throttled edge returns "Edge: Too Many Requests" (23 chars, no "<"), which was then
+          sent as ?crumb= and made every later call fail for a reason that looks nothing like
+          throttling. Same fix as server.py's ensure_session - these two must stay in step, and
+          the Cloudflare Worker port inherits this function. */
+       const c=String(typeof r.data==="string"?r.data:"").trim();
+       _crumb=(c && c.indexOf("<")<0 && c.length<40 && !/\s/.test(c))?c:null; }
   catch(e){ _crumb=null; }
   return _crumb;
 }

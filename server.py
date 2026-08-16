@@ -66,7 +66,11 @@ CONTENT_TYPES = {
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
-QUOTE_TTL = 15          # seconds to cache live quotes
+# The fastest client poll is 30s and the default is 60s, so a 15s TTL could never serve a hit for
+# a single user - it only helped when two users happened to poll inside the same 15 seconds. At 60s
+# it matches the default cadence, so concurrent users collapse onto one upstream call per minute
+# instead of one each.
+QUOTE_TTL = 60          # seconds to cache live quotes
 FUND_TTL = 6 * 3600     # seconds to cache fundamentals (PEG / EV/EBITDA)
 STMT_TTL = 24 * 3600    # seconds to cache financial statements (E3 — they change quarterly)
 STMT_NEG_TTL = 6 * 3600 # shorter retry window for a symbol that returned NO statements (banks / thin / late filers)
@@ -149,8 +153,12 @@ def ensure_session(force=False):
             except Exception:
                 pass  # we just want the cookie; this often 404s but sets it
             crumb = _http_get("https://query2.finance.yahoo.com/v1/test/getcrumb", timeout=10).strip()
-            # A valid crumb is short and has no spaces/html
-            if crumb and "<" not in crumb and len(crumb) < 40:
+            # A valid crumb is a short token with NO WHITESPACE. This comment always said "no
+            # spaces" but nothing tested for them, so an error body passed as a crumb: a throttled
+            # Yahoo edge returns "Edge: Too Many Requests" - 23 characters, no "<" - which cleared
+            # every check here and was then sent as ?crumb=, so every downstream call failed with
+            # something that looks nothing like the real cause (yfinance #2297).
+            if crumb and "<" not in crumb and len(crumb) < 40 and not any(c.isspace() for c in crumb):
                 _crumb = crumb
             else:
                 _crumb = None
@@ -462,7 +470,11 @@ def _fetch_one_fundamental(sym):
 
 def fetch_fundamentals_live(symbols):
     out = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    # v10/quoteSummary and the timeseries endpoint each take ONE symbol, so this fan-out is
+    # forced - the CONCURRENCY is not. yahoo-finance2 caps itself at 4 simultaneous requests, the
+    # only concrete number either major client library publishes, and bursts draw attention far
+    # more readily than steady volume.
+    with ThreadPoolExecutor(max_workers=4) as ex:
         for sym, data in ex.map(_fetch_one_fundamental, symbols):
             if data:
                 out[sym] = data
@@ -614,7 +626,11 @@ def _fetch_one_statement(sym):
 
 def fetch_statements_live(symbols):
     out = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    # v10/quoteSummary and the timeseries endpoint each take ONE symbol, so this fan-out is
+    # forced - the CONCURRENCY is not. yahoo-finance2 caps itself at 4 simultaneous requests, the
+    # only concrete number either major client library publishes, and bursts draw attention far
+    # more readily than steady volume.
+    with ThreadPoolExecutor(max_workers=4) as ex:
         for sym, data in ex.map(_fetch_one_statement, symbols):
             if data is not None:   # includes the clean-empty sentinel (so sparse names get cached)
                 out[sym] = data
