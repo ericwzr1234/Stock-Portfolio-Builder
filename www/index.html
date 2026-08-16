@@ -1671,9 +1671,23 @@ async function sbApi(path, opts, _retried){
        lock-out placed inside its catch would have been skipped - which let a forged session run
        on, unauthenticated, displaying the previous account's offline mirror).
        The thrown error is marked so callers know this was a REJECTION, not an outage. */
+    /* NOT every 401/403 is "you are not this user". PostgREST answers 42501 - "permission denied
+       for table" - when the TABLE's grants or policies are wrong, which is a server-side
+       misconfiguration (a migration deployed without its GRANT, say), not an identity problem.
+       Classifying that as a rejection would destroy a perfectly good session, gate the user, and
+       tell them to sign in again - which would succeed at the auth service and then fail
+       identically on the next read. Every user, in a loop, blaming their own credentials.
+       So: read the body once and let the server say which it is. */
+    let code="", msg="";
+    try{ const d=await r.clone().json(); code=(d&&(d.code||d.error_code))||""; msg=(d&&(d.message||d.msg))||""; }catch(e2){}
+    if(code==="42501" || /permission denied/i.test(msg)){
+      const cfg=new Error("the portfolio service is misconfigured (permission denied) - your sign-in is fine");
+      cfg.serviceError=true; cfg.status=r.status;
+      console.error("PostgREST refused the table itself (42501). This is a grants/policy problem on the "+
+                    "database, not a session problem - check the migration in sql/.");
+      throw cfg;                                    // session left intact; the user is not gated
+    }
     sbStoreSession(null);
-    // 403 can also mean a missing grant after a deploy, not only "not you" - either way, leave
-    // nothing of theirs on this device.
     try{ purgeLegacyLocalCopies(); }catch(e2){}   // E9: nothing of theirs stays on this device
     const err=new Error("your session is no longer valid"); err.authFailed=true; err.status=r.status;
     try{ lockOut("Your session is no longer valid. Please sign in again."); }catch(e2){}
@@ -2170,8 +2184,9 @@ async function loadPortfolio(){
     state.syncStatus=c.name+"-failed";
     state.baseRevision=null;                     // C3
     state.portfolio=null;
-    state.syncError = err.authFailed ? "your session is no longer valid"
-                                     : "your account could not be reached";
+    state.syncError = err.authFailed  ? "your session is no longer valid"
+                    : err.serviceError ? "the portfolio service is misconfigured - your sign-in is fine"
+                                       : "your account could not be reached";
     try{ renderSyncBadge(); }catch(e){}   // the badge must not keep saying "synced" after a failed read
     return;
   }
