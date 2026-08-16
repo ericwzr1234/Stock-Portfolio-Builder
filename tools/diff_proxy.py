@@ -81,6 +81,31 @@ def main():
         fails.append("quotes: the Worker returned no integer asOf")
     print("quotes    : %d symbols compared (server.py %d / worker %d)" % (len(set(qa) & set(qb)), len(qa), len(qb)))
 
+    # ---- fundamentals: 35 fields per symbol, the model reads all of them
+    a = get(py, "/api/fundamentals", {"symbols": ",".join(SYMS)})
+    b = get(wk, "/api/fundamentals", {"symbols": ",".join(SYMS)})
+    fa, fb = a.get("fundamentals") or {}, b.get("fundamentals") or {}
+    for s in sorted(set(fa) - set(fb)):
+        fails.append("fundamentals: server.py returned %s, the Worker did not" % s)
+    for s in sorted(set(fa) & set(fb)):
+        cmp_dict("fundamentals[%s]" % s, fa[s], fb[s])
+    print("fundamentals: %d symbols compared (server.py %d / worker %d)" % (len(set(fa) & set(fb)), len(fa), len(fb)))
+
+    # ---- statements: quarter dates and every reported line must agree
+    a = get(py, "/api/statements", {"symbols": ",".join(SYMS[:4])})
+    b = get(wk, "/api/statements", {"symbols": ",".join(SYMS[:4])})
+    sa, sb = a.get("statements") or {}, b.get("statements") or {}
+    for s in sorted(set(sa) & set(sb)):
+        qa2 = {q["date"]: q for q in (sa[s].get("quarters") or [])}
+        qb2 = {q["date"]: q for q in (sb[s].get("quarters") or [])}
+        if sa[s].get("source") != sb[s].get("source"):
+            fails.append("statements[%s].source: server.py=%s worker=%s" % (s, sa[s].get("source"), sb[s].get("source")))
+        if set(qa2) != set(qb2):
+            fails.append("statements[%s]: quarter dates differ - server.py=%s worker=%s" % (s, sorted(qa2), sorted(qb2)))
+        for d in sorted(set(qa2) & set(qb2)):
+            cmp_dict("statements[%s][%s]" % (s, d), qa2[d], qb2[d])
+    print("statements  : %d symbols compared" % len(set(sa) & set(sb)))
+
     # ---- search: same shape and the same leading hit
     for q in ("apple", "AMD", "vanguard"):
         ra = (get(py, "/api/search", {"q": q}).get("results") or [])

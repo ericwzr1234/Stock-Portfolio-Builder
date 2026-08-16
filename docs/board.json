@@ -52,8 +52,12 @@
       "Diff every field against server.py for the same symbols before it counts as done. A data-layer rewrite must not go in on inspection alone."
       ] },
 
-    { "id": "E11.2b", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2a", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.2b", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.2a", "spec": "docs/features/E11_online-deployment.md",
       "title": "Worker: fundamentals + statements", "notes": [
+      "DONE 2026-08-16. Worker now serves all five endpoints. DIFFED against server.py: 1027 fields IDENTICAL across quotes, fundamentals, statements and peers.",
+      "The claimed nativeFundamentals field gap DOES NOT EXIST - the JS client already mirrors server.py exactly (my extraction missed ES6 shorthand). The APP_MIGRATION note saying otherwise is stale.",
+      "HARNESS FOUND 41 DIFFERENCES ON THE FIRST RUN, all mine. (1) rv() returned Yahoo's bare {} instead of null, and undefined keys are DROPPED by JSON.stringify - so a sparse symbol came back missing a dozen fields the client expects to exist, while Python emitted them as null.",
+      "(2) SERVER.PY DEGRADED EVERY ETF TO A PLACEHOLDER. get_fundamentals decided whether a live response was usable by testing peg-or-ev - STOCK metrics an ETF can never have - so SPY, VOO and QQQ had their real name, price, P/E and dividend yield discarded in favour of a seed row that is empty for any symbol outside SEED. Now tests whether a real answer came back at all. Directly serves the owner requirement that ETFs must work.",
       "The field-heavy pair. Includes closing the known nativeFundamentals gap so the Worker returns the same ~21 E2 fields server.py does - otherwise the deployed app silently serves a thinner model than local dev.",
       "Both fan out one request per symbol; the shared yMapLimit caps that at 4.",
       "DO NOT DEPLOY /api/portfolio - unauthenticated read/write of a server-side file. It is only reachable behind isPrivateHost() and must not exist in the deployed proxy."

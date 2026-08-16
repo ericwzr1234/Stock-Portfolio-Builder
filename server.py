@@ -534,8 +534,13 @@ def get_fundamentals(symbols, force=False):
                 cached = dict(_fund_cache["data"])
     result = {}
     for s in symbols:
-        if s in cached and (cached[s].get("peg") is not None or cached[s].get("ev") is not None):
-            result[s] = cached[s]
+        # "Did we get a real answer?" — not "does it look like a stock?". This tested peg-or-ev,
+        # which are STOCK metrics an ETF can never have, so a perfectly good live response for SPY
+        # (real name, price, P/E, dividend yield) was thrown away in favour of a seed row that, for
+        # any symbol outside SEED, is entirely empty. ETFs were degraded to placeholders by design.
+        live = cached.get(s)
+        if live and any(live.get(k) is not None for k in ("price", "marketCap", "peg", "ev")):
+            result[s] = live
         else:
             sd = SEED.get(s, {})
             result[s] = {

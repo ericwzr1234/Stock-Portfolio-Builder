@@ -34,8 +34,16 @@ const j = (obj, status) =>
   });
 
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
-/* Yahoo returns either a scalar or {raw, fmt}. server.py's _rv does the same unwrapping. */
-const rv = (d, k) => { const x = d && d[k]; return x && typeof x === "object" && "raw" in x ? x.raw : x; };
+/* Yahoo returns a scalar, {raw, fmt}, or a bare {} meaning "no value". Mirrors server.py's _rv,
+   which returns x.get("raw") for any dict — i.e. None when there is no raw.
+   Normalising undefined to null matters more than it looks: JSON.stringify DROPS undefined keys
+   entirely, so a sparse symbol came back missing a dozen fields the client expects to exist, while
+   Python emitted them as null. The diff harness caught exactly that on ETFs. */
+const rv = (d, k) => {
+  const x = d && d[k];
+  if (x && typeof x === "object") { const v = "raw" in x ? x.raw : null; return v === undefined ? null : v; }
+  return x === undefined ? null : x;
+};
 
 function qs(params) {
   const sp = new URLSearchParams();
@@ -134,6 +142,125 @@ async function getQuotes(syms) {
   return out;
 }
 
+/* ------------------------------------------------- fundamentals + statements */
+
+/* v10/quoteSummary and the timeseries endpoint each take ONE symbol, so the fan-out is forced.
+   The concurrency is not: 4 matches server.py's thread pools and the client's yMapLimit. Bursts
+   draw throttling far more readily than steady volume, and these leave from a datacenter IP. */
+const CONCURRENCY = 4;
+async function mapLimit(items, fn) {
+  const queue = items.slice();
+  const workers = [];
+  for (let w = 0; w < Math.min(CONCURRENCY, queue.length); w++) {
+    workers.push((async () => { while (queue.length) await fn(queue.shift()); })());
+  }
+  await Promise.all(workers);
+}
+
+function momentum(price, ma50, ma200) {
+  if (!(typeof price === "number" && price > 0)) return null;
+  const parts = [];
+  if (typeof ma50 === "number" && ma50 > 0) parts.push([0.6, price / ma50 - 1]);
+  if (typeof ma200 === "number" && ma200 > 0) parts.push([0.4, price / ma200 - 1]);
+  if (!parts.length) return null;
+  return parts.reduce((a, p) => a + p[0] * p[1], 0) / parts.reduce((a, p) => a + p[0], 0);
+}
+
+async function fundamentals(syms) {
+  const s = await ensureSession();
+  const out = {};
+  await mapLimit(syms, async (sym) => {
+    try {
+      const r = await yGet("https://query1.finance.yahoo.com/v10/finance/quoteSummary/" + encodeURIComponent(sym),
+        { modules: "defaultKeyStatistics,price,financialData,summaryDetail", crumb: s.crumb || "" }, s.cookie);
+      const res = JSON.parse(r.text).quoteSummary.result[0];
+      const ks = res.defaultKeyStatistics || {}, pr = res.price || {},
+            fd = res.financialData || {}, sd = res.summaryDetail || {};
+
+      let peg = rv(ks, "trailingPegRatio"); if (peg == null) peg = rv(ks, "pegRatio");
+      const mc = rv(pr, "marketCap"), price = rv(pr, "regularMarketPrice");
+      const td = rv(fd, "totalDebt") || 0, cash = rv(fd, "totalCash") || 0;
+      const fcf = rv(fd, "freeCashflow");
+      let dfcf; if (fcf == null) dfcf = null; else if (fcf > 0) dfcf = td / fcf; else dfcf = -1.0;
+      let pe = rv(sd, "trailingPE"), peCalc = false;
+      if (pe == null) { const ni = rv(ks, "netIncomeToCommon"); if (mc && typeof ni === "number" && ni > 0) { pe = mc / ni; peCalc = true; } }
+      let ev = rv(ks, "enterpriseToEbitda"), evCalc = false;
+      if (ev == null) { const eb = rv(fd, "ebitda"); if (mc && typeof eb === "number" && eb !== 0) { ev = (mc + td - cash) / eb; evCalc = true; } }
+      let fwdpe = rv(sd, "forwardPE"); if (fwdpe == null) fwdpe = rv(ks, "forwardPE");
+      let dyield = rv(sd, "dividendYield"); if (dyield == null) dyield = rv(sd, "trailingAnnualDividendYield");
+      let beta = rv(sd, "beta"); if (beta == null) beta = rv(ks, "beta");
+
+      out[sym] = {
+        peg, ev, evCalc, dfcf, pe, peCalc,
+        mom: momentum(price, rv(sd, "fiftyDayAverage"), rv(sd, "twoHundredDayAverage")),
+        marketCap: mc, price, name: pr.shortName || pr.longName || sym, source: "live",
+        financialCurrency: rv(fd, "financialCurrency"), currency: rv(pr, "currency"),
+        forwardPE: fwdpe, evRev: rv(ks, "enterpriseToRevenue"),
+        ps: rv(sd, "priceToSalesTrailing12Months"), pb: rv(ks, "priceToBook"),
+        grossMargin: rv(fd, "grossMargins"), opMargin: rv(fd, "operatingMargins"), netMargin: rv(fd, "profitMargins"),
+        roe: rv(fd, "returnOnEquity"), roa: rv(fd, "returnOnAssets"), debtToEquity: rv(fd, "debtToEquity"),
+        currentRatio: rv(fd, "currentRatio"), quickRatio: rv(fd, "quickRatio"),
+        revGrowth: rv(fd, "revenueGrowth"), earnGrowth: rv(fd, "earningsGrowth"),
+        divYield: dyield, payout: rv(sd, "payoutRatio"), beta,
+        fcf, ebitda: rv(fd, "ebitda"), revenue: rv(fd, "totalRevenue"), cash: rv(fd, "totalCash"), debt: rv(fd, "totalDebt"),
+      };
+    } catch (e) { /* leave missing - the client's median/seed fallback covers it */ }
+  });
+  return out;
+}
+
+/* Yahoo's timeseries key -> our field name. Must stay identical to index.html's STMT_FIELD_MAP and
+   server.py's; a name that drifts here silently drops a column from the statements view. */
+const STMT_FIELDS = {
+  quarterlyTotalRevenue: "revenue", quarterlyCostOfRevenue: "costOfRevenue", quarterlyGrossProfit: "grossProfit",
+  quarterlyOperatingExpense: "operatingExpense", quarterlyOperatingIncome: "operatingIncome",
+  quarterlyPretaxIncome: "pretaxIncome", quarterlyTaxProvision: "taxProvision", quarterlyNetIncome: "netIncome",
+  quarterlyNetIncomeCommonStockholders: "netIncomeCommon", quarterlyEBIT: "ebit", quarterlyEBITDA: "ebitda",
+  quarterlyInterestExpense: "interestExpense", quarterlyDilutedEPS: "dilutedEPS",
+  quarterlyDilutedAverageShares: "dilutedShares", quarterlyBasicAverageShares: "basicShares",
+  quarterlyTotalAssets: "totalAssets", quarterlyTotalLiabilitiesNetMinorityInterest: "totalLiabilities",
+  quarterlyStockholdersEquity: "equity", quarterlyCommonStockEquity: "commonEquity",
+  quarterlyCashAndCashEquivalents: "cash", quarterlyCashCashEquivalentsAndShortTermInvestments: "cashAndSTI",
+  quarterlyTotalDebt: "totalDebt", quarterlyCurrentAssets: "currentAssets", quarterlyCurrentLiabilities: "currentLiabilities",
+  quarterlyInventory: "inventory", quarterlyInvestedCapital: "investedCapital",
+  quarterlyOperatingCashFlow: "operatingCashFlow", quarterlyCapitalExpenditure: "capex", quarterlyFreeCashFlow: "fcf",
+  quarterlyRepurchaseOfCapitalStock: "buyback", quarterlyCashDividendsPaid: "dividendsPaid",
+};
+
+async function statements(syms) {
+  const s = await ensureSession();
+  const out = {};
+  const types = Object.keys(STMT_FIELDS).join(",");
+  const p2 = Math.floor(Date.now() / 1000), p1 = p2 - 6 * 366 * 24 * 3600;
+  await mapLimit(syms, async (sym) => {
+    try {
+      const r = await yGet("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/" +
+        encodeURIComponent(sym),
+        { symbol: sym, type: types, period1: p1, period2: p2, merge: "false", padTimeSeries: "false",
+          lang: "en-US", region: "US", crumb: s.crumb || "" }, s.cookie);
+      const result = ((JSON.parse(r.text) || {}).timeseries || {}).result || [];
+      const byDate = {};
+      result.forEach((series) => {
+        const t = ((series.meta || {}).type || [])[0];
+        const field = STMT_FIELDS[t]; if (!field) return;
+        (series[t] || []).forEach((pt) => {
+          if (!pt || pt.asOfDate == null) return;
+          const raw = (pt.reportedValue || {}).raw;      // padded points carry no raw; skip them
+          if (raw == null) return;
+          (byDate[pt.asOfDate] = byDate[pt.asOfDate] || {})[field] = raw;
+        });
+      });
+      const dates = Object.keys(byDate).sort().slice(-9);
+      const asOf = Math.floor(Date.now() / 1000);
+      out[sym] = dates.length
+        ? { sym, quarters: dates.map((d) => Object.assign({ date: d }, byDate[d])), asOf, source: "live" }
+        // The sentinel matters: without it a genuinely statement-less name is refetched on every open.
+        : { sym, quarters: [], asOf, source: "empty" };
+    } catch (e) { /* leave uncached so it retries; the pulled fallback stands */ }
+  });
+  return out;
+}
+
 /* ------------------------------------------------------------ search, peers */
 
 async function search(q) {
@@ -175,12 +302,11 @@ export default {
     const path = url.pathname;
     const asOf = () => Math.floor(Date.now() / 1000);
     try {
-      if (path === "/api/quotes")  return j({ quotes: await getQuotes(symbolsOf(url)), asOf: asOf() });
-      if (path === "/api/search")  return j({ results: await search((url.searchParams.get("q") || "").trim()) });
-      if (path === "/api/peers")   return j({ peers: await peers((url.searchParams.get("symbol") || "").trim()) });
-      // E11.2b lands /api/fundamentals and /api/statements. Saying so beats a bare 404.
-      if (path === "/api/fundamentals" || path === "/api/statements")
-        return j({ error: "not implemented in this Worker yet" }, 501);
+      if (path === "/api/quotes")       return j({ quotes: await getQuotes(symbolsOf(url)), asOf: asOf() });
+      if (path === "/api/fundamentals") return j({ fundamentals: await fundamentals(symbolsOf(url)), asOf: asOf() });
+      if (path === "/api/statements")   return j({ statements: await statements(symbolsOf(url)), asOf: asOf() });
+      if (path === "/api/search")       return j({ results: await search((url.searchParams.get("q") || "").trim()) });
+      if (path === "/api/peers")        return j({ peers: await peers((url.searchParams.get("symbol") || "").trim()) });
       return j({ error: "not found" }, 404);
     } catch (e) {
       return j({ error: String((e && e.message) || e) }, 500);
