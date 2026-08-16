@@ -23,8 +23,24 @@ on:
 jobs:
   dump:
     runs-on: ubuntu-latest
+
+    # A throwaway Postgres to RESTORE INTO. The industry finding on backups is blunt: testing is the
+    # most neglected part, and a green "backup completed" is not evidence of anything. A restore
+    # drill done by hand once a quarter is a drill that gets skipped, so the pipeline does it every
+    # night instead and fails if the data does not come back.
+    services:
+      verify:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: verify
+          POSTGRES_DB: verify
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+
     steps:
-      - name: Dump, encrypt, verify
+      - name: Dump
         env:
           # Session pooler, port 5432. NOT 6543 and NOT the direct endpoint: the direct endpoint is
           # IPv6-only, GitHub runners are IPv4-only, and it fails with "Network is unreachable".
@@ -43,6 +59,36 @@ jobs:
           grep -q "PostgreSQL database dump" dump.sql || { echo "::error::dump has no header"; exit 1; }
           echo "rows-ish: $(grep -c '^INSERT\|^COPY' dump.sql || true)   bytes: $(stat -c%s dump.sql)"
 
+      - name: Restore it, and prove the portfolios came back
+        run: |
+          set -uo pipefail
+          V="postgresql://postgres:verify@127.0.0.1:5433/verify"
+          # Supabase's extensions, roles and auth/storage schemas do not exist in vanilla Postgres,
+          # so the restore prints errors. That is expected and fine: a real recovery targets a fresh
+          # Supabase project, which has them. What MUST come back is public.portfolios and its rows,
+          # so that is what gets asserted - not the exit code, which would only prove psql ran.
+          docker run --rm -i --network host postgres:17-alpine \
+            psql "$V" -v ON_ERROR_STOP=0 -q < dump.sql > restore.log 2>&1 || true
+
+          ROWS=$(docker run --rm --network host postgres:17-alpine \
+            psql "$V" -tAc "select count(*) from public.portfolios" 2>/dev/null | tr -d '[:space:]')
+          echo "portfolio rows restored: ${ROWS:-none}"
+          case "${ROWS:-}" in
+            ''|*[!0-9]*) echo "::error::public.portfolios did not restore at all"; tail -30 restore.log; exit 1 ;;
+          esac
+          test "$ROWS" -ge 1 || { echo "::error::restored table is empty - the dump has no portfolio data"; exit 1; }
+
+          # The document itself must survive, not just the row count.
+          BAD=$(docker run --rm --network host postgres:17-alpine \
+            psql "$V" -tAc "select count(*) from public.portfolios where data is null or jsonb_typeof(data) <> 'object'" 2>/dev/null | tr -d '[:space:]')
+          test "${BAD:-1}" = "0" || { echo "::error::$BAD restored rows have no usable portfolio document"; exit 1; }
+          echo "restore verified: $ROWS row(s), all carrying a portfolio document"
+
+      - name: Encrypt and keep
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
           # GitHub holds ciphertext only. The passphrase never leaves the owner's password manager.
           gpg --batch --yes --symmetric --cipher-algo AES256 \
               --passphrase "$PASSPHRASE" -o dump.sql.gpg dump.sql
