@@ -1334,8 +1334,19 @@ function pushVersion(txn){
      mean head is the last index right now, so the trim can never cross it or land mid-fork. */
   if(p.versions.length>MAX_VERSIONS){
     const drop=p.versions.length-MAX_VERSIONS;
+    /* Dropping the front of the timeline also destroys the recorded trade prices the value
+       chart's equal-weight counterfactual is reconstructed from - it is CUMULATIVE, not
+       per-checkpoint. So the surviving window carries them: the last known price per symbol,
+       stamped on the oldest retained checkpoint. Every one is a real recorded trade price,
+       nothing is estimated, and it is one number per symbol rather than another snapshot. */
+    const seed=Object.assign({}, (p.versions[0]&&p.versions[0].pxSeed)||{});
+    for(let i=0;i<drop;i++){
+      const dv=p.versions[i]; if(!dv) continue;
+      (dv.trades||[]).forEach(tr=>{ if(tr&&tr.sym&&isNum(tr.price)) seed[tr.sym]=tr.price; });
+    }
     p.versions=p.versions.slice(drop);
     p.head-=drop;
+    if(p.versions[0]) p.versions[0].pxSeed=seed;
   }
 }
 
@@ -2536,6 +2547,12 @@ function valueHistory(){
   const _h=(typeof head==="function")?head():_all.length-1;
   const vs=_all.slice(0,Math.max(0,_h+1));
   const px={}, out=[];
+  /* E10.1 - the window can open mid-life, because older checkpoints have been trimmed away and
+     took their recorded prices with them. pushVersion stamps the last known price per symbol onto
+     the oldest retained checkpoint so this reconstruction stays continuous; a checkpoint's own
+     trades still overwrite the seed below, so newer prices always win. */
+  if(vs.length && vs[0].pxSeed) Object.keys(vs[0].pxSeed).forEach(sym=>{
+    if(isNum(vs[0].pxSeed[sym])) px[sym]=vs[0].pxSeed[sym]; });
   /* EQUAL-WEIGHT COUNTERFACTUAL (E5.6): the same money, the same names, the same dates — but every
      holding weighted equally. At each checkpoint the book is marked at that checkpoint's real traded
      prices, this checkpoint's new capital is added, and the whole thing is redistributed to EXACTLY
@@ -2544,7 +2561,15 @@ function valueHistory(){
      the WEIGHTING model: same selection, same cash flows, same prices. All prices are recorded trade
      prices — nothing is estimated. */
   let ewShares={};
-  vs.forEach(v=>{
+  /* E10.1 - and it must OPEN holding whatever the book was already worth. vs[0] is no longer
+     guaranteed to be the initial build: starting the counterfactual from zero capital there made
+     it restart mid-life while `value` and `invested` stayed cumulative, so the Overview and the
+     return chart reported an equal-weight return that never happened (a book worth $60,000 read as
+     "equal weight -96%"). A genuine INITIAL build records valueBefore 0, so an untrimmed book is
+     bit-for-bit unaffected. Only the TOTAL is needed - it is redistributed to equal weight
+     immediately below, so the opening basket's composition never survives the first checkpoint. */
+  const ewOpen=(vs.length&&isNum(vs[0].valueBefore))?vs[0].valueBefore:0;
+  vs.forEach((v,vi)=>{
     (v.trades||[]).forEach(tr=>{ if(tr&&tr.sym&&isNum(tr.price)) px[tr.sym]=tr.price; });
     const snap=v.snapshot||{}, h=snap.holdings||{};
     let val=0, held=0, priced=0;
@@ -2555,6 +2580,7 @@ function valueHistory(){
     // --- equal-weight book at this checkpoint ---
     const mem=Object.keys(h).filter(sym=>{ const sh=h[sym]?h[sym].shares:0; return isNum(sh)&&sh>0&&isNum(px[sym]); });
     let ewBefore=0; Object.keys(ewShares).forEach(sym=>{ if(isNum(px[sym])) ewBefore+=ewShares[sym]*px[sym]; });
+    if(vi===0) ewBefore=ewOpen;                    // the window opens where the real book stood
     const ewAfter=ewBefore+(isNum(v.cashIn)?v.cashIn:0);
     if(mem.length&&ewAfter>0){ const slice=ewAfter/mem.length;
       ewShares={}; mem.forEach(sym=>{ ewShares[sym]=slice/px[sym]; }); }
@@ -2842,7 +2868,7 @@ function openImportChoice(local,src){
       stored against it yet. One was found ${where}:</p>
     <div class="card pad" style="margin:12px 0;background:var(--surface2)">
       <div class="small"><b>${h}</b> holdings &middot; <b>${v}</b> checkpoint${v===1?"":"s"} &middot; ${contributed} contributed</div>
-      <div class="xs muted" style="margin-top:4px">Its full history comes with it - every rebalance stays undoable.</div>
+      <div class="xs muted" style="margin-top:4px">Its history comes with it; from then on the ${MAX_VERSIONS} most recent checkpoints are kept.</div>
     </div>
     <div id="impMsg" class="auth-msg"></div>
     <div class="row" style="gap:8px;margin-top:6px">
@@ -3830,7 +3856,7 @@ function renderHistory(){
       <div style="font-weight:620;margin-top:6px">No checkpoints yet</div>
       <p class="small muted" style="max-width:420px;margin:6px auto 0">Build your portfolio on the
         <b>Rebalance</b> tab — every build and rebalance is saved here as a checkpoint you can undo,
-        redo, or revert to.</p></div>`; return; }
+        redo, or revert to. The ${MAX_VERSIONS} most recent are kept.</p></div>`; return; }
   body.innerHTML=vs.map((_,i)=>i).reverse().map(i=>{
     // dataset round-trips the id as a String, so compare as one (Set membership is SameValueZero)
     const tx=vs[i], isCur=(i===h), isFut=(i>h), open=OPEN_VERSIONS.has(String(tx.id));
@@ -4101,8 +4127,8 @@ const TOURS = {
 
   history: { name:"History", steps:[
     { sel:"#histChart", title:"Every checkpoint",
-      body:"Each build and rebalance is saved with a full snapshot of the state that produced it." },
-    { sel:"#historyBody", title:"Undo, redo, or revert to any point",
+      body:"Each build and rebalance is saved with a snapshot of the holdings and settings that produced it. The 10 most recent are kept; older ones are dropped." },
+    { sel:"#historyBody", title:"Undo, redo, or revert to any kept point",
       body:"Rebalancing from an earlier point forks the timeline, like git - the abandoned future is dropped rather than silently merged." } ] }
 };
 
