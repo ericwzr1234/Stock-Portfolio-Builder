@@ -661,8 +661,12 @@
 (function(){
   try{
     var raw=localStorage.getItem("pb_sb_session");        /* must match SB_SESSION_KEY */
-    /* must match signedIn(): access_token AND refresh_token */
-    var ok=false; if(raw){ var sess=JSON.parse(raw); ok=!!(sess&&sess.access_token&&sess.refresh_token); }
+    /* must match signedIn() / sbValidSession(): access_token, refresh_token AND a user id.
+       It cannot CALL sbValidSession - that lives in the main script, which has not run yet - so
+       the test is duplicated and the two have to move together. Letting it drift is how a
+       malformed session came to hide the gate for a frame. */
+    var ok=false; if(raw){ var sess=JSON.parse(raw);
+      ok=!!(sess&&sess.access_token&&sess.refresh_token&&sess.user&&sess.user.id); }
     if(ok) document.getElementById("gate").hidden=true;
     else document.documentElement.classList.add("gated");
   }catch(e){ document.documentElement.classList.add("gated"); }
