@@ -23,13 +23,16 @@ data or straight from the financial statements). It runs in two forms from **one
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
-**Status:** **E1–E5 are in `main`/prod** — themes, metrics, statement-driven data, the
-Fundamentals/Screener redesign, and the V2 web UI. **E6–E9 are BUILT AND TESTED on `dev-newUI` but
-NOT MERGED**: accounts + hosted database (E6), first-run onboarding (E7), the persistence rewrite
-with no default themes (E8), and no portfolio data on the device (E9). `main` is 30 commits behind.
+**Status:** **E1–E10 are in `main`/prod** (merged 2026-08-16) — themes, metrics, statement-driven
+data, the Fundamentals/Screener redesign, the V2 web UI, **accounts + a hosted database with a
+mandatory login (E6)**, **first-run onboarding (E7)**, **the persistence rewrite with no default
+themes (E8)**, **no portfolio data on the device (E9)**, and **a rolling 10-checkpoint history
+(E10)**.
 
-**The merge is one short review pass away** — see
-[`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md), which is the file to read first.
+**Before anyone but the owner signs in, three owner-only actions are still outstanding:** a paid
+Supabase tier, custom SMTP (the built-in sender caps at 2 emails/hour), and switching signup to
+invite-only — **signup is currently open to anyone with the URL**. Ticket `E6.7` stays open until
+those are done. See [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md).
 
 - **E5** replaced the whole web UI: five views — **Overview · Model · Rebalance · Research ·
   History** — with the allocation donut, the portfolio-value chart against an **Equal-weight

@@ -1,6 +1,6 @@
 # Stock Portfolio Builder — Project Board
 
-_Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
+_Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
 **Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
 
@@ -9,12 +9,12 @@ _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 2 |
+| Design | 0 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
-| Integration | 10 |
-| Done | 42 |
+| Integration | 1 |
+| Done | 53 |
 
 ---
 
@@ -34,17 +34,10 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (2)
+## Design  (0)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E10.1** · _E10 · History retention_ — **Keep only the last 10 checkpoints** _(depends E6.5, web)_ · [spec](features/E10_history-retention.md)
-  - OWNER (2026-08-15): "We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago."
-  - WHY IT MATTERS: every checkpoint deep-copies the whole state (holdings, themes, membership, watchlist, overrides, metric config) and nothing prunes them. Enough rebalances and the PATCH body exceeds the request limit - saving then fails PERMANENTLY with a generic error and no diagnosis.
-  - TRAPS (all in the spec): head is an INDEX into versions[] and must be re-based in the same operation or undo/redo jumps to the wrong checkpoint; never prune below head or mid-fork; prune on WRITE not on read, or the document keeps growing in the database; prune inside pushVersion so no caller can bypass it; valueHistory walks versions[] so the Overview chart shortens - its note must not claim more checkpoints than it has.
-- **E10.2** · _E10 · History retention_ — **Undo must not silently discard theme/membership/watchlist edits** _(depends E10.1, web)_ · [spec](features/E10_history-retention.md)
-  - OWNER (2026-08-15): "I still would like the idea to be able to revert back to a historical version/moment of the portfolio. This does not limit to the last edits made, but even earlier changes are fine too." - so revert-to-any-point STAYS; the defect is only that edits made SINCE the last checkpoint vanish.
-  - PRE-EXISTING, NOT introduced by E5-E9 - restoreVersion is byte-identical to prod. snapshotState versions themes/themeTickers/watchlist, but createTheme/deleteTheme/renameTheme/setMembership/addToWatchlist never push a checkpoint. So Undo replaces them from an older snapshot and persists it, while the toast says 'Redo available' - and redo restores the same pre-theme snapshot. Unrecoverable.
-  - DECIDE FIRST: (A) checkpoint structural edits so nothing is ever lost - recommended, with only TRADE checkpoints counting toward E10.1's cap so a few theme edits cannot push a real rebalance out of the window; or (B) keep the semantics and warn plainly in the undo/revert confirm. B leaves the data-loss path open and only labels it.
+- _(none)_
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -61,47 +54,9 @@ _Tested but not yet approved; new instructions → back to Implementation._
 
 - _(none)_
 
-## Integration  (10)
+## Integration  (1)
 _Approved; merging dev → main (prod) + updating docs._
 
-- **E6.1** · _E6 · Multi-user platform_ — **Forward-compat: schemaVersion + revision + updatedAt** _(depends E6.0, web)_ · [spec](features/E6_database_design.md)
-  - Add schemaVersion, a MONOTONIC revision, and updatedAt to the saved portfolio document. Local only - no backend, no vendor decision.
-  - revision is the optimistic-concurrency token E6.5 needs; schemaVersion makes any future server-side migration mechanical.
-  - Deliberately kept OUT of E5 so savePortfolio stayed byte-identical to prod for a provably safe merge. Do this FIRST.
-- **E6.2** · _E6 · Multi-user platform_ — **Extract a storage-adapter interface** _(depends E6.1, web)_ · [spec](features/E6_database_design.md)
-  - Formalise the existing loadPortfolio/savePortfolio seam into a named adapter interface so the cloud backend becomes a 4th implementation alongside web-file / iOS-localStorage / LAN-sync.
-  - No behaviour change and no vendor decision - a pure refactor, verified by the app behaving identically.
-- **E6.3** · _E6 · Multi-user platform_ — **Choose provider; stand up schema + row-level security** _(depends E6.2, web)_ · [spec](features/E6_database_design.md)
-  - NEEDS USER INPUT (design doc S9): managed backend-as-a-service (recommended) vs self-hosting server.py + Postgres; acceptance that a public anon key in the client ends the 'no API keys' character; which region the data may live in; invite-only vs open registration.
-  - Schema: one row per user - user_id, schema_version, revision, updated_at, data JSONB (exactly today's portfolio.json shape); RLS policy scoping every read/write to auth.uid().
-  - Document-not-normalised on purpose: the version timeline (undo/redo/fork) is the trickiest logic in the app and must not be re-expressed as rows in the same step that introduces auth.
-- **E6.4** · _E6 · Multi-user platform_ — **Login / register / logout + session handling** _(depends E6.3, web)_ · [spec](features/E6_database_design.md)
-  - First real UI addition since E5. Use the provider's auth - never hand-roll password storage, reset or lockout.
-  - Sign-out now clears every trace of the account (portfolio, revision, themes, watchlist, metrics, presets, weights, penalty, cap) - without it a different, empty account was offered the previous user's book to import. Verified with per-account markers across repeated sign-in cycles.
-  - A session that dies mid-use (revoked/expired refresh token, paused project) now re-gates the app. It used to keep running unauthenticated: the adapter fell through to the identity-free store and the next save wrote the account's portfolio over the shared server file.
-- **E6.5** · _E6 · Multi-user platform_ — **Cloud adapter with optimistic concurrency** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
-  - Every save carries the revision it was based on; the server updates only if it still matches, else 409 Conflict.
-  - On conflict, reload the server copy and tell the user plainly - financial records must NEVER be auto-merged.
-  - Keep a local mirror after every successful save (the iOS LAN-sync adapter already does this) so offline reads work and the cloud is not a single point of failure.
-  - HARDENED over three review rounds. baseRevision holds only a SERVER-CONFIRMED revision (null means saving is refused); the offline mirror moved off STORE_KEY to pb_cloud_mirror_<uid>; savePortfolio() returns true/false; kept-aside work is stashed AND readable back. Contract: E6_database_design.md sections 16-17.
-  - Stashing decides by CONTENT, not revision number: two devices editing from the same base both stamp base+1, so the old 'mirror revision is not ahead' test discarded genuine offline work. Verified live: divergent edits at equal revisions are kept, distinct edits both survive, identical repeats dedupe.
-  - ROUND 5 (2026-08-15) = NOT CONVERGED: 3 defects that lose data or cross accounts, 2 of them regressions from round 4's own fixes. Fixed but NOT yet re-verified. (a) loadPortfolio's FAILURE branch had no session guard, so a stalled request from a signed-out user hydrated that account's mirror into the next user's session; (b) dropMirror ignored stashUnsyncedMirror's 'failed' sentinel and deleted the only copy of an unsaved edit; (c) 'Start fresh' resolved its modal before its own INSERT, letting a stash restore interleave and drop a document that was never written.
-  - DO NOT MERGE until a sixth review round comes back converged. Findings per round so far: 36, 30, 19, 6, 3 - and EVERY round has contained defects introduced by the previous round's fix. The invariants and the failure that motivated each one are in E6_database_design.md sections 16-18.
-  - ROUND 6 (2026-08-15) = NOT CONVERGED. The critical one was a guard measuring the wrong thing: sbEpoch bumped on EVERY session write, and a token refresh is one - so on the commonest path in the app (any reload more than an hour after signing in) the 401 -> refresh -> retry succeeded and then stale() threw the recovered portfolio away. The user saw 'No portfolio yet' over a live account and their first click blanked the offline mirror. Now the epoch tracks USER IDENTITY only. Verified live: expired-token reload restores 25 holdings at revision 19, mirror intact.
-  - ROUND 7 (2026-08-15) = NOT CONVERGED: 5 findings, 2 again regressions from round 6. (a) HIGH - the epoch guard round 6 put on the mirror write meant a session REJECTED DURING a save skipped the rescue entirely, so the commonest way to lose a session also lost the edit while the toast said it was kept; now the work goes to the owner's stash without resurrecting the plaintext mirror. (b) MEDIUM - 'dirty' and 'could not be filed' were the same bit, so an ordinary failed-then-retried save filed its own ancestor as unsaved work and restoring it reverted the account; they are now separate bits. Plus: a restored stash is consumed by the first successful save, and nativeSavePortfolio now throws instead of reporting success on a full localStorage.
-  - E8 REWRITE (2026-08-15): after 7 patch rounds and ~96 defects with a regression rate that never fell, loadPortfolio/_savePortfolioInner/the cloud adapter were rewritten around ONE context and ONE checkpoint (contract C1-C5, stated once). Six audits of the rewrite found 7/6/4/1/5/6 - the core loop held throughout; almost every finding was in the kept-aside recovery subsystem.
-  - E9 (2026-08-15, OWNER'S DECISION): NOTHING about a portfolio is written to the device. Deleted the mirror, the dirty/unfiled bits, the unsynced/conflict stashes, the recovery prompt and 11 functions. A save that cannot reach the account did not happen and says so; an unreachable account is reported, not replaced by a cached copy. purgeLegacyLocalCopies() clears anything earlier versions left behind. COST: reverses E6.8's 'a stored session keeps working while the backend is paused' - during a free-tier pause the app cannot show the portfolio.
-- **E6.6** · _E6 · Multi-user platform_ — **Import local portfolio.json + cutover** _(depends E6.5, web)_ · [spec](features/E6_database_design.md)
-  - On first login with an empty account, offer to import the local file as-is. Keep portfolio.json on disk untouched as the pre-migration backup.
-  - Import re-checks for an existing row, hydrates through the SAME path a normal load uses (it previously uploaded a book stripped of themes, watchlist, metrics, presets, cap, weights and penalty), and fails loudly instead of reporting success. 'Empty account' now means no row - not a holdings count of zero.
-  - Cross-user guards verified as a truth table: claimed by another account, not offered; account read failed, not offered; clean and unclaimed, offered; claimed by me, offered. pb_portfolio_v1 stayed byte-identical (18,871 bytes) through every test.
-- **E6.8** · _E6 · Multi-user platform_ — **Login landing page - sign-in required before anything** _(depends E6.4, web)_ · [spec](features/E6_database_design.md)
-  - USER REQUEST (2026-08-15): a proper log-in landing page. Nobody reaches the app without signing in first.
-  - This CHANGES THE APP'S CHARACTER: today it runs fine signed-out on local storage. With a hard gate, no account = no app, and the local portfolio.json path becomes reachable only through the E6.6 import.
-  - OPERATIONAL RISK to design around: the free tier PAUSES after a week idle. A naive gate would lock the user out of their own portfolio whenever the backend is asleep or offline. So: a VALID STORED SESSION must still open the app against the local mirror when the backend is unreachable — the gate blocks strangers, it must not block the owner during an outage.
-  - Sign out returns to the landing page.
-  - The gate is visible in markup and taken down pre-paint only when a stored session exists, so the page fails closed if a boot fetch hangs. It lifts only AFTER the account's data has loaded - previously a new user saw the previous user's holdings for the seconds boot spent on the network.
-  - init() and the sign-in path now share one boot function; they had drifted, so reloading the page skipped the sync badge, the import offer and the kept-aside-work prompt.
 - **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
   - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
   - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
@@ -115,21 +70,9 @@ _Approved; merging dev → main (prod) + updating docs._
   - NOTE: test-b@example.com no longer exists. Any future cross-account test needs a second account created from the dashboard (the assistant does not create accounts). test-a@example.com / Test@1234 survives.
   - REMAINING before inviting anyone: custom SMTP (built-in sender is capped at 2 emails/hour, so invites and password resets stall) and flipping signup to invite-only (currently OPEN - the owner's own registration with a real email confirmed that).
   - PRE-TESTING (owner, 2026-08-15): move Supabase to a PAID tier before formal testing. Free projects pause after a week idle and, since E9 removed every local copy, a paused project means testers see nothing rather than a cached portfolio. This retires the old E6.8 requirement that a stored session must keep working while the backend is asleep. Remaining pre-invite items: custom SMTP (built-in sender is 2 emails/hour) and invite-only signup.
-- **E7.1** · _E7 · First-run onboarding_ — **Start fresh means a genuinely empty board** _(depends E6.6, web)_ · [spec](features/E7_first-run-onboarding.md)
-  - USER-FOUND (2026-08-15): choosing Start fresh still showed the five built-in themes with no stocks in them, and a donut of target weights computed over themes the user never chose.
-  - Cause: state.themes=null MEANS 'use the defaults', and Start fresh left it null. Fixed with an explicit, persisted noDefaults flag rather than by changing what null means - every existing portfolio relies on that meaning, so no existing document changes behaviour.
-  - Empty states added: Model shows 'No themes yet' with Create your first theme / Use the built-in 5 / Show me how; Rebalance says 'Build your themes first'; the context bar points at Model instead of Rebalance; the donut already said 'No themes yet'. defaultCap() guards the 1.5/N division against zero themes.
-  - Start fresh now lands the user on Model with the guide open, because that is where a portfolio actually starts.
-  - E8: there are no default themes at all now (owner's decision) - the 5 built-ins were a single-user legacy. themes() is simply the list; 'Restore default 5' is deleted; deleting your last theme is allowed. Pre-E8 documents are migrated once, keyed on schemaVersion, handling the theme list and the membership independently (they were separate fallbacks) and covering version snapshots.
-- **E7.2** · _E7 · First-run onboarding_ — **Guided tour - one per view** _(depends E7.1, web)_ · [spec](features/E7_first-run-onboarding.md)
-  - USER REQUEST (2026-08-15): floating-bubble prompts that walk a first-time user through creating their first portfolio, one guide per page.
-  - Five tours: Model (7 steps: create a theme, add tickers, choose metrics, weight them, bad-data policy, cap, targets), Overview (4), Rebalance (4), Research (2), History (2).
-  - Anchored to real controls. The ring is drawn by an OVERLAY, not by restyling the target - restyling would move the very element being pointed at. Steps whose anchor is not on screen are skipped, so a tour written for a full board still reads correctly on an empty one.
-  - Shown once per ACCOUNT per view (pb_tour_<uid>_<view>), so a second person on the same browser gets their own walkthrough. Replay any time from the ? button in the header. Switching views ends the tour.
-  - Verified: all five run end to end, bubbles stay on screen, rings anchor, full teardown with no leftover DOM, seen tours do not reappear, a fresh user auto-opens.
-  - FIRST REVIEW (2026-08-15) found 10, incl. a CRITICAL of my own making: restoreDefaultThemes() never cleared noDefaults, so on a start-fresh account the always-visible 'Restore default 5' button DELETED the user's themes and restored nothing, while toasting success. themes/noDefaults now move together through useDefaultThemes()/useNoThemes(). Also fixed: a tour could outlive its session and be inherited by the next account (its Done then wrote 'seen' against the WRONG uid); the bubble covered modals (a modal now stands the tour down via MutationObserver); Back could not step past a skipped step; a zero-height anchor could be ringed; the calc tour was a silent dead button on an empty board; and impNo started the tour twice.
+  - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
 
-## Done  (42)
+## Done  (53)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -186,6 +129,18 @@ _Integrated into the product (on main)._
 - **E4.5** — Allocation-model panel layout · [spec](features/E4.5_allocation-panel-layout.md)
 
 </details>
+<details><summary><b>E7 · First-run onboarding</b> — 2 done</summary>
+
+- **E7.1** — Start fresh means a genuinely empty board · [spec](features/E7_first-run-onboarding.md)
+- **E7.2** — Guided tour - one per view · [spec](features/E7_first-run-onboarding.md)
+
+</details>
+<details><summary><b>E10 · History retention</b> — 2 done</summary>
+
+- **E10.1** — Keep only the last 10 checkpoints · [spec](features/E10_history-retention.md)
+- **E10.2** — Undo must not silently discard theme/membership/watchlist edits · [spec](features/E10_history-retention.md)
+
+</details>
 <details><summary><b>APP · iOS app parity</b> — 1 done</summary>
 
 - **APP1** — Bring the iOS app to parity with web (E1–E4.5) · [spec](APP_MIGRATION.md)
@@ -200,5 +155,16 @@ _Integrated into the product (on main)._
 - **E5.4** — Research tab (replaces Screener)
 - **E5.5** — History tab
 - **E5.6** — Equal-weight benchmark + return chart
+
+</details>
+<details><summary><b>E6 · Multi-user platform</b> — 7 done</summary>
+
+- **E6.1** — Forward-compat: schemaVersion + revision + updatedAt · [spec](features/E6_database_design.md)
+- **E6.2** — Extract a storage-adapter interface · [spec](features/E6_database_design.md)
+- **E6.3** — Choose provider; stand up schema + row-level security · [spec](features/E6_database_design.md)
+- **E6.4** — Login / register / logout + session handling · [spec](features/E6_database_design.md)
+- **E6.5** — Cloud adapter with optimistic concurrency · [spec](features/E6_database_design.md)
+- **E6.6** — Import local portfolio.json + cutover · [spec](features/E6_database_design.md)
+- **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
