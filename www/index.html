@@ -2910,6 +2910,50 @@ function renderAcctBtn(){
   else{ b.textContent="Sign in"; b.classList.remove("on");
         b.title="Sign in to sync this portfolio to your account"; }
 }
+/* E11.5 - the user's own copy of their own data. Also the honest counterpart to E9: nothing is
+   kept on the device, so there must be a way to take it OFF the service deliberately. */
+function exportMyData(){
+  const doc=syncStateIntoDocument();
+  if(!doc){ toast("Nothing to export yet"); return; }
+  /* Exactly the document that WOULD BE SAVED, not a second view assembled for the occasion -
+     otherwise the export quietly drifts from the thing it claims to be a copy of. */
+  const payload=JSON.stringify({exportedAt:new Date().toISOString(), account:sbUserEmail()||null,
+                                revision:state.baseRevision, portfolio:doc}, null, 2);
+  const name="portfolio-"+todayISO()+".json";
+  const url=URL.createObjectURL(new Blob([payload],{type:"application/json"}));
+  const a=document.createElement("a"); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+  toast("Downloaded "+name);
+}
+
+/* Deletion runs through a SECURITY DEFINER function (sql/002_delete_own_account.sql) that can only
+   ever delete its own caller. The alternative is the service role key, which carries BYPASSRLS and
+   must never exist in a browser. */
+async function deleteMyAccount(){
+  const who=sbUserEmail()||"this account";
+  if(!confirm("Permanently delete "+who+"?\n\nYour holdings, every checkpoint, your themes and "
+    +"your watchlist are erased from the database immediately. This cannot be undone and there is "
+    +"no backup you can restore from.\n\nIf you want a copy, cancel and use Download my data first.")) return;
+  const btn=$("#acctDelete");
+  if(btn){ btn.disabled=true; btn.textContent="Deleting\u2026"; }
+  try{
+    const r=await sbApi("/rest/v1/rpc/delete_own_account",
+      {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
+    if(!r.ok){ const t=await r.text(); throw new Error(t.slice(0,140)||("HTTP "+r.status)); }
+    closeModal();
+    try{ purgeLegacyLocalCopies(); }catch(e){}
+    try{ await sbSignOut(); }catch(e){}      // the user no longer exists; local teardown still must run
+    lockOut();
+    toast("Account deleted");
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent="Delete my account"; }
+    /* Say what actually happened. If the function has not been installed the account still exists,
+       and reporting success would be a lie the user has no way to check. */
+    toast("NOT deleted - "+((e&&e.message)||"the request failed"));
+  }
+}
+
 function openAccount(){
   /* E6 FIX: with a mandatory gate there is exactly one sign-in path. This used to render a second
      one, invisible BEHIND the gate but fully wired, which authenticated without ever clearing
@@ -2921,11 +2965,18 @@ function openAccount(){
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
       <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account &mdash; this app stores nothing about it on your device.</p>
+      <button class="btn" id="acctExport" style="width:100%;margin-top:12px">\u2b07 Download my data</button>
+      <p class="xs muted" style="margin:6px 0 0">Everything the account holds, as JSON &mdash; holdings, checkpoints, themes, watchlist and settings.</p>
       <div class="row" style="justify-content:space-between;margin-top:16px">
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
-      </div></div></div>`;
+      </div>
+      <p class="xs muted" style="margin:18px 0 6px;border-top:1px solid var(--line);padding-top:12px">Delete this account and everything in it. This cannot be undone.</p>
+      <button class="btn danger ghost" id="acctDelete" style="width:100%">Delete my account</button>
+      </div></div>`;
     $("#acctClose").addEventListener("click",closeModal);
+    $("#acctExport").addEventListener("click",exportMyData);
+    $("#acctDelete").addEventListener("click",deleteMyAccount);
     $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
     $("#acctSignOut").addEventListener("click",async()=>{
       const uid=sbUserId();
