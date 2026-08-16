@@ -2336,6 +2336,11 @@ function hydrateFromDocument(p){
      those snapshots carry no theme fields at all. Migrating themes before they exist left them
      unmigrated, and restoreVersion now reads a missing snapshot theme list as "empty" rather than
      the old "use the built-in five" - so a single Undo would have erased the model outright. */
+  /* migrateVersions synthesises snapshots from LIVE state.weights/state.penalty, so those must
+     already reflect THIS document - otherwise a legacy book's reconstructed checkpoints are stamped
+     with the module defaults and undoing to one silently changes the allocation model. */
+  state.weights = (p.weights && typeof p.weights==="object") ? p.weights : Object.assign({},DEFAULT_CONFIG.weights);
+  state.penalty = (p.penalty && typeof p.penalty==="object") ? p.penalty : Object.assign({},DEFAULT_CONFIG.penalty);
   try{ migrateVersions(p); }catch(e){ console.error("version migration failed",e); }
   migrateThemes(p);                    // E8: a pre-E8 document keeps the themes it was showing
   { state.portfolio=p;
@@ -2367,9 +2372,27 @@ function hydrateFromDocument(p){
    second would be rejected as a "conflict" - manufacturing a cross-device warning, and a
    destructive reload, out of a single-device race. */
 let _saveChain=Promise.resolve();
+/* state.* -> the document. Idempotent, and deliberately separate from stampPortfolioMeta: it runs
+   at QUEUE time as well as at write time, so a save that is later refused still has the edit inside
+   the document it files. Nearly every setting - weights, penalty, cap, metrics, presets, themes,
+   membership, watchlist - lives only in state.* until this runs; filing the document beforehand
+   stored a copy WITHOUT the change, and for a state-only edit that copy was byte-identical to the
+   account's own, which the recovery prompt then offered back as "unsaved work" that reverts it. */
+function syncStateIntoDocument(){
+  const d=state.portfolio; if(!d) return null;
+  if(!Array.isArray(d.versions)) d.versions=[];
+  if(!isNum(d.head)) d.head=d.versions.length-1;
+  d.weights=state.weights; d.overrides=state.overrides; d.penalty=state.penalty; d.cap=state.cap;
+  d.computeFromStatements = state.computeFromStatements!==false;                    // E3.4
+  d.themeTickers=state.themeTickers; d.themes=state.themes; d.watchlist=state.watchlist;
+  d.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;           // E2.1
+  d.metricCfg = state.metricCfg || null;                                            // E2.4
+  d.presets = Array.isArray(state.presets) ? state.presets : [];                    // E2.5
+  return d;
+}
 function savePortfolio(){
   const c=pctx();                                // C1: bound to the context that ASKED for this save
-  const queued=state.portfolio;                  // ...and to the document as it stood then
+  const queued=syncStateIntoDocument();          // ...and to the document INCLUDING the edit
   const run=()=>{
     if(!ctxCurrent(c)){
       // C4: a save dropped because the session changed must not take the edit with it.
@@ -2387,20 +2410,7 @@ async function _savePortfolioInner(c){
   if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
   const doc=state.portfolio, owner=c.owner;      // C1
 
-  /* The state -> document copy happens BEFORE the refusals below, because a refusal has to keep the
-     edit that was refused. Nearly every setting - weights, penalty, cap, metrics, presets, themes,
-     membership, watchlist - lives only in state.* until this runs, so filing state.portfolio before
-     it stored the document WITHOUT the change, and (worse) a copy byte-identical to the account's
-     own, which the recovery prompt would then offer back as "unsaved work" that reverts it.
-     stampPortfolioMeta stays below: it bumps the revision, and a refused save must not consume one. */
-  if(!Array.isArray(state.portfolio.versions))state.portfolio.versions=[];
-  if(!isNum(state.portfolio.head))state.portfolio.head=state.portfolio.versions.length-1;
-  state.portfolio.weights=state.weights; state.portfolio.overrides=state.overrides; state.portfolio.penalty=state.penalty; state.portfolio.cap=state.cap;
-  state.portfolio.computeFromStatements = state.computeFromStatements!==false;   // E3.4
-  state.portfolio.themeTickers=state.themeTickers; state.portfolio.themes=state.themes; state.portfolio.watchlist=state.watchlist;
-  state.portfolio.metrics = state.metrics ? state.metrics.map(m=>({key:m.key})) : null;   // E2.1
-  state.portfolio.metricCfg = state.metricCfg || null;                                    // E2.4
-  state.portfolio.presets = Array.isArray(state.presets) ? state.presets : [];            // E2.5
+  syncStateIntoDocument();   // the edit must be IN the document before any refusal can file it
 
   if(booting){
     // C4 + an honest badge: the refusal must not look like a successful save.
@@ -2471,8 +2481,11 @@ async function _savePortfolioInner(c){
        reload the server's version, and say plainly which one is on screen.
        If the copy could NOT be kept, do not reload - the reload replaces state.portfolio, and this
        is the one place where that destroys the only remaining copy of the edit. */
-    if(!keepAside("conflict",owner,doc) && !cloudMirrorSave(doc,owner,true)){
-      // overwriting the existing mirror key often succeeds where a NEW key hits the quota
+    /* The mirror fallback works precisely because overwriting an existing key succeeds where a
+       NEW key hits the quota - which is also exactly when the mirror is holding an offline copy
+       that could not be filed. Never trade one lost edit for another. */
+    const mayUseMirror = !mirrorUnfiled(owner);
+    if(!keepAside("conflict",owner,doc) && !(mayUseMirror && cloudMirrorSave(doc,owner,true))){
       state.syncError="changed on another device, and your edit could not be filed - it is only on screen";
       setTimeout(()=>toast("Changed on another device. Your edit could NOT be saved or filed - copy it somewhere before reloading."),400);
       renderSyncBadge();
@@ -4811,10 +4824,14 @@ function setupEvents(){
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
   $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
+    /* The refusal comes FIRST. It sat below the assignment, so "try again in a moment"
+       was printed AFTER the book had already been replaced in memory - and once booting
+       cleared, every guard passed and the next autosave wrote that blank document over
+       the account, the mirror and the whole checkpoint history. */
+    if(booting){ toast("Still loading your account - try again in a moment"); return; }
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
-    if(booting){ toast("Still loading your account - try again in a moment"); return; }
     // The document was replaced wholesale, so a stash "put on screen" earlier is no longer what is
     // being saved and must not be consumed by this save.
     state.pendingStashKey=null;
