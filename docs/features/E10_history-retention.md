@@ -45,6 +45,38 @@ intact; and round-tripped through the database, where the server row genuinely h
 checkpoint chart now shows the last 10 checkpoints only. Preserving a longer chart would need a
 second, separate history array — more machinery than the owner's requirement asks for.
 
+### The blocker this shipped with, and the rule it produced
+
+The first cut of E10.1 passed every test written for it and still broke the Overview. It was caught
+only by an independent review pass.
+
+`timelineTrimmed()` exists *because* the code now knows `versions()[0]` may no longer be the initial
+build. That fact was taught to `canUndo()` and to nothing else — and `valueHistory()`'s equal-weight
+counterfactual is a **cumulative reconstruction**: it marks the book at recorded trade prices, adds
+each checkpoint's new cash, and redistributes to equal weight. Seeded empty, the first *retained*
+checkpoint restarted the entire comparison from that one checkpoint's new cash, while `value`
+(recorded `valueAfter`) and `invested` (cumulative `totalContributed`) stayed true.
+
+A book with $52,000 invested and $60,000 of value, applying an 11th rebalance with $2,000 of new
+cash, would have reported **"equal weight −96.2% · ahead by 111.6pp"** on the Overview — and the real
+line would have collapsed into a sliver, because the chart's y-scale spans `value ∪ ew`. Fabricated
+performance numbers, presented as fact, on the first screen the user sees.
+
+Two things have to survive the trim, and both now do:
+
+- **The capital.** The window opens holding what the book was really worth: `vs[0].valueBefore`,
+  applied at `vi === 0`. A genuine `INITIAL` build records `0` there, so untrimmed books are
+  bit-for-bit unaffected — verified. Only the *total* is needed, because it is redistributed to equal
+  weight immediately, so the opening basket's composition never survives the first checkpoint.
+- **The prices.** Trimming destroys the recorded trade prices the basket was built from, so
+  `pushVersion` stamps the last known price per symbol onto the oldest retained checkpoint as
+  `pxSeed`. Real recorded prices, nothing estimated, one number per symbol rather than another
+  snapshot. Exactly one `pxSeed` exists at a time: the next trim merges it, then re-stamps.
+
+> **Rule: when you teach the code a new fact, teach every reader of it.**
+> Grep for every consumer of the assumption you just invalidated. Here the assumption was
+> "`versions()[0]` is the beginning", and it had two readers, not one.
+
 ### The traps — read before writing code
 
 1. **`head` is an INDEX into `versions[]`.** Dropping entries from the front shifts every index.
