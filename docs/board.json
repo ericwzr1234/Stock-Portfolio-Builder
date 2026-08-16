@@ -32,8 +32,9 @@
       "Also settled two open questions: /v8/finance/chart needs no cookie and no crumb; and the 10ms Workers CPU limit is not threatened by fetching, since all of that time is I/O which does not count against CPU.",
       "WHY IT MATTERED: Yahoo deployed TLS fingerprinting in Apr 2025 and a Worker cannot control its TLS fingerprint. This is the only evidence that exists either way for Cloudflare specifically - a web search found none. Delete the spike Worker at cutover."
       ] },
-    { "id": "E11.1", "epic": "E11", "stage": "design", "platform": "web", "depends": "E6.5", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.1", "epic": "E11", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E11_online-deployment.md",
       "title": "Nightly pg_dump, and a restore actually performed", "notes": [
+      "DONE 2026-08-16, and PROVEN: the run reported portfolio rows restored: 1 / restore verified: 1 row(s), all carrying a portfolio document. The dump is recoverable, not merely present.",
       "Supabase Free provides ZERO backups in 2026 - no daily snapshots, no PITR, no retention. Their own docs tell free users to dump it themselves.",
       "With one JSON row per user, no device copy (E9) and no export, a single bad write is unrecoverable total loss for that user. Even Pro only restores the WHOLE project to a point in time; there is no row-level restore at any price.",
       "MUST use the session pooler on port 5432, not 6543 and not the direct endpoint: the direct endpoint is IPv6-only and GitHub runners are IPv4-only, so a direct dump fails with 'Network is unreachable'.",

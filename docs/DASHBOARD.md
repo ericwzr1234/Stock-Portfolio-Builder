@@ -9,12 +9,12 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 8 |
+| Design | 7 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 54 |
+| Done | 55 |
 
 ---
 
@@ -34,15 +34,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (8)
+## Design  (7)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E11.1** · _E11 · Online, for invited users_ — **Nightly pg_dump, and a restore actually performed** _(depends E6.5, web)_ · [spec](features/E11_online-deployment.md)
-  - Supabase Free provides ZERO backups in 2026 - no daily snapshots, no PITR, no retention. Their own docs tell free users to dump it themselves.
-  - With one JSON row per user, no device copy (E9) and no export, a single bad write is unrecoverable total loss for that user. Even Pro only restores the WHOLE project to a point in time; there is no row-level restore at any price.
-  - MUST use the session pooler on port 5432, not 6543 and not the direct endpoint: the direct endpoint is IPv6-only and GitHub runners are IPv4-only, so a direct dump fails with 'Network is unreachable'.
-  - The deliverable is the RESTORE, not the dump. An untested backup is a guess. Restore into a local supabase instance once and confirm the book opens.
-  - TRAP: GitHub disables scheduled workflows after 60 days without repo commits - the backup and any keep-alive die together, silently, exactly when the project is quiet enough to need them.
 - **E11.2** · _E11 · Online, for invited users_ — **Port the market-data proxy to a Cloudflare Worker** _(depends E11.0, web)_ · [spec](features/E11_online-deployment.md)
   - Reuse the JS Yahoo client already in index.html for the native build (yEnsureCrumb, nativeQuotes, nativeFundamentals, nativeStatements, nativeSearch) - swap the CapacitorHttp transport for fetch. Not a rewrite of server.py's 823 lines.
   - Close the known nativeFundamentals gap so it returns the same ~21 E2 fields server.py does, or the Worker silently serves a thinner model than local dev.
@@ -115,7 +109,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (54)
+## Done  (55)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -211,8 +205,9 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 1 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 2 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
+- **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
 
 </details>
