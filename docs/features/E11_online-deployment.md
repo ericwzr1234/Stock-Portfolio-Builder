@@ -1,6 +1,34 @@
 # E11 — Online, for invited users
 
-**Status:** E11.0 (spike) **done and passed** 2026-08-16. The rest is designed, not built.
+**Status (2026-08-16, end of session 2): 9 of 12 done.** Built, tested and merged to prod:
+`E11.0` `E11.1` `E11.2a` `E11.2b` `E11.5` `E11.6` `E11.8` `E11.9` `E11.10`.
+Remaining: `E11.3` (deploy to Pages), `E11.4` (custom SMTP — needs the owner's credentials),
+`E11.7` (Sentry + feedback). **The app is still served from localhost; nothing is public yet.**
+
+## What the diff harness bought
+
+`tools/diff_proxy.py` compares the Worker against `server.py` field by field. It found **three real
+bugs across its first runs, and only one was in the new code**:
+
+1. **`server.py` had been degrading every ETF to a placeholder.** It judged whether a live response
+   was usable by testing peg-or-ev — *stock* metrics an ETF can never have — so SPY, VOO and QQQ had
+   their real name, price, P/E and dividend yield discarded for an empty seed row.
+2. **`server.py`'s search tie-broke on symbol length**, so "Maui Land & Pineapple" (MLP) outranked
+   "Apple Inc." (AAPL) for the query *apple*.
+3. The Worker's value unwrapper returned Yahoo's bare empty object instead of null — and
+   `JSON.stringify` **drops undefined keys**, so sparse symbols came back missing a dozen fields the
+   client expects to exist.
+
+None would have been found by reading the code. All three produce entirely plausible JSON. That is
+the argument for diffing a data-layer rewrite rather than reviewing it.
+
+## The rule this epic keeps proving
+
+**Porting logic ports its bugs.** The search tie-break was fixed in `server.py` in the morning, then
+written again from scratch in JavaScript in the afternoon — where it produced the identical wrong
+answer for the identical query. Concurrency was capped in `server.py` and missed in the JS client the
+same day. A test named after the owner's own example (*"if you type appl…"*) caught the second one; a
+general test would not have.
 
 ## The shape, decided by the owner (2026-08-16)
 

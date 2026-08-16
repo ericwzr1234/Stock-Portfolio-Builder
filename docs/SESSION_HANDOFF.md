@@ -1,24 +1,28 @@
 # Session handoff — read this first
 
-**Prod `main` carries E1–E11 partial.** E6–E10 shipped 2026-08-16. E11 (online, for invited users)
-is under way: **E11.0, E11.1, E11.5, E11.6, E11.8 are done**; E11.2, E11.3, E11.4, E11.7 remain.
+**Prod `main` carries E1–E10 complete, and 9 of 12 E11 tickets.** The app is still served from
+localhost; **nothing is public yet**. Remaining in E11: `E11.3` deploy to Pages, `E11.4` custom SMTP,
+`E11.7` Sentry + feedback.
 
-The app is still served from localhost. Nothing is public yet.
+**Working agreement (owner, 2026-08-16):** sessions are capped at **4 hours**. Every unit is started,
+tested, and merged to prod within the session, or it is not started. Nothing is ever left
+outstanding. All docs are current before stopping.
 
 ---
 
-## The owner's shape decision — everything follows from this
+## The shape decision — everything follows from this
 
 > *"personal use, with a few, limited users on invite-only basis. This will never go public or
-> commercial."* — and invite-only means **an unlisted URL where anyone who has it signs up normally**.
+> commercial."* — invite-only meaning **an unlisted URL where anyone who has it signs up normally**.
 
-Free, non-commercial, forever. That is why there is no ToS/LLC/insurance stack, why the data provider
-is not changing, and why the domain is optional. Full reasoning in
-`docs/features/E11_online-deployment.md`.
+**Standing constraints:** anything costing money stops for a decision (E11 as scoped is $0); nothing
+that creates legal exposure; root causes not patches, in every place the cause lives; concise code
+with no abstraction that is not mechanically needed.
 
-**Standing constraints (2026-08-16):** anything costing money stops for a decision (E11 as scoped is
-$0); nothing that creates legal exposure; root causes not patches, in every place the cause lives;
-concise code with no abstraction that is not mechanically needed.
+**ETFs are researchable, never investable** (owner, `E11.9`): look up and watchlist anything, but a
+theme may only contain equities. The model allocates on company fundamentals, and `useMedian` metrics
+fill a missing value with the *theme median* — so an ETF left in a theme would receive real capital
+on invented inputs, and the output would look reasonable.
 
 ---
 
@@ -26,71 +30,72 @@ concise code with no abstraction that is not mechanically needed.
 
 | | |
 |---|---|
-| **E11.0** | Spike: Yahoo works from Cloudflare. 0 failures in 10 runs, 25-symbol batch in 70 ms, `/v8/chart` needs no crumb. Throwaway Worker still live at `pb-yahoo-spike.portfoliobuilder.workers.dev` — **delete at cutover**. |
-| **E11.1** | Nightly `pg_dump` → **restored into a throwaway Postgres every run** and asserted. Supabase Free has *zero* backups. Proven: `portfolio rows restored: 1`. |
-| **E11.5** | Export ("Download my data") + self-serve deletion via a `SECURITY DEFINER` function. `sql/002_delete_own_account.sql` is **installed**. |
-| **E11.6** | Disclaimer + what-we-store, reachable from the gate (needed `.over-gate`, z-index 500 — the gate is 400). |
-| **E11.8** | 12 Playwright engine tests + CI, both gates able to fail. **Mutation-tested** against the real E10.1 defect. |
+| `E11.0` | Spike — Yahoo works from Cloudflare. 0/10 failures. The one thing that could have invalidated the plan. |
+| `E11.1` | Nightly `pg_dump` that **restores into a throwaway Postgres and asserts** the data came back. Supabase Free has zero backups. |
+| `E11.2a` | Worker: transport (cookie/crumb by hand, browser UA, cached handshake) + quotes, search, peers. |
+| `E11.2b` | Worker: fundamentals + statements. **1,027 fields identical** to `server.py`. |
+| `E11.5` | Export + self-serve deletion (`SECURITY DEFINER`, installed). |
+| `E11.6` | Disclaimer + what-we-store, reachable from the gate. |
+| `E11.8` | 12 engine tests + CI. **Mutation-tested** against the real E10.1 defect. |
+| `E11.9` | ETFs blocked from themes at `setMembership`, before it mutates. `quoteType` from all three proxies. |
+| `E11.10` | Ticker search is **local**: 11,290 symbols, 5,575 ETFs, 12 queries in 24 ms with zero network calls. |
 
-## Next: E11.2, the Worker port
+## Next: E11.3, deploy to Pages
 
-Everything it needs is in place and green. Five steps:
+Everything it needs is green. The Worker (`worker/`, deployed as `pb-proxy`) is proven interchangeable
+with `server.py`. Steps:
 
-1. Swap the CapacitorHttp transport in `yGet` for `fetch` — **and add the browser User-Agent plus
-   manual cookie handling**. Workers have no cookie jar, and Yahoo rejects generic agents.
-2. Cache the crumb in Workers KV (the spike refetched it per request — two wasted calls each time).
-3. Close the `nativeFundamentals` field gap so it returns the same ~21 fields `server.py` does.
-4. **Response-diff harness: Worker vs `server.py`, field by field, same symbols, before cutover.**
-   A data-layer rewrite must not go in on inspection alone.
-5. **Do not deploy `/api/portfolio`** — unauthenticated read/write of a server-side file.
-
-Then E11.3 (Pages + `robots.txt`/noindex + manifest + Supabase Auth URLs), E11.4 (custom SMTP —
-**required**, the built-in mailer only delivers to project team members — plus Turnstile), E11.7
-(Sentry + feedback table).
+1. Cloudflare Pages project serving `www/`. `/api/*` **must be same-origin** — `api()` uses relative
+   paths — so put the Worker's code in Pages Functions rather than gluing two services together.
+2. `robots.txt` + `noindex`. The URL is meant to be unlisted; an indexed sign-in page defeats that.
+3. Web app manifest + icon, so it opens from the phone home screen with no URL bar. **That is the
+   owner's actual demo requirement.**
+4. Show the app version in the UI, or the first bug report is unanswerable.
+5. **Owner action:** Supabase Auth → Site URL + Redirect URLs as `https://<host>/**` — note the
+   *double* asterisk; `/*` does not match nested paths. Keep the localhost entries.
+6. Delete the `pb-yahoo-spike` Worker at cutover.
 
 ---
 
-## Owner actions outstanding
+## Gates — run these, they all fail properly now
 
-- **Re-run nothing** — backup and CI are both green and armed.
-- **E11.4 will need:** a Gmail app password *or* Resend key → pasted into Supabase, never into chat;
-  Turnstile secret → Supabase, site key → me (it is public).
-- **`E6.7` stays open** as the reminder that three Supabase items are deferred by choice: open signup
-  accepted for now, custom SMTP and paid tier resolve at testing time. Free projects pause after
-  7 days idle — resume from the dashboard, though simply *using* the app weekly prevents it.
+```
+py -3 tools/check_syntax.py                      # exits 1 when unbalanced
+npx playwright test                              # 12 engine tests, no credentials needed
+py -3 tools/diff_proxy.py <server.py> <worker>   # field-by-field proxy parity
+py -3 tools/build_ticker_directory.py            # refuses to write a truncated index
+```
+
+CI runs the first two on every push. `db-backup` and `ticker-directory` run weekly.
 
 ---
 
 ## Rules earned the hard way — worth more than the rest of this file
 
 - **A guard must measure the thing it guards against.** The crumb validator's comment said "no
-  spaces" and never tested for them, so `"Edge: Too Many Requests"` (23 chars, no `<`) passed as a
-  crumb. `check_syntax.py` only ever printed, so as a CI gate it could not fail. `timelineTrimmed()`
-  inferred truncation from id arithmetic instead of recording it.
-- **A refusal that has already mutated is not a refusal.** Four separate HIGH findings, the last
-  being the danger-zone reset, whose own assignment is what stopped the save guard from firing.
+  spaces" and never tested for them, so `"Edge: Too Many Requests"` passed as a crumb.
+  `check_syntax.py` only printed, so as a CI gate it could not fail.
+- **A refusal that has already mutated is not a refusal.** Five findings now, most recently the
+  ETF guard, which had to sit above `setMembership`'s first write.
 - **When you teach the code a new fact, teach every reader of it.** E10.1 made `versions()[0]` no
-  longer the initial build; `canUndo()` learned it and `valueHistory()` did not, so the Overview
-  reported a fabricated equal-weight return. Found by an independent pass, not by my testing.
-- **A fix applied in one place belongs in every place it lives.** Concurrency capped in `server.py`
-  and missed in the JS client. Retention disclosed in three strings and missed on the gate.
-  `check_syntax.py` hardcoded one machine's path while its two sibling tools resolved from
-  `__file__`.
-
-**`tools/check_syntax.py` after any scripted edit. `npx playwright test` after any engine change.**
-Both now exit non-zero when they should.
+  longer the initial build; `canUndo()` learned it, `valueHistory()` did not, and the Overview
+  reported a fabricated return.
+- **Porting logic ports its bugs.** The search tie-break was fixed in Python in the morning and
+  rewritten with the identical flaw in JavaScript the same afternoon. Concurrency likewise.
+- **A test named after the user's own example beats a general one.** *"If you type appl…"* is what
+  caught the second tie-break bug.
 
 ---
 
 ## Test accounts and data
 
 `test-a@example.com` — its history holds throwaway synthetic checkpoints from the E10 tests, so its
-Overview shows no equal-weight line (those record no trades, hence no prices — honest absence, not a
-bug). **Its session was invalidated late in the session; sign in again to resume cloud testing.**
+Overview shows no equal-weight line (those record no trades, hence no prices — honest absence).
+**Sign in again to resume cloud testing;** the session was invalidated during testing.
 `test-b` was deleted to prove the cascade.
 
 The real `portfolio.json` has never left the machine — md5 `39FB8991E3BCDEACE4F51460C497F2DB`,
 unchanged since 2026-07-13, re-verified after every step.
 
-Dev server: port **8766**, `PB_DB=portfolio.dev.json`. Tests use port **8767** and
-`portfolio.test.json` so they can never collide with it.
+Dev server port **8766** (`PB_DB=portfolio.dev.json`); tests use **8767** and `portfolio.test.json`
+so a run can never collide with it. Worker: `pb-proxy.portfoliobuilder.workers.dev`.
