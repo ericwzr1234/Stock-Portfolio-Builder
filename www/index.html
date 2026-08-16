@@ -1081,6 +1081,21 @@ function effMcap(s){ const o=state.overrides[s]; if(o&&isNum(o.marketCap))return
 function price(s){ const q=state.quotes[s]; return q&&isNum(q.price)?q.price:null; }
 function nameOf(s){ return (state.quotes[s]&&state.quotes[s].name)||(state.fundamentals[s]&&state.fundamentals[s].name)||s; }
 
+/* E11.9 - what may be ALLOCATED to, as opposed to what may be looked up.
+   The model ranks themes on company fundamentals: PEG, EV/EBITDA, free cash flow, margins, growth.
+   An ETF has none of them. Left in a theme it would not merely score badly - useMedian metrics fill
+   a missing value with the theme median, so it would receive real capital on entirely invented
+   inputs, which is worse than excluding it and much harder to notice.
+   Research is deliberately unrestricted: look up anything, watchlist anything. Only membership of a
+   theme is gated, because membership is what the allocator reads. */
+function quoteTypeOf(s){ const q=state.quotes[s]; return (q&&q.quoteType)?String(q.quoteType).toUpperCase():null; }
+function isEquity(s){ const t=quoteTypeOf(s); return t===null || t==="EQUITY"; }   // unknown => allow; the fetch below settles it
+function notEquityNote(s){
+  const t=quoteTypeOf(s), kind=(t==="ETF")?"an ETF":(t==="MUTUALFUND")?"a fund":(t==="INDEX")?"an index":"not a company";
+  return s+" is "+kind+". The model allocates on company fundamentals \u2014 PEG, EV/EBITDA, free cash flow \u2014 "
+       + "which it does not have, so it cannot join a theme. You can still track it on the watchlist.";
+}
+
 /* ======================================================================
    Metrics — DATA-DRIVEN list (E2.1). DEFAULT_METRICS holds the code-side descriptors (closures live here,
    never serialized). state.metrics (persisted as [{key}]) governs WHICH metrics score the model + their
@@ -1984,13 +1999,13 @@ function jsMomentum(price,ma50,ma200){ if(!(isNum(price)&&price>0))return null; 
   if(!parts.length)return null; return parts.reduce((a,p)=>a+p[0]*p[1],0)/parts.reduce((a,p)=>a+p[0],0); }
 async function nativeQuotes(syms){
   const crumb=await yEnsureCrumb(); const out={};
-  const fields="regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency,regularMarketTime,fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day";
+  const fields="regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency,regularMarketTime,fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day,quoteType";
   for(let i=0;i<syms.length;i+=40){
     const chunk=syms.slice(i,i+40);
     try{
       const r=await yGet("https://query1.finance.yahoo.com/v7/finance/quote",{symbols:chunk.join(","), fields, crumb:crumb||""});
       const results=((jsonOf(r.data)||{}).quoteResponse||{}).result||[];
-      results.forEach(q=>{ const sym=q.symbol; if(!sym)return; out[sym]={price:rv(q,"regularMarketPrice"),change:rv(q,"regularMarketChange"),changePct:rv(q,"regularMarketChangePercent"),prevClose:rv(q,"regularMarketPreviousClose"),marketCap:rv(q,"marketCap"),name:q.shortName||q.longName||sym,marketState:q.marketState,currency:q.currency,time:rv(q,"regularMarketTime"),
+      results.forEach(q=>{ const sym=q.symbol; if(!sym)return; out[sym]={price:rv(q,"regularMarketPrice"),change:rv(q,"regularMarketChange"),changePct:rv(q,"regularMarketChangePercent"),prevClose:rv(q,"regularMarketPreviousClose"),marketCap:rv(q,"marketCap"),name:q.shortName||q.longName||sym,marketState:q.marketState,currency:q.currency,quoteType:q.quoteType,time:rv(q,"regularMarketTime"),
         high52:rv(q,"fiftyTwoWeekHigh"),low52:rv(q,"fiftyTwoWeekLow"),vol:rv(q,"regularMarketVolume"),avgVol:rv(q,"averageDailyVolume3Month")||rv(q,"averageDailyVolume10Day"),   // watchlist table (Screener)
         source:"live"}; });
     }catch(e){ console.error("yahoo quotes",e); await yEnsureCrumb(true); }
@@ -4227,7 +4242,7 @@ function wireResearchSearch(){
       if(!list.length){ paint(`<div class="muted xs" style="padding:6px">No matches — try another symbol or name.</div>`); return; }
       paint(list.slice(0,8).map(r=>`<button type="button" class="rs-row" data-rssym="${r.symbol}">
         <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
-        <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join(""));
+        <span class="muted xs ts-ex">${(r.type&&r.type!=="EQUITY")?r.type:(r.exchange||"")}</span></button>`).join(""));
     },250);
   };
   q.addEventListener("input",run);
@@ -4273,6 +4288,9 @@ async function ensureScreener(){ renderScreener(); }   // E4.4: Screener = searc
 function openSwap(newSym, themeKey){
   const t=themeByKey(themeKey); if(!t) return;
   if(!isInit()){ toast("Build your portfolio first (Calculator tab)"); return; }
+  // Refuse here too, so the user is not walked through a whole modal for something setMembership
+  // is going to reject anyway. setMembership stays the authority; this is only courtesy.
+  if(!isEquity(newSym)){ toast(notEquityNote(newSym)); return; }
   const current=tickersOf(themeKey);
   if(current.includes(newSym)){ toast(newSym+" is already in "+t.name); return; }
   const cv=curValueBySym();
@@ -4501,6 +4519,20 @@ function closeModal(){
    out of any other theme it was in). Fetch data for any new names, then preview a full realign that the
    user reviews + applies via "Apply & save" — the same undoable version rail a swap uses. */
 async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
+  /* E11.9 - REFUSE BEFORE ANY MUTATION. Every membership change routes through here (addTicker,
+     removeTicker, doSwap), so the rule lives here and not at each caller. A newly-typed symbol has
+     no quote yet, so its type is fetched FIRST and the decision made before state.themeTickers is
+     written five lines below: a refusal that has already mutated is not a refusal, and this project
+     has shipped that exact mistake four times. */
+  const incoming=(fetchSyms||[]).filter(s=>!tickersOf(themeKey).includes(s));
+  if(incoming.length){
+    const unknown=incoming.filter(s=>quoteTypeOf(s)===null);
+    if(unknown.length){
+      try{ const d=await dsQuotes(unknown); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
+    }
+    const blocked=incoming.filter(s=>!isEquity(s));
+    if(blocked.length){ toast(notEquityNote(blocked[0])); return; }
+  }
   const map={}; themes().forEach(t=>{ map[t.key]=tickersOf(t.key).slice(); });   // seed the live map from every theme
   const want=[...new Set(newArr)];
   want.forEach(s=>{ Object.keys(map).forEach(k=>{ if(k!==themeKey) map[k]=map[k].filter(x=>x!==s); }); });   // one theme per ticker

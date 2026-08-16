@@ -97,7 +97,7 @@ async function fetchQuotes(syms) {
   const fields = "regularMarketPrice,regularMarketChange,regularMarketChangePercent," +
     "regularMarketPreviousClose,marketCap,shortName,longName,marketState,currency," +
     "regularMarketTime,fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume," +
-    "averageDailyVolume3Month,averageDailyVolume10Day";
+    "averageDailyVolume3Month,averageDailyVolume10Day,quoteType";
 
   for (let i = 0; i < syms.length; i += 40) {          // same chunk size as the native client
     const chunk = syms.slice(i, i + 40);
@@ -116,7 +116,7 @@ async function fetchQuotes(syms) {
         price: num(rv(q, "regularMarketPrice")), change: num(rv(q, "regularMarketChange")),
         changePct: num(rv(q, "regularMarketChangePercent")), prevClose: num(rv(q, "regularMarketPreviousClose")),
         marketCap: num(rv(q, "marketCap")), name: q.shortName || q.longName || sym,
-        marketState: q.marketState || null, currency: q.currency || null, time: num(rv(q, "regularMarketTime")),
+        marketState: q.marketState || null, currency: q.currency || null, quoteType: q.quoteType || null, time: num(rv(q, "regularMarketTime")),
         high52: num(rv(q, "fiftyTwoWeekHigh")), low52: num(rv(q, "fiftyTwoWeekLow")),
         vol: num(rv(q, "regularMarketVolume")),
         avgVol: num(rv(q, "averageDailyVolume3Month")) || num(rv(q, "averageDailyVolume10Day")),

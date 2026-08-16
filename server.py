@@ -325,7 +325,7 @@ def fetch_quotes_live(symbols):
               "regularMarketPreviousClose,marketCap,shortName,longName,marketState,"
               "currency,regularMarketTime,"
               "fiftyTwoWeekHigh,fiftyTwoWeekLow,regularMarketVolume,"
-              "averageDailyVolume3Month,averageDailyVolume10Day")
+              "averageDailyVolume3Month,averageDailyVolume10Day,quoteType")
     qs = urllib.parse.urlencode({"symbols": ",".join(symbols), "fields": fields, "crumb": crumb})
     out = {}
     for attempt in range(2):
@@ -344,6 +344,9 @@ def fetch_quotes_live(symbols):
                     "marketCap": _rv(r, "marketCap"),
                     "name": r.get("shortName") or r.get("longName") or sym,
                     "marketState": r.get("marketState"),
+                    # EQUITY / ETF / MUTUALFUND / INDEX. The model needs company fundamentals,
+                    # so only EQUITY may join a theme - see isEquity() in index.html.
+                    "quoteType": r.get("quoteType"),
                     "currency": r.get("currency"),
                     "time": _rv(r, "regularMarketTime"),
                     # watchlist table (Screener): 52-week range + volume

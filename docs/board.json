@@ -62,6 +62,15 @@
       "Both fan out one request per symbol; the shared yMapLimit caps that at 4.",
       "DO NOT DEPLOY /api/portfolio - unauthenticated read/write of a server-side file. It is only reachable behind isPrivateHost() and must not exist in the deployed proxy."
       ] },
+    { "id": "E11.9", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.2b", "spec": "docs/features/E11_online-deployment.md",
+      "title": "ETFs are researchable, never model members", "notes": [
+      "OWNER 2026-08-16: users should be able to look up ETFs in Research with no problem, but must NOT be able to add them to a portfolio, because that breaks the premise - the model allocates capital by favouring company characteristics (PEG, FCF, EV/EBITDA).",
+      "WHY IT IS WORSE THAN SCORING BADLY: metrics with useMedian fill a missing value with the THEME MEDIAN, so an ETF left in a theme would receive real capital on entirely invented inputs. Silently plausible, which is the dangerous kind.",
+      "quoteType now comes back from ALL THREE proxies - server.py, the Worker and the native JS client - because a rule enforced from data only one of them returns is a rule that drifts. isEquity() is the single definition; unknown types are allowed and settled by the fetch.",
+      "The guard sits at the TOP of setMembership, the one choke point every membership change routes through (addTicker, removeTicker, doSwap), and BEFORE state.themeTickers is written five lines below. A newly typed symbol is fetched first so the decision is made on a real answer. Verified: an ETF is refused, membership is byte-identical afterwards, and nothing is saved.",
+      "Research is deliberately untouched: search, view and watchlist anything. Search rows now label the type, so an ETF reads as one before anyone tries to add it, and openSwap refuses without opening a modal."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",
