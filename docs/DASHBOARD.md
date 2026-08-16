@@ -9,7 +9,7 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 3 |
+| Design | 4 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
@@ -34,9 +34,17 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (3)
+## Design  (4)
 _Detailed requirements captured; a spec exists in docs/features/._
 
+- **E11.13** · _E11 · Online, for invited users_ — **Idle session timeout - sign out after inactivity** _(depends E6.4, web)_ · [spec](features/E11_online-deployment.md)
+  - OWNER 2026-08-16: sign people out once they have been inactive for 2 minutes or more, for safety. NOT STARTED - captured at the end of the session.
+  - WORTH CONFIRMING BEFORE BUILDING: 2 minutes is very short for an idle timeout. Reading the statements table, or thinking about a rebalance plan, routinely takes longer than that, so the likely experience is being signed out mid-thought several times an hour. 15 minutes is the usual floor for a finance tool. The owner said 2 minutes OR MORE, so the requirement is a minimum - worth agreeing the actual number first, and possibly making it a setting.
+  - ACTIVITY MUST MEAN THE USER, NOT THE APP. The auto-refresh timer fires every 60s and must NOT count as activity, or the session never expires while a tab is open - which is exactly the case this exists to protect against. Count pointer, key, touch and visibility events only. Same class of mistake as a guard that does not measure the thing it guards against.
+  - Warn before acting. A silent logout looks like a crash; a short countdown that any input cancels does not.
+  - WHAT IS LOST: nothing already saved. Membership and rebalances persist immediately, and E9 means nothing about the portfolio is on the device anyway. The exception is an UNAPPLIED rebalance plan held in lastPlan - decide whether to warn about that specifically, or accept it.
+  - The teardown already exists and is proven: lockOut() clears account state, stops timers and raises the gate. This ticket is the trigger, not the mechanism.
+  - Consider whether it should apply while the tab is hidden (probably yes - an unattended screen is the risk) and whether the countdown should survive a reload.
 - **E11.3** · _E11 · Online, for invited users_ — **Deploy to Cloudflare Pages, same-origin /api/*** _(depends E11.2, web)_ · [spec](features/E11_online-deployment.md)
   - api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.
   - Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.

@@ -104,6 +104,17 @@
       "Also fixed share counts, which were hardcoded to billions - a company with 50 million shares read 0.05B. Routed through volFmt, which already scaled correctly."
       ] },
 
+    { "id": "E11.13", "epic": "E11", "stage": "design", "platform": "web", "depends": "E6.4", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Idle session timeout - sign out after inactivity", "notes": [
+      "OWNER 2026-08-16: sign people out once they have been inactive for 2 minutes or more, for safety. NOT STARTED - captured at the end of the session.",
+      "WORTH CONFIRMING BEFORE BUILDING: 2 minutes is very short for an idle timeout. Reading the statements table, or thinking about a rebalance plan, routinely takes longer than that, so the likely experience is being signed out mid-thought several times an hour. 15 minutes is the usual floor for a finance tool. The owner said 2 minutes OR MORE, so the requirement is a minimum - worth agreeing the actual number first, and possibly making it a setting.",
+      "ACTIVITY MUST MEAN THE USER, NOT THE APP. The auto-refresh timer fires every 60s and must NOT count as activity, or the session never expires while a tab is open - which is exactly the case this exists to protect against. Count pointer, key, touch and visibility events only. Same class of mistake as a guard that does not measure the thing it guards against.",
+      "Warn before acting. A silent logout looks like a crash; a short countdown that any input cancels does not.",
+      "WHAT IS LOST: nothing already saved. Membership and rebalances persist immediately, and E9 means nothing about the portfolio is on the device anyway. The exception is an UNAPPLIED rebalance plan held in lastPlan - decide whether to warn about that specifically, or accept it.",
+      "The teardown already exists and is proven: lockOut() clears account state, stops timers and raises the gate. This ticket is the trigger, not the mechanism.",
+      "Consider whether it should apply while the tab is hidden (probably yes - an unattended screen is the risk) and whether the countdown should survive a reload."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",
