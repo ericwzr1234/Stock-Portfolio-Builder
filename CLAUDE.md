@@ -15,9 +15,10 @@ data or straight from the financial statements). It runs in two forms from **one
 
 1. **Web app** — `server.py` (Python standard library only) serves `www/` and proxies Yahoo
    Finance. Since **E6 the portfolio persists in the signed-in user's account** (Supabase, one row
-   per user, isolated by database row-level security), with a per-user copy in `localStorage` so the
-   app still opens offline. `portfolio.json` is now the *pre-account* file: the import source on
-   first sign-in, and the pre-migration backup. This is the dev path and works on Windows + Mac.
+   per user, isolated by database row-level security). **E9: nothing about a portfolio is written to
+   the device** — no mirror, no stash, no cached copy. A save that cannot reach the account did not
+   happen and says so. `portfolio.json` is the *pre-account* file: read once for the import, never
+   written. This is the dev path and works on Windows + Mac.
 2. **iOS app** — the same `www/` wrapped with **Capacitor**. On iOS there is no server: it fetches
    Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
    (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
@@ -31,11 +32,12 @@ waiting on the owner's own testing, and on the sync layer clearing a review (see
   History** — with the allocation donut, the portfolio-value chart against an **Equal-weight
   Strategy** counterfactual, a **$ / %** return chart, and a collapsible holdings table.
   Spec: [`docs/features/E5_web-ui-overhaul.md`](docs/features/E5_web-ui-overhaul.md).
-- **E6** put the portfolio behind a **mandatory login**. Read
-  [`docs/features/E6_database_design.md`](docs/features/E6_database_design.md) **§16–17 before
-  touching the sync layer** — five adversarial review rounds found ~90 defects there, and several
-  were introduced by the previous round's fix. Each invariant is written next to the failure that
-  motivated it.
+- **E6** put the portfolio behind a **mandatory login**; **E8** rewrote the persistence core after
+  seven patch rounds; **E9** deleted every local copy of a portfolio. Read
+  [`docs/features/E6_database_design.md`](docs/features/E6_database_design.md) **§16–21 before
+  touching the sync layer** — it records ~120 defects across thirteen review rounds, each invariant
+  written next to the failure that motivated it. The single most useful lesson: *a guard must
+  measure the thing it guards against*, and *a refusal that has already mutated is not a refusal*.
 - **iOS is PARKED at V1.** It still runs on a real iPhone, but it predates E5 and E6. Rebuilding it
   is board ticket **APP2**; the hand-off spec is
   [`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md) (§9 lists the sync rules the native build

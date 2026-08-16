@@ -885,3 +885,72 @@ the adapter registry, the gate, the import flow, the stash UI — has held up ac
 and should not be touched.
 
 Until that is done, or until a round returns clean, **this does not merge to `main`.**
+
+---
+
+## 21. E8 and E9 — the rewrite, and deleting the safety net
+
+### The decision to rewrite (§20 recommended it; it was taken)
+
+Seven patch rounds, ~96 defects, and a regression rate that never fell. The rewrite replaced
+`loadPortfolio`, `savePortfolio`/`_savePortfolioInner` and the cloud adapter with **one context, one
+checkpoint**: every operation captures `pctx()` before its first `await` and passes a single
+`ctxCurrent()` gate afterwards. The contract is stated once (C1–C5) and each rule is enforced in one
+place, instead of being re-derived at each of the fourteen sites that touch shared state.
+
+**Six audits of the rewrite found 7, 6, 4, 1, 5 and 6 defects.** That is not the clean sweep a
+rewrite is supposed to deliver, and it is worth recording why honestly:
+
+- The **core loop held**. From the first audit onward, no pass found an ordering or context defect
+  in the capture/checkpoint/revision discipline. That part of the rewrite worked.
+- Almost every finding was in the **kept-aside recovery subsystem** — the mirror, two status bits,
+  the stash list, the dedupe, the prune, the recovery prompt — or in **guards about it**.
+
+### The lessons that generalise
+
+1. **A guard must measure the thing it guards against.** `sbEpoch` counted *session writes* as a
+   proxy for *identity changes*; a token refresh is a session write, so the guard fired on the
+   healthiest path in the app and discarded a live portfolio. Later, `docHasContent` measured
+   *holdings and checkpoints* as a proxy for *did the user make anything*; under E8 an entire
+   onboarding has neither, so real work was classified as nothing.
+2. **A refusal that has already mutated is not a refusal.** Three separate HIGH findings were a
+   guard placed one line below the assignment it existed to prevent (`#resetBtn`, then
+   `_savePortfolioInner`'s document manufacture).
+3. **A fix is not done until it is applied at every site that needs it.** Most findings in passes 3
+   and 4 were the previous pass's fix present in one place and missing in another. Where possible,
+   make it structural instead — `syncStateIntoDocument()` replaced two copies of the same block.
+4. **State about state drifts.** `dirty` and `unfiled` were facts about one artefact's relationship
+   to another, stored in a third place, with no transaction tying them together.
+
+### E9 — deleting the safety net (owner's decision)
+
+The recovery subsystem existed so that a save which could not reach the server was preserved and
+offered back later. It cost five persistent artefacts, eleven functions, and the majority of the
+defects in rounds 3–6, several of which could hand a user **stale work that overwrote a good
+portfolio**. The owner's call, and the reasoning is sound: *"we will ignore edge cases where people
+make adjustments but accidentally dropped offline… That creates too much complexity and it is very
+fishy to want to write into someone's local from a web application."*
+
+So C4 was inverted. It now reads: **nothing about a portfolio is written to this device.**
+
+| Behaviour | Now |
+|---|---|
+| Save cannot reach the account | Not saved. Said plainly. The change stays on screen so it can be retried. |
+| Account cannot be read | Reported as unreachable. No cached copy is shown. |
+| Another device wrote first | The server's version wins; the edit is **not applied**; said plainly. |
+| Anything an earlier version left on a machine | `purgeLegacyLocalCopies()` removes it at boot, on a definitive 401/403, and on sign-out. |
+
+Still written locally, none of it portfolio data: the sign-in session, the light/dark choice, which
+page guides have been seen, and the iOS LAN-sync URL. `pb_portfolio_v1` — the pre-account book — is
+**read** once for the import and never written on the web path.
+
+**The cost, recorded because it reverses an earlier requirement.** E6.8 required that a valid stored
+session keep working against a local copy while the backend was asleep, because the free tier pauses
+after a week idle. There is no local copy now, so during a pause the app reports that the account
+cannot be reached. That is a deliberate trade: fewer ways to lose data, in exchange for needing the
+network to see anything.
+
+### What did NOT change
+
+The engine (25 functions verified byte-identical to prod at every stage), the SQL and RLS (the
+isolation gate is 8/8), the login gate, the import flow, and all of E5/E7.

@@ -160,57 +160,50 @@ so a rebuilt phone UI must tokenise those too.
 `portfolio.dev.json`. `portfolio.json` is real personal financial data — gitignored, never committed,
 and backed up at `C:\dev\portfolio-builder-backups\`.
 
-## 9. Accounts and sync (E6) — the rules the native build MUST inherit
+## 9. Accounts and sync — the rules the native build MUST inherit (E6 + E8 + E9)
 
-E6 put the portfolio in a hosted database behind a login. Two adversarial reviews of that work
-found **66 defects**, and the native build is where several of them are *worse*, because on iOS
-`pb_portfolio_v1` is not a cache — it is the only copy of the user's book. Full reasoning lives in
-`docs/features/E6_database_design.md` sections 16 and 17. The short version, as rules:
+E6 put the portfolio in a hosted database behind a login; E8 rewrote the persistence core after
+seven rounds of patching; **E9 deleted every local copy of a portfolio**. Thirteen adversarial
+review rounds found ~120 defects in this area. Full reasoning: `docs/features/E6_database_design.md`
+§16–21. The short version, as rules:
 
-1. **A document remembers where it came from.** `state.docSource` (`"cloud"`/`"local"`/`"remote"`)
-   and `state.docOwner` (the uid) are captured at load time, *before any await*. A document loaded
-   from an account may never be written to on-device storage, and vice versa. On web this bug
-   overwrote a shared server file; on native it would overwrite the user's only book with an empty
-   "start fresh" document. Do not let `storageAdapter()` be re-evaluated as the authority on where
-   an already-loaded document belongs.
+1. **The account is the ONLY place a portfolio lives.** No mirror, no offline cache, no
+   "kept aside" stash, no re-sync from the device. A save that cannot reach the account did not
+   happen — tell the user plainly and leave their change on screen. An account that cannot be read
+   is reported as unreachable; never show a cached copy. *This reverses the earlier E6 design, and
+   it is the owner's explicit decision: too much complexity for an edge case, and an app should not
+   write somebody's financial records into their device.*
+   **On iOS this needs a deliberate answer, not a copy-paste.** The V1 app is genuinely
+   local-first (`pb_portfolio_v1` is the only copy) and has optional Wi-Fi sync. Decide before
+   building: either the native app is also account-only (and therefore needs a network to show
+   anything), or it keeps on-device storage as its *primary* store for a single user. Do NOT
+   reintroduce a mirror that shadows an account — that hybrid is exactly what produced the defects.
 
-2. **`state.baseRevision` holds only a SERVER-CONFIRMED revision, or null.** Never
-   `document.revision - 1`, never a number taken from a conflict error. While it is null, saving
-   is refused with a message telling the user to reload. This is what stops a stale document from
-   matching the PATCH filter and silently overwriting a newer one.
+2. **One context, captured before the first `await`**: which adapter, which owner, which identity.
+   Nothing after an await re-reads live state to decide what the operation meant.
 
-3. **A lost session re-gates the app.** Only HTTP 400/401 may destroy a session (a network blip or
-   a paused project must not — the offline fallback exists precisely for that). When one *is*
-   destroyed, clear all account state, stop the refresh timer, and return to the gate. Never keep
-   running unauthenticated.
+3. **One checkpoint after the await.** Nothing is applied or written for a context that is no
+   longer current. A **token refresh is NOT an identity change** — counting it as one discarded a
+   live portfolio on every stale reload.
 
-4. **Nothing is discarded silently.** Work that cannot reach the server goes to
-   `pb_cloud_mirror_<uid>`, `pb_unsynced_<uid>_<ts>` or `pb_conflict_<uid>_<ts>` — always keyed by
-   an explicitly-passed uid, never a lazily-resolved one (the session can die mid-request and file
-   it under `anon`, where nothing will ever read it). And whatever writes those keys, **something
-   must read them back**: the web build has `offerStashRecovery()`. Without a reader, "your edit
-   was kept aside" is a lie.
+4. **The concurrency base is a server-confirmed revision, or null**, and saving is refused while
+   null. Never derive it from the document; never adopt it from a conflict error.
 
-5. **`savePortfolio()` returns true only if the write landed**, and callers must not announce
-   success without checking. A persistent indicator (the web build's `#syncBadge`) carries the
-   state — "did my rebalance save?" is not a question a three-second toast can answer.
+5. **A save returns true only if the write landed**, and any caller that announces success checks it.
 
-6. **Saves are serialised.** Two overlapping saves otherwise read the same base and the second is
-   reported as a cross-device conflict, triggering a destructive reload from a single-device race.
+6. **A refusal must come BEFORE the mutation it prevents.** Three separate HIGH findings were a
+   guard placed one line below the assignment it was meant to stop.
 
-7. **Isolation the database cannot provide.** RLS separates accounts, not devices. The on-device
-   book is claimed by the first uid to import or decline it (`pb_local_claim`) and is never shown
-   to a different account. An import offer requires a *successful* account read — a failed read is
-   not an empty account.
+7. **A guard must measure the thing it guards against.** An "identity" counter that also counted
+   token refreshes, and an "is there anything to keep" test that ignored the metric model, each
+   caused data loss precisely because they measured a proxy.
 
-8. **An import must go through the same hydration a normal load uses.** Assigning the document
-   directly and saving uploads a stripped book (themes, membership, watchlist, metrics, presets,
-   overrides, cap, weights, penalty all replaced by defaults) and skips `migrateVersions()`, after
-   which a legacy file can never migrate. Reuse `hydrateFromDocument()`.
+8. **Isolation the database cannot provide.** RLS separates accounts, not devices. Anything stored
+   per-user on a shared device must be keyed by uid and cleared on sign-out.
 
-9. **`null` is meaningful for `themes` and `themeTickers`** — it is what "restore the defaults" and
-   "delete a theme" persist. A truthiness guard can never move state back to null, so a deletion on
-   one device gets resurrected by the next save from another.
+9. **There are no default themes (E8).** `themes()` is simply the list. Documents written before
+   this are migrated once, keyed on `schemaVersion`, and the migration must handle the theme list
+   and the membership independently — they were separate fallbacks.
 
 `nativeFundamentals()` remains the one genuine native gap (it must mirror `server.py`'s ~21 E2
 fields); everything above is shared logic that reaches iOS through `npx cap sync ios`.

@@ -6,7 +6,7 @@ compute target weights from live data (or straight from the companies' financial
 
 Nothing here costs money and there are no API keys. Data comes from Yahoo Finance's free endpoints.
 Your portfolio lives in **your own account**, in a hosted database where row-level security makes it
-readable only by you — with a copy kept on your device so it still opens when the network is down.
+readable only by you. Nothing about your portfolio is stored on your device.
 
 > **Project status (2026-08-15):** the shipped web app (in `main`) has user-defined themes,
 > user-defined metrics, statement-driven data and the redesigned Fundamentals/Screener. **In
@@ -30,10 +30,11 @@ A small window opens (the local server) and your browser opens to the app automa
 close the window (or press `Ctrl+C`).
 
 **You sign in first.** The app opens on a login page; nothing is reachable until you do. Everything
-you then do saves to your account, with a copy kept in this browser so the app still opens if the
-network (or the database) is unavailable. If this machine already has a `portfolio.json` and your
-account is empty, you will be offered a one-time import — and your local file is never modified
-either way.
+you then do saves to your account — and only there. If a save cannot reach your account it is not
+saved, and the app says so; your change is still on screen so you can try again. If your account
+cannot be reached at all, the app tells you rather than showing a stale copy. If this machine
+already has a `portfolio.json` and your account is empty, you will be offered a one-time import —
+and your local file is only ever read, never modified.
 
 > Requires Python 3 (standard library only — nothing to install). The app itself lives in
 > **`www/index.html`**; the server just serves it and proxies free data. On Windows, if the window
@@ -187,9 +188,12 @@ this code. Proof, including the live cross-account tests, is in
 [`sql/ISOLATION_TEST.md`](sql/ISOLATION_TEST.md).
 
 **Concurrency.** Every save states the revision it was based on; if another device wrote first, the
-save is refused, the server's version is loaded, and **your edit is kept aside rather than merged** —
-financial records are never auto-merged. Anything that could not reach your account is preserved on
-this device and offered back to you the next time you sign in.
+save is refused and the server's version is loaded — financial records are never auto-merged. Your
+edit is **not applied**, and you are told so plainly.
+
+**Nothing is cached locally.** The account is the single source of truth. The only things this app
+writes to your browser are your sign-in session, your light/dark choice, and which page guides you
+have seen.
 
 **`portfolio.json`** is now a *pre-account* file: the import source on first sign-in, and your
 pre-migration backup. The app never writes it while you are signed in. Copy it to back it up.
@@ -209,6 +213,7 @@ and [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) to build the app.
 100% free — Yahoo Finance's free public endpoints (cookie + crumb handled for you) plus the SEC's free
 ticker list; Python standard library only, no API keys. Accounts and the database run on Supabase's
 free tier, which **pauses a project after a week with no activity** — you can resume it from their
-dashboard, and a stored sign-in still opens the app against the on-device copy meanwhile. The server caches prices ~15s and fundamentals
+dashboard. While it is paused the app cannot reach your portfolio and will say so; there is no local
+copy to fall back on, by design. The server caches prices ~15s and fundamentals
 ~6h so it never hammers Yahoo. If Yahoo is ever unreachable, the app falls back to a built-in snapshot
 (values flagged `seed`) so it still works — hit *Refresh* to go live again.

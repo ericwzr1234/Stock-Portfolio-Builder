@@ -33,7 +33,7 @@ points that branch on `NATIVE`:
 | `dsStatements(syms)` *(E3)* | `GET /api/statements` | `nativeStatements` → `CapacitorHttp` to Yahoo `fundamentals-timeseries` |
 | `dsSearch(q)` *(E1)* | `GET /api/search` | `nativeSearch` → Yahoo search v1 |
 | `dsPeers(sym)` *(E1)* | `GET /api/peers` | native branch → Yahoo `recommendationsbysymbol` |
-| `loadPortfolio` / `savePortfolio` | **the signed-in account** (see below); `GET`/`POST /api/portfolio` → `portfolio.json` only pre-account | `localStorage["pb_portfolio_v1"]` |
+| `loadPortfolio` / `savePortfolio` | **the signed-in account only** (E9: no local copy); `portfolio.json` is read once for the import | `localStorage["pb_portfolio_v1"]` |
 | `dsLoadUniverse()` | `window.__UNIVERSE` (from `data/universe.js`) | same |
 
 The native Yahoo client mirrors `server.py` for the cookie+crumb handshake (`yEnsureCrumb`), quotes,
@@ -77,28 +77,29 @@ The `cloud` adapter talks to Supabase: GoTrue for auth (`/auth/v1/`), PostgREST 
 rather than by this code. Only the *publishable* key is in the client — it is public by design; the
 secret key carries `BYPASSRLS` and must never enter the repo.
 
-**The rules this layer must obey are not obvious, and were learned by breaking them.** Five
-adversarial review rounds found ~90 defects here, several of them introduced by the previous round's
-fix. Before changing anything in this area, read
-[`features/E6_database_design.md`](features/E6_database_design.md) §16–17, which states each
-invariant next to the failure that motivated it. The short list:
+**The rules this layer must obey are not obvious, and were learned by breaking them.** Thirteen
+adversarial review rounds found ~120 defects here. Before changing anything in this area, read
+[`features/E6_database_design.md`](features/E6_database_design.md) §16–21, which states each
+invariant next to the failure that motivated it. The contract, as implemented (E8):
 
-- **`state.docSource` / `state.docOwner`** are captured at load time, before any `await`. A document
-  loaded from an account may never be written to the identity-free `web`/`native` store — that path
-  overwrote a shared server file, and on native would have destroyed the device's only copy.
-- **`state.baseRevision`** holds only a *server-confirmed* revision, or `null`. Saving is refused
-  while it is null. It is never derived from the document and never adopted from a conflict error.
-- **`appLocked` / `booting`** gate saving independently of the state a sign-out wipes, because
-  `clearAccountState()` nulls the very fields the save guards read.
-- **The offline mirror (`pb_cloud_mirror_<uid>`) carries a dirty bit** (`pb_mirror_dirty_<uid>`) set
-  only when a save *failed*. "Mirror differs from server" is the normal state after another device
-  writes, so comparing content manufactured false "unsaved work" prompts whose restoration reverted
-  the other device's work.
-- **Nothing is deleted without being filed first**: `dropMirror()` stashes a dirty mirror into
-  `pb_unsynced_<uid>_<ts>` before removing it, and `offerStashRecovery()` is the reader that hands
-  it back. A write-only rescue store is not a rescue.
-- **`sbApi` carries a session epoch**, so a slow reply belonging to a previous session cannot lock
-  out, replay into, or overwrite the current one.
+- **C1 — one context, captured before the first `await`** (`pctx()`: adapter, owner, identity).
+  Nothing after an await re-reads live state to decide what the operation meant.
+- **C2 — one checkpoint** (`ctxCurrent()`). Nothing is applied or written for a context that is no
+  longer current: app locked, identity changed, adapter changed, or a different signed-in user.
+  A **token refresh is not an identity change** — treating it as one discarded a live portfolio on
+  every stale reload.
+- **C3 — `state.baseRevision` is a server-confirmed revision or `null`**, and saving is refused
+  while it is null. It is never derived from the document and never taken from a conflict error.
+- **C4 (E9) — nothing about a portfolio is written to this device.** The account is the single
+  source of truth. A save that cannot reach it did not happen and says so; an account that cannot
+  be read is reported, not replaced by a cached copy. The mirror, the two status bits and the
+  kept-aside stashes were **deleted** — they produced most of the defects of rounds 3–6, including
+  ones that could hand a user stale work which overwrote a good portfolio.
+- **C5 — a save returns `true` only if the write landed**, and callers that announce success check it.
+
+Two rules generalise beyond this file: *a guard must measure the thing it guards against* (an epoch
+that counted token refreshes discarded good data), and *a refusal that has already mutated is not a
+refusal* (three separate HIGH findings were a guard placed below the mutation it prevented).
 
 ### LAN sync (iOS and web share one portfolio.json)
 On iOS, `state.serverUrl` (persisted as `localStorage["pb_server_url"]`, set via History → Data sync)
