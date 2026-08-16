@@ -1033,9 +1033,6 @@ const state = {
   cloudRowExists:null,            // E6: does this account HAVE a row? null => not established (a failed read is not "empty")
   docSource:null,                 // E6: which adapter the in-memory document came from ('cloud'|'web'|'local'|'remote')
   docOwner:null,                  // E6: the uid that document belongs to, captured at load time
-  pendingStashKey:null,           // E6: a kept-aside document put back on screen; dropped once it saves.
-                                  // What protects it is that every wholesale document replacement
-                                  // (hydrateFromDocument, Reset) clears this key first.
 };
 let curView="prices";
 let timer=null;
@@ -1414,149 +1411,6 @@ function nativeSavePortfolio(p){
   catch(e){ console.error("save failed",e); throw new Error("this device's storage is full - the change was not saved"); }
 }
 
-/* E6 FIX - the cloud mirror must NOT share STORE_KEY. On native that key is the ONLY copy of the
-   on-device book, so mirroring an account's portfolio into it could destroy the local one, and a
-   second account could be served the first account's data. The mirror is therefore per-user and
-   lives in its own namespace. */
-/* The uid is ALWAYS passed in, captured before the operation started. Resolving it lazily was a
-   real bug: sbRefresh() can null the session mid-request, so by the time the failure handler ran
-   sbUserId() was "" and the rescue copy landed under a key nothing would ever read again. A
-   mirror with no owner is worse than no mirror, so it is refused outright. */
-function cloudMirrorKey(uid){ const u=uid||sbUserId(); return u?("pb_cloud_mirror_"+u):null; }
-/* E6 FIX - the mirror needs a DIRTY BIT, not a content comparison.
-   The mirror is rewritten on every successful load and every successful save, so it normally
-   holds the last SYNCED document. "mirror differs from server" is therefore the ordinary state
-   after any other device writes - not evidence of unsaved work. Comparing content announced
-   "unsaved work was kept aside" during plain two-device use, and restoring that prompt reverted
-   the other device's rebalance. The only thing that actually means "unsynced" is: this copy was
-   written by a save that FAILED. */
-function mirrorDirtyKey(uid){ const u=uid||sbUserId(); return u?("pb_mirror_dirty_"+u):null; }
-/* DIRTY means "a save failed and this copy is newer than the server".
-   UNFILED means "we tried to put that copy in the stash and could not" (a full localStorage).
-   Round 6 reused the dirty bit for both, so an ordinary failed-then-retried save filed its own
-   ancestor as "unsaved work" - and restoring that prompt reverted the account to the older
-   document. Only an UNFILED copy may block the mirror from being overwritten. */
-function mirrorUnfiledKey(uid){ const u=uid||sbUserId(); return u?("pb_mirror_unfiled_"+u):null; }
-function mirrorUnfiled(uid){ try{ const k=mirrorUnfiledKey(uid); return !!k && localStorage.getItem(k)==="1"; }catch(e){ return false; } }
-function setMirrorUnfiled(uid,v){
-  try{ const k=mirrorUnfiledKey(uid); if(!k) return;
-       if(v) localStorage.setItem(k,"1"); else localStorage.removeItem(k); }catch(e){}
-}
-function mirrorIsDirty(uid){ try{ const k=mirrorDirtyKey(uid); return !!k && localStorage.getItem(k)==="1"; }catch(e){ return false; } }
-function setMirrorDirty(uid,dirty){
-  try{ const k=mirrorDirtyKey(uid); if(!k) return;
-       if(dirty) localStorage.setItem(k,"1"); else localStorage.removeItem(k); }catch(e){}
-}
-function cloudMirrorSave(p,uid,dirty){
-  const k=cloudMirrorKey(uid);
-  if(!k){ console.error("refusing to mirror a portfolio with no user id"); return false; }
-  try{ localStorage.setItem(k, JSON.stringify(p)); setMirrorDirty(uid,!!dirty); return true; }
-  catch(e){ console.error("mirror save failed",e); return false; }
-}
-function cloudMirrorLoad(uid){
-  const k=cloudMirrorKey(uid); if(!k) return null;
-  try{ const raw=localStorage.getItem(k); return raw?JSON.parse(raw):null; }catch(e){ return null; }
-}
-/* Before a server copy overwrites the mirror, keep anything the mirror holds that the server has
-   not seen, so an edit made during an outage is recoverable instead of silently discarded. */
-/* E6 FIX - decide by CONTENT, never by revision number.
-   Two devices editing from the same base both stamp revision base+1, and an offline device
-   re-stamps base+1 on every retry, so `mirror.revision <= server.revision` was not evidence that
-   the mirror held nothing new. It was how an offline edit got silently overwritten: the load saw
-   equal revisions, skipped the stash, and immediately mirrored the server's document over it.
-   `serverDoc` is the document just loaded (null when the account has no row at all - in which
-   case ANY mirror content is unsynced work and must be kept). */
-/* Returns "failed" when it NEEDED to keep something and could not - the caller must then leave
-   the mirror alone rather than overwrite the only copy. */
-function stashUnsyncedMirror(serverDoc,uid){
-  const u=uid||sbUserId(); if(!u) return false;
-  if(!mirrorIsDirty(u)) return false;                       // the mirror is a synced copy: nothing to keep
-  try{
-    const m=cloudMirrorLoad(u); if(!m){ setMirrorDirty(u,false); return false; }
-    const sig=docSig(m);
-    if(serverDoc && docSig(serverDoc)===sig){ setMirrorDirty(u,false); return false; }  // the server already has it
-    const seen=stashList(u);
-    if(seen.some(x=>docSig(x.doc)===sig)){ setMirrorDirty(u,false); return false; }     // already kept exactly this
-    // Prune BEFORE writing: the old order could hit the quota, swallow the error, and never reach
-    // the prune that would have made room - so every later stash failed too, permanently.
-    seen.slice(9).forEach(x=>stashDrop(x.key));             // keep the 9 most recent + this one
-    localStorage.setItem("pb_unsynced_"+u+"_"+Date.now(), JSON.stringify(m));
-    setMirrorDirty(u,false);
-    return true;
-  }catch(e){
-    console.error("could not keep the unsynced copy - leaving the mirror intact",e);
-    return "failed";
-  }
-}
-/* ---- kept-aside work ------------------------------------------------------------------
-   Everything stashed above is useless if nothing ever reads it. These list/restore/discard
-   helpers back the recovery prompt shown on sign-in; without them "your edit was kept aside"
-   is a false promise. */
-function stashList(uid){
-  const u=uid||sbUserId(); if(!u) return [];
-  const out=[];
-  try{
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i); if(!k) continue;
-      const m=/^pb_(unsynced|conflict)_(.+)_(\d+)$/.exec(k);
-      if(!m || m[2]!==u) continue;
-      let doc=null; try{ doc=JSON.parse(localStorage.getItem(k)); }catch(e){ continue; }
-      if(!doc) continue;
-      // Defence in depth: an entry with nothing in it at all is never worth restoring, and
-      // restoring one would replace a live account with nothing. Anything the user MADE - themes,
-      // membership, a watchlist, presets, a metric model - counts as content.
-      if(!docHasContent(doc)) continue;
-      out.push({ key:k, kind:m[1], when:Number(m[3])||0, doc,
-                 holdings:Object.keys(doc.holdings||{}).length,
-                 versions:((doc.versions)||[]).length, revision:doc.revision });
-    }
-  }catch(e){}
-  return out.sort((a,b)=>b.when-a.when);
-}
-function stashDrop(key){ try{ localStorage.removeItem(key); }catch(e){} }
-/* E6 FIX - the ordinary failed-save path writes the work into the MIRROR ONLY (no pb_unsynced_
-   entry). So every place that deletes a mirror was deleting the single copy of work the server
-   never took: the 401/403 handler, and the sign-out button whose own comment promised that
-   kept-aside work is never cleared. File it first, then delete. */
-/* Returns false when the unsaved copy could NOT be filed - the mirror must then survive. */
-function preserveDirtyMirror(uid){
-  const u=uid||sbUserId(); if(!u) return true;
-  if(!mirrorIsDirty(u)) return true;
-  /* stashUnsyncedMirror does not THROW on failure - it returns the sentinel "failed" (a full
-     localStorage is the ordinary cause). The old code called it inside a try/catch, discarded the
-     return value, and deleted the mirror anyway: the one copy of an edit the server never took,
-     removed by the Sign-out button whose own comment promises the opposite. */
-  return stashUnsyncedMirror(null,u)!=="failed";
-}
-function dropMirror(uid){
-  const u=uid||sbUserId(); if(!u) return;
-  if(!preserveDirtyMirror(u)){
-    setMirrorUnfiled(u,true);
-    console.error("keeping the mirror: the unsaved copy could not be filed");
-    return;                                     // better a stale plaintext copy than a lost edit
-  }
-  try{ const k=cloudMirrorKey(u); if(k) localStorage.removeItem(k); }catch(e){}
-  setMirrorDirty(u,false); setMirrorUnfiled(u,false);   // neither bit may outlive what it describes
-}
-/* The WHOLE document, minus the two fields that change without the user changing anything.
-   Signing only (revision + holdings) meant a theme rename, a weight, the cap, the watchlist, a
-   preset or a metric config - none of which touch holdings - counted as "the same work" and was
-   thrown away by the dedupe. */
-function docSig(d){
-  /* Key ORDER must not matter: the mirror is stringified from an in-memory object (insertion
-     order) while the server copy comes back from a jsonb column (normalised order), so a plain
-     JSON.stringify made identical content look different - and announced "unsaved work was kept
-     aside" for work that was already safely in the account. */
-  try{
-    const norm=v=>{
-      if(v===null||typeof v!=="object") return v;
-      if(Array.isArray(v)) return v.map(norm);
-      const o={}; Object.keys(v).sort().forEach(k=>{ o[k]=norm(v[k]); }); return o;
-    };
-    const c=Object.assign({},d||{}); delete c.updatedAt; delete c.revision;
-    return JSON.stringify(norm(c));
-  }catch(e){ return "?"+String(performance.now()); }
-}
 
 /* iOS LAN sync: when serverUrl is set, the app reads/writes the SAME portfolio.json the web
    version uses (via the home computer's server over Wi-Fi). Falls back to on-device storage. */
@@ -1588,8 +1442,7 @@ async function remotePutPortfolio(p){
      fallback(): portfolio | null       — used only when load() throws
    Behaviour is deliberately identical to the pre-E6.2 inline branching.               */
 const STORAGE_ADAPTERS={
-  cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p), mirror:"cloud",
-            fallback:uid=>cloudMirrorLoad(uid) },                       // E6.5 (own mirror, never STORE_KEY)
+  cloud:  { name:"cloud",  load:()=>cloudLoadPortfolio(), save:p=>cloudSavePortfolio(p) },   // E9: no local copy
   lan:    { name:"remote", load:remoteGetPortfolio, save:remotePutPortfolio, mirror:true,
             fallback:()=>nativeLoadPortfolio() },
   native: { name:"local",  load:async()=>nativeLoadPortfolio(), save:async p=>nativeSavePortfolio(p) },
@@ -1719,7 +1572,6 @@ async function sbSignOut(){
 function clearAccountState(){
   state.portfolio=null; state.baseRevision=null; state.syncStatus=null; state.syncError=null;
   state.docSource=null; state.docOwner=null; state.cloudRowExists=null;
-  state.pendingStashKey=null;
   state.themeTickers={}; state.themes=[]; state.watchlist=[];
   state.metrics=null; state.metricCfg=null; state.overrides={};
   /* These are account data too. Leaving them behind meant the NEXT person to sign in on this
@@ -1830,7 +1682,7 @@ async function sbApi(path, opts, _retried){
     sbStoreSession(null);
     // 403 can also mean a missing grant after a deploy, not only "not you" - either way, file any
     // unsaved copy before dropping it.
-    try{ dropMirror(uid); }catch(e2){}
+    try{ purgeLegacyLocalCopies(); }catch(e2){}   // E9: nothing of theirs stays on this device
     const err=new Error("your session is no longer valid"); err.authFailed=true; err.status=r.status;
     try{ lockOut("Your session is no longer valid. Please sign in again."); }catch(e2){}
     throw err;
@@ -2261,10 +2113,36 @@ async function loadScreenerQuotes(){
        identity change; treating it as one discarded a live portfolio on every stale reload.
    C3  state.baseRevision is a revision the SERVER confirmed, or null. Saving is refused while
        null. Only a load that returned content, or a confirmed write, may set it.
-   C4  Work that cannot reach the server is kept under the OWNER's keys BEFORE anything can
-       overwrite it, and is readable back through offerStashRecovery(). This holds even when the
-       context has gone stale - a rejected session is exactly when the copy matters most.
+   C4  NOTHING about a portfolio is written to this device. The account is the single source of
+       truth: a save that could not reach it did not happen, and the user is told so plainly
+       rather than being handed a cached copy to reconcile later.
    C5  A save returns true only if the write landed.                                          */
+/* ===== E9 - NOTHING ABOUT A PORTFOLIO IS STORED ON THIS DEVICE ==========================
+   The account is the single source of truth. Earlier versions kept an offline mirror plus four
+   kinds of local bookkeeping so that a save which could not reach the server was preserved and
+   offered back later. That machinery produced most of the defects in review rounds 3-6 - several
+   of which could hand a user STALE work that overwrote a good portfolio - and a web app writing
+   somebody's financial records into their browser storage is a poor default besides.
+
+   So: if a save cannot reach your account, it is not saved, and you are told so plainly. If the
+   account cannot be read, the app says that rather than showing a cached copy.
+   The only things now written locally are the sign-in session, the light/dark choice, whether a
+   page's guide has been seen, and the iOS LAN-sync URL. None of them is portfolio data.
+
+   This removes anything a previous version left behind on this machine. */
+function purgeLegacyLocalCopies(){
+  try{
+    const doomed=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && (k.startsWith("pb_cloud_mirror_")||k.startsWith("pb_mirror_dirty_")||
+               k.startsWith("pb_mirror_unfiled_")||k.startsWith("pb_unsynced_")||
+               k.startsWith("pb_conflict_"))) doomed.push(k);
+    }
+    doomed.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+    if(doomed.length) console.info("removed "+doomed.length+" local portfolio copies left by an earlier version");
+  }catch(e){}
+}
 function pctx(){
   const ad=storageAdapter();
   return { ad, name:ad.name, epoch:sbEpoch, owner:(ad.name==="cloud")?sbUserId():null };
@@ -2276,35 +2154,6 @@ function ctxCurrent(c){                          // C2, in one place
   if(now.name!==c.name) return false;            // the adapter changed under the document
   if(c.name==="cloud" && sbUserId()!==c.owner) return false;
   return true;
-}
-/* C4. Returns false only if the copy could not be stored at all. */
-/* Does this document contain ANYTHING the user made? Holdings and checkpoints are not the test:
-   under E8 there are no default themes, so an account's entire onboarding - themes, membership,
-   watchlist, presets, the metric model, the cap - lives in a document with zero holdings and zero
-   checkpoints. Judging that "empty" refused to keep it and hid it from the recovery prompt, while
-   three callers still told the user it had been kept. A guard has to measure the thing it guards. */
-function docHasContent(d){
-  if(!d) return false;
-  if(Object.keys(d.holdings||{}).length) return true;
-  if((d.versions||[]).length) return true;
-  if((d.themes||[]).length) return true;
-  const tk=d.themeTickers||{};
-  if(Object.keys(tk).some(k=>Array.isArray(tk[k]) && tk[k].length)) return true;
-  if((d.watchlist||[]).length) return true;
-  if((d.presets||[]).length) return true;
-  if((d.metrics||[]).length) return true;
-  if(d.metricCfg && Object.keys(d.metricCfg).length) return true;
-  if(d.overrides && Object.keys(d.overrides).length) return true;
-  if(isNum(d.cap)) return true;
-  if(isNum(d.totalContributed) && d.totalContributed>0) return true;
-  return false;
-}
-function keepAside(kind,owner,doc){
-  if(!owner||!doc) return false;
-  /* Only a document with NOTHING in it is "no loss to report". */
-  if(!docHasContent(doc)){ console.warn("not filing a document with nothing in it"); return true; }
-  try{ localStorage.setItem("pb_"+kind+"_"+owner+"_"+Date.now(), JSON.stringify(doc)); return true; }
-  catch(e){ console.error("could not keep the change aside",e); return false; }
 }
 
 async function loadPortfolio(){
@@ -2322,30 +2171,25 @@ async function loadPortfolio(){
   state.docSource=c.name; state.docOwner=c.owner;
 
   if(err){
+    /* E9 - there is no cached copy to fall back to. An account that cannot be read is reported as
+       such; the app never shows a portfolio it could not confirm. Saving stays refused because
+       baseRevision is null. */
     console.error("load failed",err);
     state.syncStatus=c.name+"-failed";
     state.baseRevision=null;                     // C3
-    if(err.authFailed){ state.portfolio=null; return; }        // rejected, not offline: serve nothing
-    doc = c.ad.fallback ? c.ad.fallback(c.owner) : null;       // an outage may fall back to the local copy
-    if(!doc){ state.portfolio=null; return; }
-    hydrateFromDocument(doc); rebuildThemeOf();
+    state.portfolio=null;
+    state.syncError = err.authFailed ? "your session is no longer valid"
+                                     : "your account could not be reached";
     return;
   }
 
   state.syncStatus=c.name;
   if(c.name==="cloud"){
     if(meta){ state.baseRevision=meta.revision; state.cloudRowExists=meta.rowExists; }
-    const kept=stashUnsyncedMirror(doc,c.owner);               // C4, before the mirror is replaced
-    if(kept==="failed"){
-      setMirrorUnfiled(c.owner,true);
-      state.syncError="unsaved work on this device could not be filed - it is still in the local copy";
-    } else {
-      if(doc){ cloudMirrorSave(doc,c.owner,false); setMirrorUnfiled(c.owner,false); }
-      state.syncError=null;                      // a confirmed read supersedes an earlier save failure
-    }
     if(!doc) state.portfolio=null;               // a CONFIRMED empty account
+    state.syncError=null;
   }
-  else if(doc && c.ad.mirror) nativeSavePortfolio(doc);
+  else if(doc && c.ad.mirror) nativeSavePortfolio(doc);       // iOS LAN sync only
 
   if(doc) hydrateFromDocument(doc);
   rebuildThemeOf();
@@ -2355,10 +2199,6 @@ async function loadPortfolio(){
    watchlist, metric list, per-metric config, presets, overrides, cap, weights and penalty - while
    the modal promised "its full history comes with it". */
 function hydrateFromDocument(p){
-  /* The document is being replaced wholesale, so a stash "put on screen" earlier is no longer what
-     is in front of the user - it must not be consumed by the next save. offerStashRecovery sets
-     these again straight after it calls us. */
-  state.pendingStashKey=null;
   /* migrateVersions FIRST: it SYNTHESISES p.versions from a legacy `transactions` document, and
      those snapshots carry no theme fields at all. Migrating themes before they exist left them
      unmigrated, and restoreVersion now reads a missing snapshot theme list as "empty" rather than
@@ -2419,12 +2259,10 @@ function syncStateIntoDocument(){
 }
 function savePortfolio(){
   const c=pctx();                                // C1: bound to the context that ASKED for this save
-  const queued=syncStateIntoDocument();          // ...and to the document INCLUDING the edit
+  syncStateIntoDocument();
   const run=()=>{
     if(!ctxCurrent(c)){
-      // C4: a save dropped because the session changed must not take the edit with it.
-      keepAside("unsynced", c.owner, queued);
-      console.warn("dropping a save whose context is no longer current - the edit was kept aside");
+      console.warn("dropping a save whose context is no longer current");
       return false;
     }
     return _savePortfolioInner(c);
@@ -2454,16 +2292,11 @@ async function _savePortfolioInner(c){
   /* C2 restated against the DOCUMENT: what is on screen must belong where we are about to write.
      This is the guard that stops an account's book reaching the identity-free store. */
   if(state.docSource && state.docSource!==c.name){
-    /* C4 applies to a REFUSAL too. This is the path a dying session takes - the adapter falls back
-       to the identity-free store while the document on screen belongs to an account - and refusing
-       without keeping the edit would lose exactly the work the refusal exists to protect. */
-    keepAside("unsynced", state.docOwner, doc);
     console.error("refusing to save a "+state.docSource+" document to the "+c.name+" store");
     state.syncError="this portfolio was not loaded from "+(c.name==="cloud"?"your account":"this store");
     renderSyncBadge(); return false;
   }
   if(c.name==="cloud" && state.docOwner && state.docOwner!==owner){
-    keepAside("unsynced", state.docOwner, doc);          // C4
     console.error("refusing to save one account's document into another");
     state.syncError="this portfolio belongs to a different account";
     renderSyncBadge(); return false;
@@ -2484,19 +2317,9 @@ async function _savePortfolioInner(c){
     state.syncStatus=c.name;
     // C3: only a CONFIRMED write advances the base, and only past the checkpoint.
     if(wrote && isNum(wrote.revision)){ state.baseRevision=wrote.revision; state.cloudRowExists=true; }
-    if(still && c.ad.mirror==="cloud"){
-      /* The mirror may hold an offline edit that could not be FILED (a full localStorage). Only
-         that blocks the overwrite - a merely "dirty" mirror is an ancestor of what just landed. */
-      if(mirrorUnfiled(owner) && stashUnsyncedMirror(null,owner)==="failed"){
-        console.error("keeping the unfiled offline copy - not overwriting the mirror");
-        state.syncError="an earlier offline change is still only in this device's copy";
-      } else { cloudMirrorSave(doc,owner,false); setMirrorUnfiled(owner,false); }
-    }
-    else if(still && c.ad.mirror) nativeSavePortfolio(doc);
-    /* A restored stash is consumed by the first successful save after it was put on screen.
-       Anything that replaces the document wholesale clears the key first (hydrateFromDocument),
-       so this cannot consume work that was never saved. */
-    if(state.pendingStashKey){ stashDrop(state.pendingStashKey); state.pendingStashKey=null; }
+    // E9: nothing about the portfolio is written to this device. The `lan` adapter's mirror is the
+    // iOS Wi-Fi-sync cache and is unrelated to the account path.
+    if(still && c.ad.mirror) nativeSavePortfolio(doc);
     renderSyncBadge();
     return true;                                 // C5
   }
@@ -2507,20 +2330,9 @@ async function _savePortfolioInner(c){
   console.error("save failed",err);
 
   if(err.conflict){
-    /* Another device wrote first. Financial records are never auto-merged: keep the losing edit,
-       reload the server's version, and say plainly which one is on screen.
-       If the copy could NOT be kept, do not reload - the reload replaces state.portfolio, and this
-       is the one place where that destroys the only remaining copy of the edit. */
-    /* The mirror fallback works precisely because overwriting an existing key succeeds where a
-       NEW key hits the quota - which is also exactly when the mirror is holding an offline copy
-       that could not be filed. Never trade one lost edit for another. */
-    const mayUseMirror = !mirrorUnfiled(owner);
-    if(!keepAside("conflict",owner,doc) && !(mayUseMirror && cloudMirrorSave(doc,owner,true))){
-      state.syncError="changed on another device, and your edit could not be filed - it is only on screen";
-      setTimeout(()=>toast("Changed on another device. Your edit could NOT be saved or filed - copy it somewhere before reloading."),400);
-      renderSyncBadge();
-      return false;
-    }
+    /* Another device wrote first. Financial records are never auto-merged: the server's version
+       wins, this edit is NOT applied, and the user is told plainly. E9: no copy is kept on the
+       device - the change simply did not happen. */
     state.baseRevision=null;                     // C3 - the server's revision is not yet loaded
     try{
       await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll();
@@ -2536,31 +2348,12 @@ async function _savePortfolioInner(c){
     return false;
   }
 
-  /* C4, with ONE copy in the right place - not two.
-     While the context holds, the dirty mirror IS the kept copy: a later successful save supersedes
-     it, and a later LOAD files it as unsaved work if it never was superseded. Writing a stash here
-     as well would announce "unsaved work was kept aside" for work the next save then completed.
-     When the context has gone (a rejected session, a sign-out mid-flight) the mirror is not ours to
-     write - it may have been deleted deliberately - so the stash is the only safe home. */
-  /* C4 - and CHECK it. cloudMirrorSave returns false on a full localStorage and on an empty owner;
-     ignoring that left the toast promising the change was kept while nothing held it. */
-  let kept;
-  if(still && c.ad.mirror==="cloud"){
-    /* The mirror may already hold an OFFLINE edit that could not be filed. Overwriting it here
-       destroys that copy - and a same-size overwrite succeeds under exactly the quota pressure
-       that made the filing fail in the first place. Keep this edit elsewhere instead. */
-    if(mirrorUnfiled(owner)) kept=keepAside("unsynced",owner,doc);
-    else kept=cloudMirrorSave(doc,owner,true) || keepAside("unsynced",owner,doc);
-  }
-  else if(still && c.ad.mirror){ try{ nativeSavePortfolio(doc); kept=true; }catch(e2){ kept=keepAside("unsynced",owner,doc); } }
-  else kept=keepAside("unsynced",owner,doc);
-  if(!kept) state.syncError=(state.syncError||"save failed")+" - and it could NOT be kept on this device";
-
-  setTimeout(()=>toast(!kept
-    ? "NOT saved, and this device could not keep a copy either - your change exists only on screen."
-    : (c.name==="cloud"
-      ? "NOT saved to your account - the change is kept on this device. Reload when your connection is back."
-      : "NOT saved - "+state.syncError)),400);
+  /* E9 - nothing is written to this device. The change is still on screen, so the user can try
+     again; if they navigate away it is gone, which is what "not saved" means. */
+  if(still && c.ad.mirror) { try{ nativeSavePortfolio(doc); }catch(e2){} }   // iOS LAN sync only
+  setTimeout(()=>toast(c.name==="cloud"
+    ? "NOT saved to your account - your change is still on screen. Try again, or reload to see what your account holds."
+    : "NOT saved - "+state.syncError),400);
   renderSyncBadge();
   return false;                                  // C5
 }
@@ -2784,7 +2577,7 @@ async function postSignInPrompts(){
   if(state.cloudRowExists===false) await offerImportIfLocalExists();   // E6.6
   /* Always offered, never in an else: the likeliest way to HAVE kept-aside work is a session that
      died before the first successful save, which is exactly when the account is still empty. */
-  offerStashRecovery();
+
 }
 /* E6.6 - the account is empty. Is there a portfolio on THIS MACHINE worth importing?
    The local store is only ever READ here. Three guards decide whether to even ask:
@@ -2838,50 +2631,6 @@ async function offerImportIfLocalExists(){
      the situation (empty account + kept-aside work) the two were meant to cover together. */
   await openImportChoice(localP,src);
 }
-/* E6 FIX - "we kept your edit aside" was a write-only promise: nothing in the app ever read
-   pb_unsynced_/pb_conflict_ back. This is the reader. */
-function offerStashRecovery(){
-  if(!signedIn()) return;
-  const items=stashList(sbUserId());
-  if(!items.length) return;
-  const rows=items.map((it,i)=>`<div class="card pad" style="margin:8px 0;background:var(--surface2)">
-      <div class="small"><b>${it.holdings}</b> holdings &middot; <b>${it.versions}</b> checkpoint${it.versions===1?"":"s"}
-        &middot; ${it.kind==="conflict"?"lost a save race":"edited offline"}</div>
-      <div class="xs muted" style="margin-top:3px">${new Date(it.when).toLocaleString()}</div>
-      <div class="row" style="gap:8px;margin-top:8px">
-        <button class="btn sm" data-load="${i}">Put it on screen</button>
-        <button class="btn sm ghost" data-drop="${i}">Discard</button>
-      </div></div>`).join("");
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="stashModal"><div class="modal-card card pad" style="max-width:480px">
-    <h2 style="font-size:16px">Unsaved work was kept aside</h2>
-    <p class="small muted" style="margin:6px 0 0">${items.length===1?"A change":"Changes"} on this device never reached your
-      account &mdash; saved while offline, or overtaken by another device. Nothing here has been applied.</p>
-    ${rows}
-    <p class="xs muted" style="margin:10px 0 0">"Put it on screen" loads that version so you can look at it. It is
-      <b>not</b> saved to your account until you make a change or press save yourself &mdash; and if you do,
-      it <b>replaces</b> what the account holds now. A copy of that is kept aside too.</p>
-    <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" id="stashClose">Close</button></div>
-  </div></div>`;
-  $("#stashClose").addEventListener("click",closeModal);
-  $("#stashModal").addEventListener("click",e=>{ if(e.target.id==="stashModal") closeModal(); });
-  $("#stashModal").addEventListener("click",e=>{
-    const l=e.target.closest("[data-load]"), d=e.target.closest("[data-drop]");
-    if(l){ const it=items[+l.dataset.load]; closeModal();
-      /* Deliberately NO copy of the current document here. Writing one on every VIEW produced an
-         unbounded pile of entries that the same prompt then advertised as "unsaved work that never
-         reached your account" - and restoring one of those reverts the account. The account's own
-         content is on the server until the user saves over it, and the version timeline (undo)
-         covers that step. */
-      hydrateFromDocument(JSON.parse(JSON.stringify(it.doc)));
-      /* Kept until the work is safely in the account - dropping it here would lose the copy if
-         the user never saves, and keeping it forever would re-offer stale work on every boot. */
-      state.pendingStashKey=it.key;
-      rebuildThemeOf(); rebuildFundamentals(); renderAll();
-      toast("Loaded the kept-aside version - review it, then save if you want to keep it"); return; }
-    if(d){ const it=items[+d.dataset.drop]; stashDrop(it.key); closeModal();
-      toast("Discarded"); offerStashRecovery(); }
-  });
-}
 
 function renderAcctBtn(){
   const b=$("#acctBtn"); if(!b) return;
@@ -2914,7 +2663,7 @@ function openAccount(){
          gate it is only ever useful WHILE signed in, so an explicit sign-out clears it rather
          than leaving it in a shared browser. Kept-aside work (pb_unsynced_/pb_conflict_) is
          deliberately NOT cleared - losing unsaved work would be the worse failure. */
-      try{ dropMirror(uid); }catch(e){}
+      try{ purgeLegacyLocalCopies(); }catch(e){}
       lockOut();                            // E6.8: clears state, stops the timer, returns to the landing page
       toast("Signed out");
     });
@@ -4872,8 +4621,7 @@ function setupEvents(){
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
     // The document was replaced wholesale, so a stash "put on screen" earlier is no longer what is
     // being saved and must not be consumed by this save.
-    state.pendingStashKey=null;
-    const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
+      const ok=await savePortfolio(); toast(ok?"Portfolio reset":"Reset here, but it was NOT saved - see the sync badge");
     renderAll(); switchView("calc");
   });
 }
@@ -4881,6 +4629,7 @@ function setupEvents(){
 async function init(){
   if(NATIVE){ try{ document.documentElement.classList.add('native'); }catch(e){} try{ state.serverUrl=localStorage.getItem(SRV_KEY)||""; }catch(e){} }
   initTheme();                                            // E5.0: before first paint, so there's no flash
+  purgeLegacyLocalCopies();                               // E9: remove any portfolio copies an earlier version left here
   sbLoadSession();                                        // E6.4: restore a signed-in session before any load
   wireGate();                                             // E6.8
   // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
