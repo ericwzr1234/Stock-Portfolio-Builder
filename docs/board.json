@@ -71,6 +71,15 @@
       "Research is deliberately untouched: search, view and watchlist anything. Search rows now label the type, so an ETF reads as one before anyone tries to add it, and openSwap refuses without opening a modal."
       ] },
 
+    { "id": "E11.10", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.9", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Ticker search runs locally, and covers ETFs", "notes": [
+      "OWNER 2026-08-16: the search box must cover ETFs, and every live Yahoo lookup is a request that is slow and risks a block. So cache a broad ticker universe and refresh it weekly.",
+      "tools/build_ticker_directory.py builds www/data/tickers.json from the NASDAQ Trader symbol directory - no key, no bot wall on that host. 11,290 symbols: 5,575 ETFs and 5,715 equities across Nasdaq, NYSE, NYSE American, NYSE Arca, Cboe BZX and IEX, each with a real is-ETF flag. Weekly refresh workflow, which also keeps the backup cron alive (GitHub disables cron after 60 days of repo inactivity).",
+      "THREE THINGS THAT WOULD HAVE BROKEN IT QUIETLY: Nasdaq's published field definitions are STALE and omit the ETF column the live file has, so everything parses by header NAME; Nasdaq writes BRK.A where Yahoo writes BRK-A, so symbols are normalised at the source or the directory would offer tickers that fail to fetch; and a truncated download must never replace a good index, so the generator validates counts and known symbols and swaps atomically.",
+      "Search now matches in-process: 12 queries in 24ms with ZERO network calls, against one 689KB load. Yahoo remains the fallback for OTC names and anything listed since the last refresh.",
+      "I REINTRODUCED THE server.py RANKING BUG AND THE TESTS CAUGHT IT: tie-breaking name matches by symbol length made 'appl' return AIT (Applied Industrial) before AAPL. Name matches now tie-break on how much of the name's FIRST WORD the query covers - 4 of 5 letters of Apple beats 4 of 7 of Applied."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",
