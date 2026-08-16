@@ -192,6 +192,11 @@ Authentication → Users → delete one of the test users, then in the SQL edito
 `select user_id from public.portfolios;` and confirm that user's row is gone. This is the last
 box on the gate above.
 
+**0. Move the project to a PAID tier.** (Owner's decision, 2026-08-15.) Free projects pause after a
+week idle; paid projects do not. This matters more than it used to: since E9 the app keeps **no local
+copy of a portfolio**, so a paused project means testers cannot see their data at all rather than
+falling back to a cache. Do this before the other two.
+
 **2. Custom SMTP — required before any invite.**
 The built-in sender is capped at **2 emails per hour** and is explicitly not for production. With
 it, a confirmation or reset email will silently fail to arrive and the tester will think the app is

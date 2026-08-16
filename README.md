@@ -212,8 +212,9 @@ and [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) to build the app.
 
 100% free — Yahoo Finance's free public endpoints (cookie + crumb handled for you) plus the SEC's free
 ticker list; Python standard library only, no API keys. Accounts and the database run on Supabase's
-free tier, which **pauses a project after a week with no activity** — you can resume it from their
-dashboard. While it is paused the app cannot reach your portfolio and will say so; there is no local
-copy to fall back on, by design. The server caches prices ~15s and fundamentals
+free tier while it is a sandbox. Note the free tier **pauses a project after a week with no
+activity**; the project moves to a paid tier before any formal testing, and paid projects are not
+paused. Whenever the account cannot be reached — a pause, an outage, no connection — the app says so
+rather than showing a stale copy, because nothing about your portfolio is cached on your device. The server caches prices ~15s and fundamentals
 ~6h so it never hammers Yahoo. If Yahoo is ever unreachable, the app falls back to a built-in snapshot
 (values flagged `seed`) so it still works — hit *Refresh* to go live again.

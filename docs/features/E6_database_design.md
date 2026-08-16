@@ -944,11 +944,19 @@ Still written locally, none of it portfolio data: the sign-in session, the light
 page guides have been seen, and the iOS LAN-sync URL. `pb_portfolio_v1` — the pre-account book — is
 **read** once for the import and never written on the web path.
 
-**The cost, recorded because it reverses an earlier requirement.** E6.8 required that a valid stored
-session keep working against a local copy while the backend was asleep, because the free tier pauses
-after a week idle. There is no local copy now, so during a pause the app reports that the account
-cannot be reached. That is a deliberate trade: fewer ways to lose data, in exchange for needing the
-network to see anything.
+**The cost, and why it is no longer a concern.** E6.8 required that a valid stored session keep
+working against a local copy while the backend was asleep, because the free tier pauses after a week
+idle. There is no local copy now, so during a pause the app would report that the account cannot be
+reached.
+
+**RESOLVED by the owner (2026-08-15): the project moves to a PAID Supabase tier before formal
+testing**, and paid projects are not paused for inactivity (§14). The pause scenario therefore stops
+being a design constraint — which is what made removing the offline copy affordable. Two consequences
+to carry forward: the "100% free" property now ends at the database (Yahoo and SEC data remain free
+and key-less), and the E6.8 requirement that the gate must not lock the owner out during a pause is
+**retired**, not merely unmet. The remaining honest statement is narrower and still true: an
+unreachable account — a dropped connection, a provider outage — is reported rather than papered over
+with a stale copy.
 
 ### What did NOT change
 
