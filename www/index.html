@@ -1298,18 +1298,27 @@ function totalContributed(){ return state.portfolio&&isNum(state.portfolio.total
 function totalCostBasis(){ const h=holdings(); return Object.keys(h).reduce((a,s)=>a+((h[s]&&isNum(h[s].costBasis))?h[s].costBasis:0),0); }
 
 /* ---- version timeline: undo / redo / revert ----------------------------- */
+const MAX_VERSIONS=10;   // E10.1 - the last 10 checkpoints; older ones are dropped on the next write
 function deepCopy(x){ return x==null?x:JSON.parse(JSON.stringify(x)); }
 function versions(){ return (state.portfolio&&state.portfolio.versions)||[]; }
 function head(){ return (state.portfolio&&isNum(state.portfolio.head))?state.portfolio.head:-1; }
 function currentVersion(){ const h=head(); return h>=0?versions()[h]:null; }
-function canUndo(){ return head()>=0; }
+/* E10.1 - ids start at 1 and only ever increase, so a first id above 1 proves older checkpoints
+   have been trimmed away. Undo must then stop at the oldest one we still hold: head === -1 means
+   "before the very first build" and WIPES holdings to zero, which becomes a lie - and a total
+   data loss - the moment that first build is no longer the first thing in the list. */
+function timelineTrimmed(){ const v=versions(); return !!(v.length && isNum(v[0].id) && v[0].id>1); }
+function canUndo(){ return head() > (timelineTrimmed() ? 0 : -1); }
 function canRedo(){ return head() < versions().length-1; }
 function versionLabel(v){ return v?("#"+v.id+" "+v.type+(v.cashIn?(" +"+money(v.cashIn,0)):"")):"—"; }
 function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" ${canUndo()?"":"disabled"}>↶ Undo</button>`+
   `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
+/* E10.2 - a checkpoint records the TRANSACTION and the settings that produced it. It deliberately
+   does NOT record the theme list, its membership, or the watchlist. Those are the user's library:
+   they are edited freely between checkpoints, and rewinding them threw that work away with no
+   warning and no way back - delete a checkpoint-old theme by pressing Undo. See restoreVersion(). */
 function snapshotState(){ return { holdings:deepCopy(state.portfolio.holdings), totalContributed:state.portfolio.totalContributed,
   weights:deepCopy(state.weights), penalty:deepCopy(state.penalty), overrides:deepCopy(state.overrides),
-  themeTickers:deepCopy(state.themeTickers), themes:deepCopy(state.themes), watchlist:deepCopy(state.watchlist),
   metrics:(state.metrics?state.metrics.map(m=>({key:m.key})):null),
   metricCfg:(state.metricCfg?deepCopy(state.metricCfg):null) }; }   // E2.4 versioned; presets are NOT snapshotted (user library)
 
@@ -1319,6 +1328,15 @@ function pushVersion(txn){
   txn.id=(p.versions.length?p.versions[p.versions.length-1].id:0)+1;
   txn.snapshot=snapshotState();
   p.versions.push(txn); p.head=p.versions.length-1;
+  /* E10.1 - keep only the last MAX_VERSIONS, so the stored document cannot grow without bound.
+     `head` is an INDEX, so dropping from the front shifts every index and head has to move with
+     it in the SAME operation. This is the only safe place to trim: the fork above plus the push
+     mean head is the last index right now, so the trim can never cross it or land mid-fork. */
+  if(p.versions.length>MAX_VERSIONS){
+    const drop=p.versions.length-MAX_VERSIONS;
+    p.versions=p.versions.slice(drop);
+    p.head-=drop;
+  }
 }
 
 function restoreVersion(i){
@@ -1327,17 +1345,15 @@ function restoreVersion(i){
      contributions); it no longer touches the themes. Pre-E8 this wrote `null`, which MEANT "the
      built-in five" - the model was restored, not erased. With no defaults, writing null/[] here
      would erase the user's themes instead, which is both destructive and not what undo means. */
-  if(i<0){ p.holdings={}; p.totalContributed=0; state.watchlist=[]; state.metrics=null; state.metricCfg=null; rebuildThemeOf(); return; }   // before the initial build
+  if(i<0){ p.holdings={}; p.totalContributed=0; state.metrics=null; state.metricCfg=null; rebuildThemeOf(); return; }   // before the initial build
   const s=p.versions[i].snapshot||{};
   p.holdings=deepCopy(s.holdings)||{}; p.totalContributed=isNum(s.totalContributed)?s.totalContributed:0;
   if(s.weights)state.weights=deepCopy(s.weights);
   if(s.penalty)state.penalty=deepCopy(s.penalty);
   if(s.overrides!=null)state.overrides=deepCopy(s.overrides);
-  // E8: a snapshot that predates the migration carries null; migrateThemes rewrites those in place
-  // on load, but be explicit here too so an unmigrated snapshot cannot blank the board.
-  state.themeTickers = (s.themeTickers && typeof s.themeTickers==="object") ? deepCopy(s.themeTickers) : {};
-  state.themes = Array.isArray(s.themes) ? deepCopy(s.themes) : [];
-  state.watchlist = Array.isArray(s.watchlist) ? deepCopy(s.watchlist) : (Array.isArray(s.otherList) ? s.otherList.map(x=>({sym:x,theme:null})) : []);
+  /* E10.2 - themes, membership and the watchlist are NOT restored, by design; older snapshots that
+     still carry them are ignored rather than replayed. Holdings that are no longer in any theme come
+     back as "Exiting position", which is exactly what the next rebalance should do with them. */
   state.metrics = (Array.isArray(s.metrics)&&s.metrics.length) ? validateMetrics(s.metrics) : null;   // E2.1: reattach by key; null => defaults
   state.metricCfg = (s.metricCfg&&typeof s.metricCfg==='object'&&!Array.isArray(s.metricCfg)) ? deepCopy(s.metricCfg) : null;   // E2.4
   rebuildThemeOf();
@@ -1510,8 +1526,21 @@ const SB_KEY="sb_publishable_smrzMSuM7plL-NWtHNt2BA_TJP6_lEY";
 const SB_SESSION_KEY="pb_sb_session";
 
 let sbSession=null;                                   // {access_token, refresh_token, expires_at, user}
+/* ONE definition of "a session", used by every path that can produce or test one. sbSession had
+   two entry points - adopted from an auth response, and loaded from storage - and only adoption
+   checked its shape. So a stored session missing user.id booted as signed IN: the gate stayed
+   down, sbUserId() was "", and every read and save then threw "not signed in" from the bottom of
+   the stack, which the classifier reported as "could not connect / check your connection". The
+   cause was a malformed session, the user was blamed on the network, and Try again could never
+   work. Validating at the boundary is the fix; classifying the throw better is not. */
+function sbValidSession(d){ return !!(d && d.access_token && d.refresh_token && d.user && d.user.id); }
 function sbLoadSession(){
-  try{ const raw=localStorage.getItem(SB_SESSION_KEY); sbSession=raw?JSON.parse(raw):null; }catch(e){ sbSession=null; }
+  let d=null;
+  try{ const raw=localStorage.getItem(SB_SESSION_KEY); d=raw?JSON.parse(raw):null; }catch(e){ d=null; }
+  if(d && !sbValidSession(d)){                        // unusable by definition - do not carry it forward
+    d=null; try{ localStorage.removeItem(SB_SESSION_KEY); }catch(e){}
+  }
+  sbSession=d;
   return sbSession;
 }
 /* E6 FIX (round 6) - this counts CHANGES OF IDENTITY, not session writes.
@@ -1534,7 +1563,7 @@ function sbStoreSession(sess){
    returns it), so demanding it costs nothing - and it removes the trivially-forged
    {"access_token":"x"} localStorage entry that used to take the gate down and then serve whatever
    was sitting in that uid's offline mirror. */
-function signedIn(){ return !!(sbSession && sbSession.access_token && sbSession.refresh_token); }
+function signedIn(){ return sbValidSession(sbSession); }   // the same test everywhere, user.id included
 function sbUserEmail(){ return (sbSession&&sbSession.user&&sbSession.user.email)||""; }
 function sbUserId(){ return (sbSession&&sbSession.user&&sbSession.user.id)||""; }
 
@@ -1566,7 +1595,7 @@ function sbAdoptSession(d){
   // throw - no authFailed marker, no lockOut, gate still down, adapter silently identity-free.
   /* ...and a user. Without one sbUserId() is "", every read and save throws "not signed in", and
      the app reports an unreachable account for what is really a malformed session. */
-  if(!d||!d.access_token||!d.refresh_token||!d.user||!d.user.id) return null;
+  if(!sbValidSession(d)) return null;
   const sess={ access_token:d.access_token, refresh_token:d.refresh_token,
     expires_at: Math.floor(Date.now()/1000)+(isNum(d.expires_in)?d.expires_in:3600),
     user:d.user||null };
@@ -1795,7 +1824,7 @@ const CLOUD_TABLE="/rest/v1/portfolios";
    `null` (no row) needs no carrier: loadPortfolio reads it as revision 0 / rowExists false. */
 const CLOUD_META="__pbMeta";
 async function cloudLoadPortfolio(){
-  const uid=sbUserId(); if(!uid) throw new Error("not signed in");
+  const uid=sbUserId(); if(!uid){ const e=new Error("not signed in"); e.authFailed=true; throw e; }   // signed out mid-flight
   const r=await sbApi(CLOUD_TABLE+"?user_id=eq."+encodeURIComponent(uid)+"&select=data,revision,schema_version&order=revision.desc&limit=1",
     { headers:{ "Accept":"application/json" } });
   if(!r.ok){ const e=new Error("cloud load failed: HTTP "+r.status); e.status=r.status; throw e; }   // status carried so it can be described accurately
@@ -1810,7 +1839,7 @@ async function cloudLoadPortfolio(){
   return p;
 }
 async function cloudSavePortfolio(p){
-  const uid=sbUserId(); if(!uid) throw new Error("not signed in");
+  const uid=sbUserId(); if(!uid){ const e=new Error("not signed in"); e.authFailed=true; throw e; }   // signed out mid-flight
   /* E6 FIX - the concurrency base must be the revision the SERVER last confirmed, not
      (document revision - 1). Deriving it from the document assumed every previous save landed,
      so one failed save desynced them permanently and every later save looked like a conflict on
@@ -4157,6 +4186,14 @@ function coachStart(view, force){
   if(!force && tourSeen(view)){ _coachStarting=null; return; }
   if(typeof appLocked!=="undefined" && appLocked){ _coachStarting=null; return; }
   if(typeof signedIn==="function" && !signedIn()){ _coachStarting=null; return; }
+  /* The account failed to load, so every anchor on the board is hidden. Without this the tour
+     resolves no anchor and concludes "nothing built yet" - blaming the user for an empty board
+     while the real reason is printed on the same screen. */
+  if(typeof accountUnreachable==="function" && accountUnreachable()){
+    _coachStarting=null;
+    if(force) toast("Your portfolio has not loaded yet - see the message on this page");
+    return;
+  }
   _coach={ view, title:t.name, steps:t.steps, i:0,
            uid:(typeof sbUserId==="function"&&sbUserId())||"" };
   const first=coachResolve(0,1);
@@ -4550,7 +4587,12 @@ async function syncDisconnect(){
    ====================================================================== */
 function renderAll(){
   if(!accountUnreachable()) clearUnreachablePanels();   // recovery must be total, and automatic
-  renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory();
+  /* renderScreener belongs here: renderAll is the repaint-everything entry point, and leaving the
+     screener out meant ANY state change left Research stale until the next tab switch - recovery
+     from an unreachable account just made it visible, by un-hiding a section nothing repopulated.
+     It writes only #watchlist, #screenerBody and #resStats, never the search box or its results,
+     so repainting cannot disturb typing. */
+  renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); renderScreener();
 }
 
 function switchView(v){
