@@ -540,6 +540,7 @@
   /* an empty board should say so, not show five themes the user never chose */
   .empty-note{border:1px dashed var(--line);border-radius:12px;padding:22px 18px;text-align:center;background:var(--surface2)}
   .empty-note h3{margin:0 0 6px;font-size:15px;letter-spacing:-.01em}
+  .pen-ink{color:var(--sell,#B0403A)}          /* the error line must actually read as an error */
   .empty-note p{margin:0 auto 14px;font-size:12.5px;color:var(--muted);max-width:46ch;line-height:1.55}
 
   /* ===== E6.8 login landing page ===== */
@@ -1394,7 +1395,18 @@ function planTrades(addCash, mode){
    ====================================================================== */
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 function capHttp(){ return window.CapacitorHttp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) || null; }
-async function api(path, opts){ const r=await fetch(path,opts); if(!r.ok)throw new Error(path+" "+r.status); return r.json(); }
+async function api(path, opts){
+  // A wedged proxy request must not hang the whole boot: bootSignedIn awaits market data before it
+  // paints, so an unanswered /api/quotes left the user staring at empty chrome indefinitely.
+  let ctl=null, timer=null;
+  try{ if("AbortController" in window){ ctl=new AbortController();
+        timer=setTimeout(()=>{ try{ ctl.abort(); }catch(e){} },CLOUD_TIMEOUT_MS); } }catch(e){}
+  try{
+    const r=await fetch(path, Object.assign({},opts,{signal:ctl?ctl.signal:undefined}));
+    if(!r.ok)throw new Error(path+" "+r.status);
+    return await r.json();
+  } finally { if(timer) clearTimeout(timer); }
+}
 
 /* ---- web (server-backed) ---- */
 async function webQuotes(syms){ const d=await api("/api/quotes?symbols="+syms.join(",")); return {quotes:d.quotes, asOf:d.asOf}; }
@@ -1522,9 +1534,22 @@ function sbUserEmail(){ return (sbSession&&sbSession.user&&sbSession.user.email)
 function sbUserId(){ return (sbSession&&sbSession.user&&sbSession.user.id)||""; }
 
 async function sbAuth(path, body, method){
-  const r=await fetch(SB_URL+"/auth/v1/"+path,{ method:method||"POST",
-    headers:{ "apikey":SB_KEY, "Content-Type":"application/json" },
-    body: body?JSON.stringify(body):undefined });
+  /* The same reason sbApi has one: a black-holed connection would otherwise leave the SIGN-IN
+     button disabled and reading "Working..." forever, with the Enter key gated on that same
+     disabled flag - no route out but a reload, on the very first interaction anyone has. */
+  let ctl=null, timer=null, timedOut=false;
+  try{ if("AbortController" in window){ ctl=new AbortController();
+        timer=setTimeout(()=>{ timedOut=true; try{ ctl.abort(); }catch(e){} },CLOUD_TIMEOUT_MS); } }catch(e){}
+  let r;
+  try{
+    r=await fetch(SB_URL+"/auth/v1/"+path,{ method:method||"POST",
+      headers:{ "apikey":SB_KEY, "Content-Type":"application/json" },
+      body: body?JSON.stringify(body):undefined, signal:ctl?ctl.signal:undefined });
+  }catch(fe){
+    const e=new Error(timedOut ? "the sign-in service did not respond - check your connection and try again"
+                               : "could not reach the sign-in service - check your connection");
+    e.transient=true; throw e;
+  }finally{ if(timer) clearTimeout(timer); }
   let d=null; try{ d=await r.json(); }catch(e){}
   if(!r.ok){ const msg=(d&&(d.msg||d.error_description||d.message))||("HTTP "+r.status);
              const err=new Error(msg); err.status=r.status; err.code=d&&d.error_code; throw err; }
@@ -1534,7 +1559,9 @@ function sbAdoptSession(d){
   // E6 FIX: must match signedIn(). Storing a session with no refresh_token produced a TRUTHY
   // return that sent sbApi down its retry path, where it exited through the plain "not signed in"
   // throw - no authFailed marker, no lockOut, gate still down, adapter silently identity-free.
-  if(!d||!d.access_token||!d.refresh_token) return null;
+  /* ...and a user. Without one sbUserId() is "", every read and save throws "not signed in", and
+     the app reports an unreachable account for what is really a malformed session. */
+  if(!d||!d.access_token||!d.refresh_token||!d.user||!d.user.id) return null;
   const sess={ access_token:d.access_token, refresh_token:d.refresh_token,
     expires_at: Math.floor(Date.now()/1000)+(isNum(d.expires_in)?d.expires_in:3600),
     user:d.user||null };
@@ -1764,6 +1791,7 @@ async function cloudLoadPortfolio(){
   const rows=await r.json();
   if(!rows||!rows.length) return null;                 // no row yet - the first save creates it
   const row=rows[0], p=row.data||null;
+  if(!p){ const e=new Error("your account row is present but empty"); e.status=500; throw e; }   // not the same as "no row"
   if(p && isNum(row.revision)) p.revision=row.revision; // the row column is the source of truth
   if(p) try{ Object.defineProperty(p,CLOUD_META,{ value:{ revision:isNum(row.revision)?row.revision:0, rowExists:true },
                                                   enumerable:false, configurable:true }); }catch(e){}
@@ -2340,6 +2368,19 @@ async function _savePortfolioInner(c){
     setTimeout(()=>toast("Not saved - your account was still loading. Please make that change again."),400);
     return false;
   }
+  /* REFUSE BEFORE MANUFACTURING. Inventing a document here while the account could not be read
+     does two bad things: the save is refused anyway (C3, baseRevision is null), and the mere
+     existence of state.portfolio flips accountUnreachable() off - permanently - so every honest
+     "your portfolio could not be loaded" panel is replaced by an invitation to build a first
+     theme, over a live account. One click on any Model control was enough.
+     A document is only ever manufactured for an account we have READ and found empty. */
+  if(c.name==="cloud" && !state.portfolio && !isNum(state.baseRevision)){
+    state.syncError=(state.syncFailure&&state.syncFailure.short)||"your account has not been loaded";
+    console.warn("save refused - this account has not been read yet");
+    setTimeout(()=>toast("Not saved - your portfolio has not loaded yet. Reload and try again."),400);
+    try{ renderSyncBadge(); }catch(e){}
+    return false;
+  }
   if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
   const doc=state.portfolio, owner=c.owner;      // C1
   syncStateIntoDocument();   // the edit must be IN the document before any refusal can file it
@@ -2380,7 +2421,8 @@ async function _savePortfolioInner(c){
   }
 
   // ---- the write did not land ----
-  state.syncError=(err&&err.message)||"save failed";
+  const whyS=describeCloudFailure(err);
+  state.syncError=whyS.short;
   state.syncStatus=c.name+"-failed";
   console.error("save failed",err);
 
@@ -2408,9 +2450,10 @@ async function _savePortfolioInner(c){
   /* E9 - nothing is written to this device. The change is still on screen, so the user can try
      again; if they navigate away it is gone, which is what "not saved" means. */
   if(still && c.ad.mirror) { try{ nativeSavePortfolio(doc); }catch(e2){} }   // iOS LAN sync only
-  setTimeout(()=>toast(c.name==="cloud"
-    ? "NOT saved to your account - your change is still on screen. Try again, or reload to see what your account holds."
-    : "NOT saved - "+state.syncError),400);
+  /* Say WHY, and do not tell someone to retry something retrying cannot fix (a misconfigured
+     database will refuse every attempt identically). */
+  setTimeout(()=>toast("NOT saved - "+whyS.detail+" "+
+    (whyS.ours ? "This one is our fault; your change is still on screen." : whyS.act)),400);
   renderSyncBadge();
   return false;                                  // C5
 }
@@ -2616,9 +2659,13 @@ function wireGate(){
 async function bootSignedIn(){
   try{ await loadPortfolio(); }catch(e){ console.error("load failed",e); }
   rebuildThemeOf();
+  /* Paint what we already know BEFORE waiting on prices. The portfolio is the thing the user came
+     for; market data only decorates it. Awaiting both meant one wedged proxy request left the app
+     showing empty chrome with no message at all. */
+  renderAcctBtn(); renderSyncBadge(); renderAll();
   try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }
   catch(e){ console.error(e); toast("Some market data failed to load - using fallback"); }
-  renderAcctBtn(); renderSyncBadge(); renderAll();
+  renderAll();
 }
 /* E6 FIX - the modal prompts MUST NOT live inside bootSignedIn().
    The gate is opaque and sits at z-index 400; a modal renders at 80. bootSignedIn() is awaited by
@@ -2704,7 +2751,7 @@ function openAccount(){
     $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
-      <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account. Nothing about it is stored on this device.</p>
+      <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account &mdash; this app stores nothing about it on your device.</p>
       <div class="row" style="justify-content:space-between;margin-top:16px">
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
@@ -2752,8 +2799,8 @@ function openImportChoice(local,src){
       <button class="btn primary" id="impYes" style="flex:1">Import it into my account</button>
       <button class="btn" id="impNo">Start fresh</button>
     </div>
-    <p class="xs muted" style="margin:12px 0 0">Either way your local file is left exactly as it is, so
-      nothing here can lose it.</p>
+    <p class="xs muted" style="margin:12px 0 0">Your local file is left exactly as it is either way &mdash; but this
+      offer is only made once, so if you choose <b>Start fresh</b> you will not be asked again.</p>
   </div></div>`;
   const close=()=>{ closeModal(); };                    // closeModal resolves via _modalResolve
   $("#impNo").addEventListener("click",async()=>{
@@ -2832,6 +2879,7 @@ function openImportChoice(local,src){
 
 function renderOverview(){
   const svg=$("#ovChart"); if(!svg) return;
+  if(accountUnreachable()){ unreachablePanel(svg.closest(".card")||svg.parentNode); return; }
   const init=isInit(), total=curTotal();
   // ---- hero numbers (all live/real) ----
   const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s], q=state.quotes[s];
@@ -3520,7 +3568,7 @@ function renderCalcInit(){
             <input type="number" id="initCapital" value="80000" step="1000" style="width:160px"></div>
           <button id="buildBtn" class="btn primary">Build initial portfolio →</button>
         </div>
-        <p class="note">This writes <code class="mono">portfolio.json</code> on your machine and is remembered
+        <p class="note">This is saved to your account and is the starting point
           for every future rebalance.</p>
       </div>
       <div class="card pad">
@@ -3546,8 +3594,9 @@ async function doBuildInitial(){
   state.portfolio.holdings=h;
   state.portfolio.totalContributed=cap;
   pushVersion(buildTxn("INITIAL","full",cap,0,plan));   // forks the timeline if you'd undone a prior build
-  await savePortfolio();
-  toast("Portfolio initialized with "+money(cap,0));
+  const _ok=await savePortfolio();
+  toast(_ok ? "Portfolio initialized with "+money(cap,0)
+            : "Built on screen, but NOT saved to your account - see the badge in the header");
   renderAll();
   switchView("calc");
 }
@@ -3733,6 +3782,7 @@ async function applyRebalance(plan){
    Render: HISTORY view
    ====================================================================== */
 function renderHistory(){
+  if(accountUnreachable()){ const b=$("#historyBody"); if(b) unreachablePanel(b.closest(".card")||b); return; }
   const body=$("#historyBody"), ctl=$("#histControls");
   const vs=versions(), h=head();
   // E5.5: undo/redo + sync live in the left column; the checkpoint list is the right column
@@ -3856,6 +3906,7 @@ async function loadThemeRecos(){
 }
 
 function renderScreener(){
+  if(accountUnreachable()){ const w=$("#watchlist"); if(w) unreachablePanel(w.closest(".card")||w); return; }
   renderWatchlist();
   const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
   const body=$("#screenerBody");
@@ -4023,7 +4074,7 @@ const TOURS = {
       body:"Rebalancing from an earlier point forks the timeline, like git - the abandoned future is dropped rather than silently merged." } ] }
 };
 
-let _coach=null;                                   // {view, i, steps, els}
+let _coach=null, _coachStarting=null;                                   // {view, i, steps, els}
 function tourKey(view){ const u=(typeof sbUserId==="function"&&sbUserId())||"anon"; return "pb_tour_"+u+"_"+view; }
 function tourSeen(view){ try{ return localStorage.getItem(tourKey(view))==="1"; }catch(e){ return true; } }
 function markTourSeen(view){ try{ localStorage.setItem(tourKey(view),"1"); }catch(e){} }
@@ -4098,6 +4149,7 @@ function coachGo(delta){
   _coach.i=next; coachRender();
 }
 function coachStart(view, force){
+  _coachStarting=view;            // claim it BEFORE coachEnd nulls _coach, so maybeCoach stands down
   coachEnd(false);
   const t=TOURS[view]; if(!t) return;
   if(!force && tourSeen(view)) return;
@@ -4124,6 +4176,7 @@ function coachStart(view, force){
     else if(act==="back") coachGo(-1);
     else coachEnd(true);
   });
+  _coachStarting=null;
   window.addEventListener("resize",coachPlace); window.addEventListener("scroll",coachPlace,true);
   /* The bubble sits above every modal (301 vs 80) and takes pointer events, so a step that says
      "click New theme" would have its own bubble covering the dialog that opens. Rather than fight
@@ -4139,7 +4192,7 @@ function coachStart(view, force){
 }
 /* Offer the tour when an account first lands on a view. Never while the gate is up, never mid-boot. */
 function maybeCoach(view){
-  if(_coach) return;                       // one is already running (impNo starts it explicitly)
+  if(_coach || _coachStarting===view) return;   // already running, or being started by an explicit call
   if(typeof booting!=="undefined" && booting) return;
   if(typeof signedIn!=="function" || !signedIn()) return;
   if(tourSeen(view)) return;
@@ -4271,9 +4324,9 @@ async function renameTheme(key, name, color){
   t.name=name; if(color)t.color=color;                                   // KEY unchanged
   state.themes=list; rebuildThemeOf();
   closeModal();
-  await savePortfolio();
+  const _ok=await savePortfolio();
   renderAll();
-  toast("Updated “"+name+"”");
+  toast(_ok?"Updated “"+name+"”":"Renamed on screen, but NOT saved — see the badge in the header");
   return true;
 }
 function openEditTheme(key){
@@ -4317,9 +4370,9 @@ async function deleteTheme(key){
   state.themes = live.map(x=>({key:x.key,name:x.name,color:x.color})).filter(x=>x.key!==key);
   if(state.themeTickers){ const m=Object.assign({},state.themeTickers); delete m[key]; state.themeTickers=m; }
   rebuildThemeOf();
-  await savePortfolio();
+  const _ok=await savePortfolio();
   renderAll();
-  toast("Deleted “"+t.name+"”"+(held.length?" — its names will sell on the next rebalance":""));
+  toast((_ok?"Deleted “"+t.name+"”":"Deleted on screen, but NOT saved — see the badge")+(held.length?" — its names will sell on the next rebalance":""));
 }
 /* E8 - restoreDefaultThemes() and its button were DELETED. There is no default theme set
    any more: every account builds its own, so "restore the five I happened to start with" is
@@ -4537,6 +4590,20 @@ function initTheme(){
    there is no cached copy to fall back on: both leave state.portfolio null and themes empty. Telling
    a user with a real portfolio that they have none - and inviting them to create their first theme -
    is the failure this codebase already fixed once for the import prompt. Distinguish them. */
+/* One panel, one wording, used by EVERY view. The E9 fix was applied to Model, Rebalance and the
+   context bar but not to Overview, History or Research - so three views still told a user with a
+   real portfolio that they had nothing. */
+function unreachablePanel(host){
+  if(!host) return;
+  const why=state.syncFailure||describeCloudFailure(null);
+  host.innerHTML=`<div class="empty-note">
+    <h3>Your portfolio could not be loaded</h3>
+    <p><b>${why.detail}</b><br>${why.act}</p>
+    <p class="xs muted" style="margin-top:-4px">Your data is safe in your account.${why.ours?" This one is our fault, not yours.":""}</p>
+    <button class="btn primary" data-unreach-retry>Try again</button></div>`;
+  const b=host.querySelector("[data-unreach-retry]");
+  if(b) b.addEventListener("click",async()=>{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); });
+}
 function accountUnreachable(){
   /* Specifically: the account could not be READ, so there is nothing to show. A failed SAVE also
      stamps "<adapter>-failed", but there the portfolio IS loaded and the honest message is a
@@ -4548,7 +4615,7 @@ function renderContext(){
   const box=$("#ctxKpis"); if(!box) return;
   if(accountUnreachable()){
     const why=state.syncFailure||describeCloudFailure(null);
-    box.innerHTML='<span class="small" style="color:var(--down)">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
+    box.innerHTML='<span class="small pen-ink">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
     if($("#railFoot")) $("#railFoot").textContent="not connected";
     return; }
   if(!isInit()){ box.innerHTML='<span class="small muted">'+(themes().length
