@@ -4880,7 +4880,9 @@ function setupEvents(){
        loaded" panel with an empty board over a live account. Ask the question only when the
        answer can be honoured. */
     if(storageAdapter().name==="cloud" && (accountUnreachable() || !isNum(state.baseRevision))){
-      toast("Your account has not loaded, so a reset could not be saved - nothing was changed"); return; }
+      /* Cause-neutral on purpose: this fires both when the account could not be READ and when a
+         brand-new account has no row yet, and "has not loaded" is false in the second case. */
+      toast("A reset could not be saved to your account right now, so nothing was changed"); return; }
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
