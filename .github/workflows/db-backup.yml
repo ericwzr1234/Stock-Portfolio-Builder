@@ -1,0 +1,56 @@
+# Nightly backup of the Supabase database.
+#
+# WHY THIS EXISTS: Supabase's Free plan provides no backups at all - no daily snapshots, no
+# point-in-time recovery, no retention. Their own docs tell free users to dump it themselves. With
+# one JSON row per user, no copy on the device (E9) and no export yet, a single bad write is
+# unrecoverable total loss for that user. Even Pro would only restore the WHOLE project to a point
+# in time; there is no row-level restore at any price.
+#
+# TWO TRAPS, both real:
+#  1. GitHub DISABLES scheduled workflows after 60 days with no commits to the repo. The backup goes
+#     quiet exactly when the project is quiet enough to need it, and says nothing. Only a new commit
+#     re-arms it. Check the Actions tab if the repo has been idle.
+#  2. pg_dump must be at least the server's major version, and the runner's bundled client is often
+#     older. It is pinned to a container below rather than trusted.
+
+name: db-backup
+
+on:
+  schedule:
+    - cron: "17 7 * * *"   # 07:17 UTC daily. Off the hour on purpose - the hour is congested.
+  workflow_dispatch:        # so it can be run on demand, and proved today rather than tomorrow
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump, encrypt, verify
+        env:
+          # Session pooler, port 5432. NOT 6543 and NOT the direct endpoint: the direct endpoint is
+          # IPv6-only, GitHub runners are IPv4-only, and it fails with "Network is unreachable".
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL"     || { echo "::error::SUPABASE_DB_URL is not set"; exit 1; }
+          test -n "$PASSPHRASE" || { echo "::error::BACKUP_PASSPHRASE is not set"; exit 1; }
+
+          docker run --rm -i postgres:17-alpine \
+            pg_dump "$DB_URL" --no-owner --no-privileges > dump.sql
+
+          # A backup job that reports success on an empty file is worse than none.
+          test -s dump.sql || { echo "::error::dump is empty"; exit 1; }
+          grep -q "PostgreSQL database dump" dump.sql || { echo "::error::dump has no header"; exit 1; }
+          echo "rows-ish: $(grep -c '^INSERT\|^COPY' dump.sql || true)   bytes: $(stat -c%s dump.sql)"
+
+          # GitHub holds ciphertext only. The passphrase never leaves the owner's password manager.
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+              --passphrase "$PASSPHRASE" -o dump.sql.gpg dump.sql
+          rm -f dump.sql
+          stat -c'encrypted: %s bytes' dump.sql.gpg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-db-${{ github.run_id }}
+          path: dump.sql.gpg
+          retention-days: 30
