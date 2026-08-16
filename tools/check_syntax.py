@@ -49,3 +49,11 @@ print('last balanced line:', last0)
 print('--- from there ---')
 for x in range(max(0, last0 - 1), min(last0 + 14, len(lines))):
     print('%5d  %s' % (x + 1, lines[x][:100]))
+
+# Exit non-zero when it is actually broken. This only ever printed, which made it useless as a CI
+# gate - a step that cannot fail is not a check. The failure it exists to catch (a one-line comment
+# swallowing renderAll's body) is silent otherwise.
+import sys
+if depth != 0 or instr or incomment:
+    sys.stderr.write('BROKEN: unbalanced braces or an unterminated string/comment\n')
+    sys.exit(1)

@@ -9,12 +9,12 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 7 |
+| Design | 6 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 55 |
+| Done | 56 |
 
 ---
 
@@ -34,7 +34,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (7)
+## Design  (6)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.2** · _E11 · Online, for invited users_ — **Port the market-data proxy to a Cloudflare Worker** _(depends E11.0, web)_ · [spec](features/E11_online-deployment.md)
@@ -68,12 +68,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
 - **E11.7** · _E11 · Online, for invited users_ — **Error monitoring and a feedback channel** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
   - 19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.
   - Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel.
-- **E11.8** · _E11 · Online, for invited users_ — **Tests and CI** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
-  - There are no tests and no CI today - tools/ holds check_syntax.py and two generators.
-  - Playwright against the real page, running the same in-page assertions used by hand throughout E10. No login needed, so CI carries no secrets.
-  - Target the MATH, not coverage: computeAllocation, planTrades, applyRebalance, computeCarryover, applyThemeCap, the version timeline, and the equal-weight reconstruction across a trim. The dangerous bug in a portfolio tool is a plausible wrong number, not a crash - a crash gets reported.
-  - Justification, from this project's own history: E10.1 shipped a defect that made the Overview state a fabricated equal-weight return, and it survived my own testing and two review passes.
-  - Also in CI: check_syntax.py, and Dependabot on (free on private repos).
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -109,7 +103,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (55)
+## Done  (56)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -205,9 +199,10 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 2 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 3 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
+- **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 
 </details>

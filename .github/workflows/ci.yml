@@ -1,0 +1,44 @@
+# Runs on every push. Two gates, both of which can actually fail:
+#   1. tools/check_syntax.py — catches the failure mode that once blanked the whole page (a one-line
+#      comment swallowing renderAll's body). It used to only print; it now exits non-zero, because a
+#      step that cannot fail is not a check.
+#   2. tests/engine.spec.js — the allocation maths and the version timeline, asserted as invariants.
+#      No sign-in is needed, so this workflow carries no secrets.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Brace and string balance
+        run: python3 tools/check_syntax.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Engine tests
+        run: npx playwright test
+
+      - name: Keep the report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,0 +1,14 @@
+# Free on private repos — alerts, security updates and version updates are all included on the
+# GitHub Free plan. Only the add-ons (Secret Protection, Code Security) are paid.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3

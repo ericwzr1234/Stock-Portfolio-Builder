@@ -84,8 +84,9 @@
       "19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.",
       "Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel."
       ] },
-    { "id": "E11.8", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.8", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Tests and CI", "notes": [
+      "DONE 2026-08-16. 12 Playwright tests against the real page, signed out, so CI carries no secrets. MUTATION-TESTED: reintroducing the E10.1 equal-weight defect fails exactly one test (received 100, the cash, against the expected 800, the real book value) and the other 11 still pass - the suite would have caught the bug that shipped.",
       "There are no tests and no CI today - tools/ holds check_syntax.py and two generators.",
       "Playwright against the real page, running the same in-page assertions used by hand throughout E10. No login needed, so CI carries no secrets.",
       "Target the MATH, not coverage: computeAllocation, planTrades, applyRebalance, computeCarryover, applyThemeCap, the version timeline, and the equal-weight reconstruction across a trim. The dangerous bug in a portfolio tool is a plausible wrong number, not a crash - a crash gets reported.",

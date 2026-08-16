@@ -33,3 +33,9 @@ ticker_directory.json
 
 # ── misc local ──
 *.local
+
+# ── Playwright (E11.8) ──
+test-results/
+playwright-report/
+blob-report/
+.playwright/
