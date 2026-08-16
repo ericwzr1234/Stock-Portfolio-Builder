@@ -1,0 +1,4 @@
+# This app is meant to be reached by people who were sent the URL, not found in a search result.
+# An indexed sign-in page is exactly how strangers arrive at one.
+User-agent: *
+Disallow: /

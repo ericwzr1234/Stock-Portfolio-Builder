@@ -80,6 +80,13 @@
       "I REINTRODUCED THE server.py RANKING BUG AND THE TESTS CAUGHT IT: tie-breaking name matches by symbol length made 'appl' return AIT (Applied Industrial) before AAPL. Name matches now tie-break on how much of the name's FIRST WORD the query covers - 4 of 5 letters of Apple beats 4 of 7 of Applied."
       ] },
 
+    { "id": "E11.3a", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.10", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Pre-deploy hygiene: noindex, robots, build stamp", "notes": [
+      "DONE 2026-08-16. Split out of E11.3 so the deploy ticket is only the deploy. All three are testable locally, so there was no reason for them to ride along with a first Pages deploy and be verified under pressure.",
+      "robots.txt disallows crawling, and a noindex meta covers a crawler that reads the page anyway. The URL is meant to be reached by people who were sent it - an indexed sign-in page is exactly how a stranger arrives at an invite-only tool.",
+      "APP_VERSION is stamped from the git commit by tools/stamp_version.py and shown in the Account panel. Which build are you on is the first question any bug report needs, and it was unanswerable. The comment referencing the stamper was written before the stamper existed; the tool was created rather than the comment softened."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",

@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Unlisted by intent: robots.txt disallows crawling, and this covers a crawler that reads the
+     page anyway. An indexed sign-in page is how strangers find an invite-only tool. -->
+<meta name="robots" content="noindex, nofollow">
 <title>Portfolio Builder</title>
 <style>
   /* ==========================================================================
@@ -1320,6 +1323,10 @@ function curTotal(){ const cv=curValueBySym(); return tradeUniverse().reduce((a,
 function curValueByTheme(){ const cv=curValueBySym(),o={}; themes().forEach(t=>o[t.key]=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0)); return o; }
 function totalContributed(){ return state.portfolio&&isNum(state.portfolio.totalContributed)?state.portfolio.totalContributed:0; }
 function totalCostBasis(){ const h=holdings(); return Object.keys(h).reduce((a,s)=>a+((h[s]&&isNum(h[s].costBasis))?h[s].costBasis:0),0); }
+
+/* Stamped at commit time by tools/stamp_version.py, which CI runs. "Which build are you on?" is
+   the first question any bug report needs, and it is unanswerable without this. */
+const APP_VERSION="2026-08-16 2007758";
 
 /* ---- version timeline: undo / redo / revert ----------------------------- */
 const MAX_VERSIONS=10;   // E10.1 - the last 10 checkpoints; older ones are dropped on the next write
@@ -3093,6 +3100,7 @@ function openAccount(){
     $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="acctModal"><div class="modal-card card pad" style="max-width:420px">
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
+      <p class="xs muted" style="margin:2px 0 0">Build ${APP_VERSION}</p>
       <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account &mdash; this app stores nothing about it on your device.</p>
       <button class="btn" id="acctExport" style="width:100%;margin-top:12px">\u2b07 Download my data</button>
       <p class="xs muted" style="margin:6px 0 0">Everything the account holds, as JSON &mdash; holdings, checkpoints, themes, watchlist and settings.</p>
