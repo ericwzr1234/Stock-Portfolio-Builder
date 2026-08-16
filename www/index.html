@@ -1502,9 +1502,10 @@ function stashList(uid){
       if(!m || m[2]!==u) continue;
       let doc=null; try{ doc=JSON.parse(localStorage.getItem(k)); }catch(e){ continue; }
       if(!doc) continue;
-      // Defence in depth: an entry with no holdings and no checkpoints is never worth restoring,
-      // and restoring one would replace a live account with nothing.
-      if(!Object.keys(doc.holdings||{}).length && !((doc.versions||[]).length)) continue;
+      // Defence in depth: an entry with nothing in it at all is never worth restoring, and
+      // restoring one would replace a live account with nothing. Anything the user MADE - themes,
+      // membership, a watchlist, presets, a metric model - counts as content.
+      if(!docHasContent(doc)) continue;
       out.push({ key:k, kind:m[1], when:Number(m[3])||0, doc,
                  holdings:Object.keys(doc.holdings||{}).length,
                  versions:((doc.versions)||[]).length, revision:doc.revision });
@@ -2277,13 +2278,31 @@ function ctxCurrent(c){                          // C2, in one place
   return true;
 }
 /* C4. Returns false only if the copy could not be stored at all. */
+/* Does this document contain ANYTHING the user made? Holdings and checkpoints are not the test:
+   under E8 there are no default themes, so an account's entire onboarding - themes, membership,
+   watchlist, presets, the metric model, the cap - lives in a document with zero holdings and zero
+   checkpoints. Judging that "empty" refused to keep it and hid it from the recovery prompt, while
+   three callers still told the user it had been kept. A guard has to measure the thing it guards. */
+function docHasContent(d){
+  if(!d) return false;
+  if(Object.keys(d.holdings||{}).length) return true;
+  if((d.versions||[]).length) return true;
+  if((d.themes||[]).length) return true;
+  const tk=d.themeTickers||{};
+  if(Object.keys(tk).some(k=>Array.isArray(tk[k]) && tk[k].length)) return true;
+  if((d.watchlist||[]).length) return true;
+  if((d.presets||[]).length) return true;
+  if((d.metrics||[]).length) return true;
+  if(d.metricCfg && Object.keys(d.metricCfg).length) return true;
+  if(d.overrides && Object.keys(d.overrides).length) return true;
+  if(isNum(d.cap)) return true;
+  if(isNum(d.totalContributed) && d.totalContributed>0) return true;
+  return false;
+}
 function keepAside(kind,owner,doc){
   if(!owner||!doc) return false;
-  /* An empty book is not "work". Filing one lets the recovery prompt offer "0 holdings -
-     0 checkpoints", and accepting that writes the emptiness over a real account. If there is
-     genuinely nothing to keep, say so by returning true - there was no loss to report. */
-  const nothing = !Object.keys(doc.holdings||{}).length && !((doc.versions||[]).length);
-  if(nothing){ console.warn("not filing an empty document as kept-aside work"); return true; }
+  /* Only a document with NOTHING in it is "no loss to report". */
+  if(!docHasContent(doc)){ console.warn("not filing a document with nothing in it"); return true; }
   try{ localStorage.setItem("pb_"+kind+"_"+owner+"_"+Date.now(), JSON.stringify(doc)); return true; }
   catch(e){ console.error("could not keep the change aside",e); return false; }
 }
@@ -3532,7 +3551,7 @@ async function resetToDefault6(){
   if(!confirm("Reset the metric model to the default 6 (PEG, EV/EBITDA, Debt/FCF, P/E, market cap, momentum) with default weights and exception handling?\n\nYour theme cap and your holdings are NOT changed."))return;
   state.metrics=null; state.metricCfg=null;
   state.weights=deepCopy(DEFAULT_CONFIG.weights); state.penalty=deepCopy(DEFAULT_CONFIG.penalty);
-  if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc(); toast("Reset to the default 6 metrics");
+  const _ok=await savePortfolio(); renderFundamentals(); renderCalc(); toast(_ok?"Reset to the default 6 metrics":"Reset here, but NOT saved - see the sync badge");
 }
 function currentModelConfig(){
   return { metrics: state.metrics?state.metrics.map(m=>({key:m.key})):null,
@@ -3544,18 +3563,18 @@ async function saveCurrentPreset(){
   state.presets=Array.isArray(state.presets)?state.presets:[];
   const cfg=currentModelConfig(), existing=state.presets.find(p=>p.name===name);
   if(existing) existing.config=cfg; else state.presets.push({name:name, config:cfg, savedAt:todayISO()});
-  if(state.portfolio)await savePortfolio(); renderPresetSelect(); const sel=$("#presetSelect"); if(sel)sel.value=name; toast('Preset "'+name+'" saved');
+  const _ok=await savePortfolio(); renderPresetSelect(); const sel=$("#presetSelect"); if(sel)sel.value=name; toast(_ok?'Preset "'+name+'" saved':'Saved here, but NOT written to your account - see the sync badge');
 }
 async function loadPreset(name){
   const p=(state.presets||[]).find(x=>x.name===name); if(!p||!p.config){ toast("Preset not found"); return; }
   applyConfig(p.config);
-  if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc(); toast('Loaded "'+name+'"');
+  const _ok=await savePortfolio(); renderFundamentals(); renderCalc(); toast(_ok?'Loaded "'+name+'"':'Loaded here, but NOT saved - see the sync badge');
 }
 async function deleteSelectedPreset(){
   const sel=$("#presetSelect"); const name=sel&&sel.value; if(!name){ toast("Pick a preset to delete"); return; }
   if(!confirm('Delete preset "'+name+'"?'))return;
   state.presets=(state.presets||[]).filter(p=>p.name!==name);
-  if(state.portfolio)await savePortfolio(); renderPresetSelect(); toast("Preset deleted");
+  const _ok=await savePortfolio(); renderPresetSelect(); toast(_ok?"Preset deleted":"Deleted here, but NOT saved - see the sync badge");
 }
 function renderPresetSelect(){
   const sel=$("#presetSelect"); if(!sel) return;
@@ -3614,7 +3633,7 @@ function openMetricPicker(){
     const nm=validateMetrics(list);
     state.metrics=(nm&&nm.length===DEFAULT_METRICS.length&&nm.every((m,i)=>m===DEFAULT_METRICS[i]))?null:nm;   // exactly the default 6 => null
     metrics().forEach(m=>{ if(!isNum(state.weights[m.weightKey])) state.weights[m.weightKey]=m.defaultWeight; });   // seed new weights (absent only)
-    if(state.portfolio)await savePortfolio(); renderFundamentals(); renderCalc();
+    await savePortfolio(); renderFundamentals(); renderCalc();
     return true;
   };
   $$('#mpModal input[data-mpick]').forEach(cb=>cb.addEventListener("change",async()=>{ const ok=await apply(); if(!ok)cb.checked=true; }));
@@ -4322,7 +4341,8 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
   const want=[...new Set(newArr)];
   want.forEach(s=>{ Object.keys(map).forEach(k=>{ if(k!==themeKey) map[k]=map[k].filter(x=>x!==s); }); });   // one theme per ticker
   map[themeKey]=want;
-  state.themeTickers=map; rebuildThemeOf();
+  state.themeTickers=map;
+  rebuildThemeOf();
   closeModal();
   if(fetchSyms&&fetchSyms.length){
     toast("Fetching "+fetchSyms.join(", ")+"…");
@@ -4331,6 +4351,12 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
     try{ await loadStatements(fetchSyms); }catch(e){}   // E3: load statements so the new names join the computed overlay
     rebuildFundamentals();
   }
+  /* E8 - membership is DATA and must survive a reload. It used to be persisted only as a side
+     effect of some later unrelated save, so "Added AMD to Semiconductors" was lost if the tab was
+     closed. The ALLOCATION still only applies on the next Build/rebalance - that is what the
+     "will apply" wording means - but the membership itself is saved now. */
+  const _saved=await savePortfolio();
+  if(!_saved) doneMsg += " (NOT saved - see the sync badge)";
   if(isInit()){
     switchView("calc"); renderCalc(); renderContext();   // membership changed: refresh Max drift + rail footer
     const plan=planTrades(0,"full"); lastPlan=plan;
@@ -4788,11 +4814,11 @@ function setupEvents(){
   function readWeights(){ metrics().forEach(m=>{ const inp=document.querySelector('#wInputs input[data-wkey="'+m.key+'"]'); if(inp){ const v=parseFloat(inp.value); state.weights[m.weightKey]=(isNum(v)&&v>=0)?v/100:0; } }); }
   if($("#wGroup")){
     $("#wGroup").addEventListener("input",e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); } });
-    $("#wGroup").addEventListener("change",async e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); } });
+    $("#wGroup").addEventListener("change",async e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); renderCalc(); await savePortfolio(); } });
   }
   // ② per-metric exception handling — delegated on #metricCfgRows (policy select + penalty input; direction is auto)
   if($("#metricCfgRows")){
-    const cfgApply=async persist=>{ renderFundamentals(); if(persist){ renderCalc(); if(state.portfolio)await savePortfolio(); } };
+    const cfgApply=async persist=>{ renderFundamentals(); if(persist){ renderCalc(); await savePortfolio(); } };
     $("#metricCfgRows").addEventListener("input",e=>{ const pen=e.target.closest('input[data-mpen]'); if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); cfgApply(false); } });
     $("#metricCfgRows").addEventListener("change",e=>{ const sel=e.target.closest('select[data-mpolicy]'), pen=e.target.closest('input[data-mpen]');
       if(sel) setMetricPolicy(sel.dataset.mpolicy, sel.value); else if(pen) setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); else return; cfgApply(true); });
@@ -4803,7 +4829,7 @@ function setupEvents(){
   if($("#delPresetBtn")) $("#delPresetBtn").addEventListener("click",deleteSelectedPreset);       // E2.5: delete preset
   if($("#presetSelect")) $("#presetSelect").addEventListener("change",e=>{ if(e.target.value)loadPreset(e.target.value); });   // E2.5: load preset
   if($("#computeStmtToggle")) $("#computeStmtToggle").addEventListener("change",async e=>{   // E3.4: data-source toggle
-    state.computeFromStatements=e.target.checked; rebuildFundamentals(); renderAll(); if(state.portfolio)await savePortfolio(); });
+    state.computeFromStatements=e.target.checked; rebuildFundamentals(); renderAll(); await savePortfolio(); });
   if($("#srcCompareBtn")) $("#srcCompareBtn").addEventListener("click",openSourceCompare);   // E3.4: computed-vs-pulled compare
   // E5.1: expand/collapse a theme. Delegated on #priceGrid, which is never itself replaced,
   // so it survives every re-render of its children.
@@ -4834,7 +4860,7 @@ function setupEvents(){
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
-  $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); if(state.portfolio)await savePortfolio(); });
+  $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
     /* The refusal comes FIRST. It sat below the assignment, so "try again in a moment"
        was printed AFTER the book had already been replaced in memory - and once booting
