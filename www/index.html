@@ -638,7 +638,7 @@
     <div class="gate-brand"><span class="rmark">&#9704;</span>
       <div><b>Portfolio Builder</b><span>themed allocator</span></div></div>
     <h1 class="gate-h" id="gateTitle">Sign in</h1>
-    <p class="gate-sub" id="gateSub">Your portfolio, its full rebalance history, and every checkpoint &mdash; kept to your account.</p>
+    <p class="gate-sub" id="gateSub">Your portfolio and its rebalance history &mdash; kept to your account, and nowhere else.</p>
     <label class="auth-field" for="gateEmail">Email</label>
     <input class="auth-in" type="email" id="gateEmail" autocomplete="username" placeholder="you@example.com">
     <label class="auth-field" for="gatePass">Password</label>
@@ -1399,9 +1399,21 @@ function migrateVersions(p){   // forward-compat for any legacy file that only h
 
 async function undo(){ if(!canUndo())return; const lbl=versionLabel(currentVersion()); restoreVersion(head()-1); const ok=await savePortfolio(); renderAll(); if(ok) toast("Undid "+lbl+" · Redo available"); }
 async function redo(){ if(!canRedo())return; restoreVersion(head()+1); const ok=await savePortfolio(); renderAll(); if(ok) toast("Redid "+versionLabel(currentVersion())); }
-async function revertTo(i){ const tgt=versions()[i]; if(!tgt)return;
+/* Addressed by IDENTITY, never by position. This took an array INDEX read from data-idx, and
+   pushVersion's trim shifts every index while the already-rendered buttons still hold the old ones:
+   applyRebalance pushes, then AWAITS the save (up to CLOUD_TIMEOUT_MS), and only then re-renders, so
+   there is a real window in which a click reverts to the WRONG checkpoint - and revertTo saves it.
+   Ids are stable, already round-trip, and are already what data-vkey and OPEN_VERSIONS use. */
+async function revertTo(id){
+  const vs=versions(), i=vs.findIndex(v=>v&&String(v.id)===String(id));
+  if(i<0){ toast("That checkpoint is no longer available"); renderAll(); return; }
+  const tgt=vs[i];
   if(!confirm("Revert to version #"+tgt.id+" ("+tgt.type+" · "+tgt.date+")?\n\nHoldings, total invested and settings will be set to that point. Newer versions stay redoable until you apply a new rebalance from here.")) return;
-  restoreVersion(i); const ok=await savePortfolio(); renderAll(); if(ok) toast("Reverted to #"+tgt.id); }
+  /* Re-resolve AFTER the confirm: the dialog is modal to the user, not to the app, and a save that
+     was already in flight can trim underneath it. */
+  const j=versions().findIndex(v=>v&&String(v.id)===String(id));
+  if(j<0){ toast("That checkpoint is no longer available"); renderAll(); return; }
+  restoreVersion(j); const ok=await savePortfolio(); renderAll(); if(ok) toast("Reverted to #"+tgt.id); }
 
 /* ======================================================================
    Plan: given cash to add + mode, produce per-stock target $ and trade $
@@ -1674,6 +1686,13 @@ function clearAccountState(){
   state.quotes={}; state.pulled={}; state.statements={}; state.screenerQuotes={};
   state.metricSource={}; state.asOf=null;
   state.fundamentals={}; state.themeRecos={}; state.screenerLoaded=false;   // derived from the above
+  /* The SEARCH BOX is account data on screen. Everything above clears the model; this clears what
+     is actually rendered, which is what the next person on this browser would otherwise read. */
+  try{ const q=$("#resQuery"); if(q) q.value="";
+       const rr=$("#resResults"); if(rr) rr.innerHTML="";
+       const rc=$("#resClear"); if(rc) rc.hidden=true;
+       const wl=$("#watchlist"); if(wl) wl.innerHTML="";
+       const sb=$("#screenerBody"); if(sb) sb.innerHTML=""; }catch(e){}
   try{ rebuildThemeOf(); }catch(e){}
   try{ renderSyncBadge(); }catch(e){}   // the badge is account state too - it must not survive sign-out
 }
@@ -2680,7 +2699,7 @@ function wireGate(){
   const setMode=m=>{ mode=m;
     $("#gateTitle").textContent = m==="signin"?"Sign in":"Create an account";
     $("#gateSub").textContent   = m==="signin"
-      ? "Your portfolio, its full rebalance history, and every checkpoint \u2014 kept to your account."
+      ? "Your portfolio and its rebalance history \u2014 kept to your account, and nowhere else."
       : "You will get an email to confirm the address before your first sign-in.";
     $("#gateGo").textContent    = m==="signin"?"Sign in":"Create account";
     $("#gateToggle").textContent= m==="signin"?"Create an account":"I already have an account";
@@ -3102,6 +3121,11 @@ function renderReturnChart(H){
     const av=val(p,"value"), ev=val(p,"ew"), d=(isNum(av)&&isNum(ev))?av-ev:null;
     head.innerHTML=`<b class="${isNum(av)&&av>=0?'up':'down'}">${fmt(av)}</b> vs equal weight ${fmt(ev)}`+
       (d!=null?` · <span class="${d>=0?'up':'down'}">${d>=0?"ahead":"behind"} by ${RET_UNIT==="pct"?Math.abs(d).toFixed(2)+"pp":money(Math.abs(d),0)}</span>`:"")+
+      /* Same re-anchoring as the value chart: once history has been trimmed the equal-weight figure
+         covers the kept window, not the whole life of the book, and must not read as the latter.
+         The value chart discloses it; printing the number here without the same note was the fix
+         landing in one place and not the other. */
+      (timelineTrimmed()?`<span class="muted"> · equal weight over the kept checkpoints</span>`:"")+
       `<span class="muted"> · ${p.live?"today":p.label}</span>`; };
   setHead(last);
   svg.onmousemove=ev2=>{
@@ -3891,7 +3915,7 @@ function renderHistory(){
         <td class="num ${cls}">${(tr.amount>0?"+":"")+money(tr.amount,0)}</td>
         <td class="num ${cls}">${signed(tr.shares,3)}</td><td class="num">${money(tr.price,2)}</td></tr>`;}).join("");
     const tag = isCur?'<span class="tag live">● current</span>':(isFut?'<span class="tag fut">redoable</span>':'');
-    const btn = isCur?'':`<button class="btn sm ghost" data-vaction="revert" data-idx="${i}">${isFut?'Redo to here':'Revert to here'}</button>`;
+    const btn = isCur?'':`<button class="btn sm ghost" data-vaction="revert" data-vid="${tx.id}">${isFut?'Redo to here':'Revert to here'}</button>`;
     const delta=(isNum(tx.valueAfter)&&isNum(tx.valueBefore))?tx.valueAfter-tx.valueBefore:null;
     return `<div class="thm vthm ${isCur?'cur':''} ${isFut?'fut':''} ${open?'open':''}" data-vkey="${tx.id}">
       <div class="thm-head" data-vtoggle="${tx.id}" role="button" tabindex="0" aria-expanded="${open}"
@@ -4823,7 +4847,7 @@ function setupEvents(){
   });
   $("#refreshBtn").addEventListener("click",()=>refreshPrices(true));
   $("main").addEventListener("click",e=>{ const b=e.target.closest("[data-vaction]"); if(!b||b.disabled)return;
-    const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(parseInt(b.dataset.idx,10)); else if(a==="sync")openSyncSheet(); });
+    const a=b.dataset.vaction; if(a==="undo")undo(); else if(a==="redo")redo(); else if(a==="revert")revertTo(b.dataset.vid); else if(a==="sync")openSyncSheet(); });
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-rmvtkr]"); if(!b)return;
     e.preventDefault(); removeTicker(b.dataset.theme, b.dataset.rmvtkr); });   // E1.2: remove a name from its theme
   if($("#newThemeBtn")) $("#newThemeBtn").addEventListener("click",openCreateTheme);   // E1.4: create a theme
@@ -4902,9 +4926,10 @@ function setupEvents(){
        loaded" panel with an empty board over a live account. Ask the question only when the
        answer can be honoured. */
     if(storageAdapter().name==="cloud" && (accountUnreachable() || !isNum(state.baseRevision))){
-      /* Cause-neutral on purpose: this fires both when the account could not be READ and when a
-         brand-new account has no row yet, and "has not loaded" is false in the second case. */
-      toast("A reset could not be saved to your account right now, so nothing was changed"); return; }
+      /* An account with no row yet still loads with revision 0 (loadPortfolio's meta default), so
+         isNum() holds and this cannot fire for a brand-new account. The only way here is an account
+         that was never successfully read - so name that, rather than hedging. */
+      toast("Your account has not loaded, so a reset could not be saved - nothing was changed"); return; }
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
