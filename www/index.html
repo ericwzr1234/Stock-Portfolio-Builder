@@ -541,6 +541,8 @@
   .empty-note{border:1px dashed var(--line);border-radius:12px;padding:22px 18px;text-align:center;background:var(--surface2)}
   .empty-note h3{margin:0 0 6px;font-size:15px;letter-spacing:-.01em}
   .pen-ink{color:var(--sell,#B0403A)}          /* the error line must actually read as an error */
+  /* the view's own content is HIDDEN, never destroyed - it must come back intact on recovery */
+  .view.unreachable > *:not(.unreach-host){ display:none !important; }
   .empty-note p{margin:0 auto 14px;font-size:12.5px;color:var(--muted);max-width:46ch;line-height:1.55}
 
   /* ===== E6.8 login landing page ===== */
@@ -1395,12 +1397,15 @@ function planTrades(addCash, mode){
    ====================================================================== */
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 function capHttp(){ return window.CapacitorHttp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) || null; }
+const MARKET_TIMEOUT_MS=45000;   // market data via the proxy; the account read uses CLOUD_TIMEOUT_MS
 async function api(path, opts){
   // A wedged proxy request must not hang the whole boot: bootSignedIn awaits market data before it
   // paints, so an unanswered /api/quotes left the user staring at empty chrome indefinitely.
   let ctl=null, timer=null;
+  /* Its own budget: one /api/fundamentals covers the whole membership against a cold cache, which
+     legitimately takes longer than a single-row database read. */
   try{ if("AbortController" in window){ ctl=new AbortController();
-        timer=setTimeout(()=>{ try{ ctl.abort(); }catch(e){} },CLOUD_TIMEOUT_MS); } }catch(e){}
+        timer=setTimeout(()=>{ try{ ctl.abort(); }catch(e){} },MARKET_TIMEOUT_MS); } }catch(e){}
   try{
     const r=await fetch(path, Object.assign({},opts,{signal:ctl?ctl.signal:undefined}));
     if(!r.ok)throw new Error(path+" "+r.status);
@@ -1748,6 +1753,12 @@ function describeCloudFailure(e){
       "The database refused this app's request outright (permission denied). Your sign-in is fine.",
       "Nothing you can do - this needs fixing on our side.", true);
   if(e.authFailed)   return d("signed out","Your session is no longer valid.","Sign in again.");
+  if(e.emptyRow)     return d("account row is empty",
+      "Your account has a record but no portfolio inside it.",
+      "Nothing you can do - this needs fixing on our side.", true);
+  if(e.notInSync)    return d("out of sync",
+      "This device does not know your account's current version, so it will not risk overwriting it.",
+      "Reload to pick up the latest, then make the change again.");
   if(e.timeout)      return d("no response",
       "Your account did not respond within "+Math.round(CLOUD_TIMEOUT_MS/1000)+" seconds.",
       "Check your connection and reload.");
@@ -1791,7 +1802,8 @@ async function cloudLoadPortfolio(){
   const rows=await r.json();
   if(!rows||!rows.length) return null;                 // no row yet - the first save creates it
   const row=rows[0], p=row.data||null;
-  if(!p){ const e=new Error("your account row is present but empty"); e.status=500; throw e; }   // not the same as "no row"
+  // Present but empty: permanent, and ours - not a transient 500 the user should retry.
+  if(!p){ const e=new Error("your account row exists but holds no portfolio"); e.emptyRow=true; throw e; }
   if(p && isNum(row.revision)) p.revision=row.revision; // the row column is the source of truth
   if(p) try{ Object.defineProperty(p,CLOUD_META,{ value:{ revision:isNum(row.revision)?row.revision:0, rowExists:true },
                                                   enumerable:false, configurable:true }); }catch(e){}
@@ -1808,7 +1820,7 @@ async function cloudSavePortfolio(p){
      guess produced a base equal to the server's revision and a stale document then matched the
      PATCH filter and overwrote a newer one. An unknown base means "reload first", never "guess". */
   if(!isNum(state.baseRevision))
-    throw new Error("this device is not in sync with your account - reload the page before saving");
+    { const e=new Error("this device is not in sync with your account - reload the page before saving"); e.notInSync=true; throw e; }
   const base=state.baseRevision;
   const next=base+1;
   p.revision=next;                                      // keep the document consistent with the write
@@ -1827,7 +1839,7 @@ async function cloudSavePortfolio(p){
     // E6 FIX: a FAILED probe is not evidence that the row is absent. Collapsing it to [] fell
     // through to the INSERT path against a live row (which the user_id primary key then rejects
     // with a 409 reported as a network problem, so the losing edit was never stashed).
-    if(!probe.ok) throw new Error("cloud save failed: could not verify the account row (HTTP "+probe.status+")");
+    if(!probe.ok){ const e=new Error("cloud save failed: could not verify the account row"); e.status=probe.status; throw e; }
     const existing=await probe.json();
     if(existing && existing.length){
       const err=new Error("This account was changed on another device.");
@@ -1836,12 +1848,12 @@ async function cloudSavePortfolio(p){
   }
   if(!r.ok){                                          // a non-2xx PATCH is a real error, not "no row yet"
     const t=await r.text();
-    throw new Error("cloud save failed: HTTP "+r.status+" "+t.slice(0,120));
+    { const e=new Error("cloud save failed: "+t.slice(0,120)); e.status=r.status; throw e; }
   }
   const ins=await sbApi(CLOUD_TABLE,
     { method:"POST", headers:{ "Content-Type":"application/json", "Prefer":"return=representation" },
       body: JSON.stringify(Object.assign({user_id:uid},payload)) });
-  if(!ins.ok){ const t=await ins.text(); throw new Error("cloud save failed: HTTP "+ins.status+" "+t.slice(0,120)); }
+  if(!ins.ok){ const t=await ins.text(); const e=new Error("cloud save failed: "+t.slice(0,120)); e.status=ins.status; throw e; }
   let irev=next;
   try{ const irows=await ins.json(); const v=irows&&irows[0]&&irows[0].revision; if(isNum(v)) irev=v; }catch(e){}
   return { revision:irev, rowExists:true };         // E8: reported, not assigned
@@ -2452,8 +2464,11 @@ async function _savePortfolioInner(c){
   if(still && c.ad.mirror) { try{ nativeSavePortfolio(doc); }catch(e2){} }   // iOS LAN sync only
   /* Say WHY, and do not tell someone to retry something retrying cannot fix (a misconfigured
      database will refuse every attempt identically). */
-  setTimeout(()=>toast("NOT saved - "+whyS.detail+" "+
-    (whyS.ours ? "This one is our fault; your change is still on screen." : whyS.act)),400);
+  /* NOT whyS.act - those are written for the READ path, where reloading is the right advice. On a
+     failed save the edit exists only on screen, so telling the user to reload would discard the very
+     thing that was not saved. */
+  setTimeout(()=>toast("NOT saved - "+whyS.detail+" Your change is still on screen"+
+    (whyS.ours ? "; this one is our fault." : " - try again, or reload to discard it and see what your account holds.")),400);
   renderSyncBadge();
   return false;                                  // C5
 }
@@ -2885,7 +2900,7 @@ function openImportChoice(local,src){
 
 function renderOverview(){
   const svg=$("#ovChart"); if(!svg) return;
-  if(accountUnreachable()){ unreachablePanel(svg.closest(".card")||svg.parentNode); return; }
+  if(accountUnreachable()){ unreachablePanel("view-prices"); return; }
   const init=isInit(), total=curTotal();
   // ---- hero numbers (all live/real) ----
   const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s], q=state.quotes[s];
@@ -3263,18 +3278,7 @@ function renderFundamentals(){
 
   // per-theme fundamentals tables (E2.3: columns driven by metrics(); Cap is a special always-second column)
   const grid=$("#fundGrid"); grid.innerHTML="";
-  if(accountUnreachable()){                    // do NOT invite them to rebuild a portfolio they already have
-    const why=state.syncFailure||describeCloudFailure(null);
-    grid.innerHTML=`<div class="empty-note">
-      <h3>Your portfolio could not be loaded</h3>
-      <p><b>${why.detail}</b><br>${why.act}</p>
-      <p class="xs muted" style="margin-top:-4px">Your data is safe in your account &mdash; nothing is stored on this
-         device, so there is nothing to show until it loads.${why.ours?" This one is our fault, not yours.":""}</p>
-      <button class="btn primary" id="emptyRetry">Try again</button></div>`;
-    const rt=$("#emptyRetry");
-    if(rt) rt.addEventListener("click",async()=>{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); });
-    return;
-  }
+  if(accountUnreachable()){ unreachablePanel("view-fundamentals"); return; }   // never invite a rebuild of a portfolio they already have
   if(!themes().length){                        // a genuinely empty board - not five themes with nothing in them
     grid.innerHTML=`<div class="empty-note">
       <h3>No themes yet</h3>
@@ -3516,15 +3520,7 @@ function renderCalc(){
   /* E8 - no themes means no targets, and with no targets a rebalance would compute "sell
      everything" for a book that still holds real positions. That must never be presented as the
      ordinary flow, whether or not the account already has holdings. */
-  if(accountUnreachable()){
-    $("#calcMain").innerHTML="";
-    const why=state.syncFailure||describeCloudFailure(null);
-    $("#calcUninit").innerHTML=`<div class="empty-note">
-      <h3>Your portfolio could not be loaded</h3>
-      <p><b>${why.detail}</b><br>${why.act}</p>
-      <p class="xs muted" style="margin-top:-4px">Nothing can be rebalanced until it loads.</p></div>`;
-    return;
-  }
+  if(accountUnreachable()){ unreachablePanel("view-calc"); return; }
   if(!themes().length){
     const held=holdingSyms().length;
     $("#calcMain").innerHTML="";
@@ -3788,7 +3784,7 @@ async function applyRebalance(plan){
    Render: HISTORY view
    ====================================================================== */
 function renderHistory(){
-  if(accountUnreachable()){ const b=$("#historyBody"); if(b) unreachablePanel(b.closest(".card")||b); return; }
+  if(accountUnreachable()){ unreachablePanel("view-history"); return; }
   const body=$("#historyBody"), ctl=$("#histControls");
   const vs=versions(), h=head();
   // E5.5: undo/redo + sync live in the left column; the checkpoint list is the right column
@@ -3912,7 +3908,7 @@ async function loadThemeRecos(){
 }
 
 function renderScreener(){
-  if(accountUnreachable()){ const w=$("#watchlist"); if(w) unreachablePanel(w.closest(".card")||w); return; }
+  if(accountUnreachable()){ unreachablePanel("view-screener"); return; }
   renderWatchlist();
   const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
   const body=$("#screenerBody");
@@ -4157,15 +4153,15 @@ function coachGo(delta){
 function coachStart(view, force){
   _coachStarting=view;            // claim it BEFORE coachEnd nulls _coach, so maybeCoach stands down
   coachEnd(false);
-  const t=TOURS[view]; if(!t) return;
-  if(!force && tourSeen(view)) return;
-  if(typeof appLocked!=="undefined" && appLocked) return;
-  if(typeof signedIn==="function" && !signedIn()) return;
+  const t=TOURS[view]; if(!t){ _coachStarting=null; return; }
+  if(!force && tourSeen(view)){ _coachStarting=null; return; }
+  if(typeof appLocked!=="undefined" && appLocked){ _coachStarting=null; return; }
+  if(typeof signedIn==="function" && !signedIn()){ _coachStarting=null; return; }
   _coach={ view, title:t.name, steps:t.steps, i:0,
            uid:(typeof sbUserId==="function"&&sbUserId())||"" };
   const first=coachResolve(0,1);
   if(first<0){                                     // nothing on this board to point at yet
-    _coach=null;
+    _coach=null; _coachStarting=null;
     if(force) toast("Nothing to show here yet - build a theme on Model first");
     return;
   }
@@ -4552,7 +4548,10 @@ async function syncDisconnect(){
 /* ======================================================================
    Orchestration
    ====================================================================== */
-function renderAll(){ renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); }
+function renderAll(){
+  if(!accountUnreachable()) clearUnreachablePanels();   // recovery must be total, and automatic
+  renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory();
+}
 
 function switchView(v){
   const changed=(curView!==v);
@@ -4599,16 +4598,30 @@ function initTheme(){
 /* One panel, one wording, used by EVERY view. The E9 fix was applied to Model, Rebalance and the
    context bar but not to Overview, History or Research - so three views still told a user with a
    real portfolio that they had nothing. */
-function unreachablePanel(host){
-  if(!host) return;
+/* HIDES the view's own content and shows the panel beside it - it must never REPLACE it. Writing
+   innerHTML into a structural container destroyed static markup that no renderer recreates
+   (#ovChart and friends), which killed the Overview view for the life of the page - including
+   after this panel's own Try again had successfully reloaded the portfolio. */
+function unreachablePanel(viewId){
+  const sec=document.getElementById(viewId); if(!sec) return;
+  let host=sec.querySelector(":scope > .unreach-host");
+  if(!host){ host=document.createElement("div"); host.className="unreach-host"; sec.insertBefore(host, sec.firstChild); }
   const why=state.syncFailure||describeCloudFailure(null);
   host.innerHTML=`<div class="empty-note">
     <h3>Your portfolio could not be loaded</h3>
     <p><b>${why.detail}</b><br>${why.act}</p>
     <p class="xs muted" style="margin-top:-4px">Your data is safe in your account.${why.ours?" This one is our fault, not yours.":""}</p>
     <button class="btn primary" data-unreach-retry>Try again</button></div>`;
+  sec.classList.add("unreachable");
   const b=host.querySelector("[data-unreach-retry]");
   if(b) b.addEventListener("click",async()=>{ await loadPortfolio(); rebuildThemeOf(); rebuildFundamentals(); renderAll(); });
+}
+/* Called on every good render, so recovery is automatic and total. */
+function clearUnreachablePanels(){
+  document.querySelectorAll(".view.unreachable").forEach(sec=>{
+    sec.classList.remove("unreachable");
+    const h=sec.querySelector(":scope > .unreach-host"); if(h) h.remove();
+  });
 }
 function accountUnreachable(){
   /* Specifically: the account could not be READ, so there is nothing to show. A failed SAVE also
