@@ -1502,6 +1502,9 @@ function stashList(uid){
       if(!m || m[2]!==u) continue;
       let doc=null; try{ doc=JSON.parse(localStorage.getItem(k)); }catch(e){ continue; }
       if(!doc) continue;
+      // Defence in depth: an entry with no holdings and no checkpoints is never worth restoring,
+      // and restoring one would replace a live account with nothing.
+      if(!Object.keys(doc.holdings||{}).length && !((doc.versions||[]).length)) continue;
       out.push({ key:k, kind:m[1], when:Number(m[3])||0, doc,
                  holdings:Object.keys(doc.holdings||{}).length,
                  versions:((doc.versions)||[]).length, revision:doc.revision });
@@ -2276,6 +2279,11 @@ function ctxCurrent(c){                          // C2, in one place
 /* C4. Returns false only if the copy could not be stored at all. */
 function keepAside(kind,owner,doc){
   if(!owner||!doc) return false;
+  /* An empty book is not "work". Filing one lets the recovery prompt offer "0 holdings -
+     0 checkpoints", and accepting that writes the emptiness over a real account. If there is
+     genuinely nothing to keep, say so by returning true - there was no loss to report. */
+  const nothing = !Object.keys(doc.holdings||{}).length && !((doc.versions||[]).length);
+  if(nothing){ console.warn("not filing an empty document as kept-aside work"); return true; }
   try{ localStorage.setItem("pb_"+kind+"_"+owner+"_"+Date.now(), JSON.stringify(doc)); return true; }
   catch(e){ console.error("could not keep the change aside",e); return false; }
 }
@@ -2407,19 +2415,22 @@ function savePortfolio(){
   return next;
 }
 async function _savePortfolioInner(c){
-  if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
-  const doc=state.portfolio, owner=c.owner;      // C1
-
-  syncStateIntoDocument();   // the edit must be IN the document before any refusal can file it
-
+  /* REFUSE FIRST, before anything is manufactured. This guard used to sit below the line that
+     invents a document when state.portfolio is null - which during boot it always is. So a click
+     in the boot window built a BLANK book, filed it as the user's "unsaved work", and the recovery
+     prompt then offered "0 holdings - 0 checkpoints" back; accepting it wrote that emptiness over
+     a real account, mirror and history included. The same inversion as #resetBtn had, one function
+     along: a refusal that has already mutated is not a refusal. */
   if(booting){
-    // C4 + an honest badge: the refusal must not look like a successful save.
-    keepAside("unsynced", (state.docOwner||owner), doc);
     state.syncError="the account was still loading - that change was not saved";
     console.warn("save refused - still loading this account");
     try{ renderSyncBadge(); }catch(e){}
+    setTimeout(()=>toast("Not saved - your account was still loading. Please make that change again."),400);
     return false;
   }
+  if(!state.portfolio)state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO()};
+  const doc=state.portfolio, owner=c.owner;      // C1
+  syncStateIntoDocument();   // the edit must be IN the document before any refusal can file it
 
   /* C2 restated against the DOCUMENT: what is on screen must belong where we are about to write.
      This is the guard that stops an account's book reaching the identity-free store. */
@@ -4371,9 +4382,10 @@ async function createTheme(name, color){
   list.push({key:slugifyThemeKey(name), name, color:color||THEME_PALETTE[list.length%THEME_PALETTE.length]});
   state.themes=list; rebuildThemeOf();
   closeModal();
-  await savePortfolio();
+  const ok=await savePortfolio();
   renderAll();
-  toast("Created “"+name+"” — add names from the Screener");
+  toast(ok ? "Created “"+name+"” — add names from the Screener"
+           : "Created “"+name+"” on screen, but it was NOT saved — see the sync badge");
   return true;
 }
 function openCreateTheme(){
