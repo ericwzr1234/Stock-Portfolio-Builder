@@ -17,7 +17,9 @@ readable only by you. Nothing about your portfolio is stored on your device.
 > Live progress board: [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
 >
 > **Not yet open to other people:** signup is still unrestricted and the database is on the free
-> tier. See [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md) before inviting anyone.
+> tier — both accepted for now, since testing hasn't started. A free project pauses after 7 days
+> idle and is resumed from the Supabase dashboard, but using the app weekly prevents it.
+> See [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md).
 
 ---
 

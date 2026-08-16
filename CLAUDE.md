@@ -29,10 +29,12 @@ mandatory login (E6)**, **first-run onboarding (E7)**, **the persistence rewrite
 themes (E8)**, **no portfolio data on the device (E9)**, and **a rolling 10-checkpoint history
 (E10)**.
 
-**Before anyone but the owner signs in, three owner-only actions are still outstanding:** a paid
-Supabase tier, custom SMTP (the built-in sender caps at 2 emails/hour), and switching signup to
-invite-only — **signup is currently open to anyone with the URL**. Ticket `E6.7` stays open until
-those are done. See [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md).
+**Three Supabase items are outstanding and all are DEFERRED by owner decision (2026-08-16)**, because
+we are not in the testing phase yet: open signup is accepted for now, and custom SMTP and the paid
+tier both resolve when we move to paid at testing time. Meanwhile a Free project pauses after 7 days
+of low activity and is resumed from the dashboard (**Resume project**) — though simply *using* the app
+once a week is itself the activity that prevents it. Ticket `E6.7` stays open as the reminder. See
+[`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md).
 
 - **E5** replaced the whole web UI: five views — **Overview · Model · Rebalance · Research ·
   History** — with the allocation donut, the portfolio-value chart against an **Equal-weight

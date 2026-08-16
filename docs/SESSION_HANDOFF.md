@@ -35,24 +35,46 @@ $95,000), and the app offers a one-time import whenever an account is confirmed 
 book is present. **"Start fresh" is the right answer** — it declines, marks the account as asked, and
 leaves the file untouched.
 
-**One thing was never exercised live:** a full sign-out → sign-in cycle. The assistant does not enter
-passwords, so `signedIn()`'s tightened test was verified by tracing every writer of `sbSession` and by
-unit-testing the predicate, not by signing in. Registering the new account covers it directly, and it
-is the first thing to watch.
+**Sign-out → sign-in was confirmed working by the owner (2026-08-15/16).** The assistant does not
+enter passwords, so `signedIn()`'s tightened test (`sbValidSession`) was verified here by tracing
+every writer of `sbSession` and unit-testing the predicate; the owner exercised the live cycle.
 
 ---
 
-## Needs the owner (Supabase dashboard), in this order — before ANY tester is invited
+## Supabase: the owner's decisions (2026-08-16) — all three deferred, deliberately
 
-1. **Move to a paid tier.** Free projects pause after a week idle; since E9 removed every local copy,
-   a paused project means testers see nothing at all rather than a cached portfolio.
-2. **Custom SMTP.** The built-in sender is capped at **2 emails/hour**, so invites and password
-   resets stall silently.
-3. **Invite-only signup.** Currently **open** — anyone with the URL can create an account.
+**We are not in the testing phase yet, so none of these is a blocker right now.** Owner's calls:
 
-Ticket `E6.7` stays in `integration` until all three are done: it is a gate on *inviting people*, not
-on shipping code. The isolation gate itself is **8/8** (`sql/ISOLATION_TEST.md`), deletion cascade
-included.
+1. **Open signup — accepted for now.** Anyone with the URL can create an account. Revisit before
+   inviting anyone.
+2. **Custom SMTP — deferred.** Resolves when moving to the paid tier at testing time.
+3. **Paid tier — deferred.** The interim plan is to **resume the project manually** whenever it
+   pauses (see below).
+
+`E6.7` stays in `integration` as the reminder that these are still outstanding, not because anything
+is broken. The isolation gate itself is **8/8** (`sql/ISOLATION_TEST.md`), deletion cascade included.
+
+### Resuming a paused free project
+
+A Free-plan project is paused after **7 days of low activity**, and Supabase emails a warning first.
+To bring it back:
+
+1. Open the [Supabase dashboard](https://supabase.com/dashboard).
+2. Select the organization, then the paused project.
+3. Click **Resume project** and confirm. It comes back with its data and configuration intact.
+
+A paused project stays restorable for **up to 1 year** (backup retention is the limit), so a missed
+week is not a problem.
+
+**Simpler than resuming: don't let it pause.** Pausing is triggered by *inactivity*, and "a few
+requests a day over the previous week" is enough to avoid it. Opening the app and signing in once a
+week is itself that activity — every sign-in hits GoTrue and every load hits PostgREST. So the weekly
+habit that keeps it alive is just *using* it, not visiting the dashboard.
+
+**If a resume ever changes the project URL or publishable key** (it should not — the project ref is
+preserved), the app hardcodes both at `www/index.html:1563-1564` (`SB_URL`, `SB_KEY`) and they would
+need updating there. The publishable key is public by design; the secret key must never appear in the
+repo.
 
 ---
 
