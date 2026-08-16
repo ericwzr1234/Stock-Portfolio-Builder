@@ -87,6 +87,14 @@
       "APP_VERSION is stamped from the git commit by tools/stamp_version.py and shown in the Account panel. Which build are you on is the first question any bug report needs, and it was unanswerable. The comment referencing the stamper was written before the stamper existed; the tool was created rather than the comment softened."
       ] },
 
+    { "id": "E11.11", "epic": "E11", "stage": "done", "platform": "web", "depends": "E7.2", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Fix: the guided-tour bubble was transparent", "notes": [
+      "REPORTED BY THE OWNER 2026-08-16 from a screenshot: the tour popup was see-through, so the page behind it read straight through the text and the step was unreadable.",
+      "ROOT CAUSE: .coach used background:var(--surface), and --surface IS NOT DEFINED ANYWHERE. Every other rule in the file uses --surface2. An undefined custom property makes the whole declaration invalid at computed-value time, so background fell back to its initial value - transparent. It affected both themes and the arrow too.",
+      "Fixed to var(--paper): #FFFFFF light, #121A18 dark, verified opaque in both. The bubble stays above the ring at z-index 301, so it covers the page while a step is up but never the element being highlighted.",
+      "MADE IT UNREPEATABLE: check_syntax.py now fails when a CSS variable is used without a fallback and never defined. This class of bug is silent - nothing logs, nothing throws, it just renders wrong - so a gate is the only thing that would have caught it. Scanned the whole file: --surface was the only offender. Verified the check exits 1 on the reintroduced bug and 0 on the fixed file."
+      ] },
+
     { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",

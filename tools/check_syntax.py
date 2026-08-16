@@ -63,9 +63,25 @@ print('--- from there ---')
 for x in range(max(0, last0 - 1), min(last0 + 14, len(lines))):
     print('%5d  %s' % (x + 1, lines[x][:100]))
 
+# ---- CSS custom properties: a name that was never defined VOIDS its whole declaration --------
+# Silently. `background: var(--surface)` with no --surface anywhere left the guided-tour bubble
+# fully transparent, so the page read straight through it, and nothing anywhere reported a problem.
+# Only names used WITHOUT a fallback matter - var(--x, #fff) degrades safely by design.
+import re
+
+_css = s[s.index('<style'):s.index('</style>')]
+_defined = set(re.findall(r'(--[A-Za-z0-9_-]+)\s*:', _css))
+_used = {m.group(1) for m in re.finditer(r'var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])', _css)
+         if m.group(2) == ')'}
+_undefined = sorted(_used - _defined)
+print('css vars    :', len(_defined), 'defined,', len(_used), 'used without a fallback')
+
 # Exit non-zero when it is actually broken. This only ever printed, which made it useless as a CI
 # gate - a step that cannot fail is not a check. The failure it exists to catch (a one-line comment
 # swallowing renderAll's body) is silent otherwise.
 if depth != 0 or instr or incomment:
     sys.stderr.write('BROKEN: unbalanced braces or an unterminated string/comment\n')
+    sys.exit(1)
+if _undefined:
+    sys.stderr.write('BROKEN: CSS variables used but never defined: %s\n' % ', '.join(_undefined))
     sys.exit(1)

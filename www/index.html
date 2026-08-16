@@ -527,7 +527,12 @@
   .coach-ring{position:absolute;border:2px solid var(--teal);border-radius:10px;pointer-events:none;
     z-index:300;box-shadow:0 0 0 4px color-mix(in srgb,var(--teal) 18%,transparent);transition:all .18s ease}
   .coach-scrim{position:fixed;inset:0;z-index:299;background:transparent;pointer-events:none}
-  .coach{position:absolute;z-index:301;max-width:320px;background:var(--surface);color:var(--ink);
+  /* --surface DOES NOT EXIST. The variable is --paper; every other rule in this file uses
+     --surface2. An undefined custom property makes the declaration invalid at computed-value time,
+     so background fell back to its initial value, TRANSPARENT - and the page behind the tour bubble
+     read straight through it. It is opaque on purpose: covering the page while a step is up is
+     fine, and the ring at z-index 300 keeps the highlighted element itself visible. */
+  .coach{position:absolute;z-index:301;max-width:320px;background:var(--paper);color:var(--ink);
     border:1px solid var(--line);border-radius:12px;padding:14px 15px;
     box-shadow:0 12px 32px rgba(0,0,0,.18);font-size:13px;line-height:1.5}
   .coach .c-step{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -539,7 +544,7 @@
   .coach .c-dot.on{background:var(--teal)}
   .coach .btn{padding:5px 11px;font-size:12px}
   .coach .linkish{font-size:12px}
-  .coach-arrow{position:absolute;width:10px;height:10px;background:var(--surface);
+  .coach-arrow{position:absolute;width:10px;height:10px;background:var(--paper);
     border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
   #tourBtn{font-size:13px;line-height:1}
   @media (max-width:640px){ .coach{max-width:calc(100vw - 28px)} }
