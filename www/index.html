@@ -1964,6 +1964,21 @@ async function yEnsureCrumb(force){
   catch(e){ _crumb=null; }
   return _crumb;
 }
+/* Yahoo's v10 and timeseries endpoints take ONE symbol each, so the fan-out is forced - the
+   CONCURRENCY is not. Promise.all(syms.map(...)) fired every request at once: 25 holdings meant 25
+   simultaneous calls, and bursts draw throttling far more readily than steady volume. 4 matches
+   server.py's thread pools and yahoo-finance2's published cap, the only concrete number either
+   major client library commits to. This governs the native path today and the Cloudflare Worker
+   port inherits it. */
+const Y_CONCURRENCY = 4;
+async function yMapLimit(items, fn){
+  const queue = items.slice();
+  const workers = [];
+  for(let w=0; w<Math.min(Y_CONCURRENCY, queue.length); w++){
+    workers.push((async()=>{ while(queue.length){ await fn(queue.shift()); } })());
+  }
+  await Promise.all(workers);
+}
 function jsMomentum(price,ma50,ma200){ if(!(isNum(price)&&price>0))return null; const parts=[];
   if(isNum(ma50)&&ma50>0)parts.push([0.6,price/ma50-1]); if(isNum(ma200)&&ma200>0)parts.push([0.4,price/ma200-1]);
   if(!parts.length)return null; return parts.reduce((a,p)=>a+p[0]*p[1],0)/parts.reduce((a,p)=>a+p[0],0); }
@@ -1984,7 +1999,7 @@ async function nativeQuotes(syms){
 }
 async function nativeFundamentals(syms){
   const crumb=await yEnsureCrumb(); const out={};
-  await Promise.all(syms.map(async sym=>{
+  await yMapLimit(syms, async sym=>{
     try{
       const r=await yGet("https://query1.finance.yahoo.com/v10/finance/quoteSummary/"+encodeURIComponent(sym),{modules:"defaultKeyStatistics,price,financialData,summaryDetail", crumb:crumb||""});
       const res=jsonOf(r.data).quoteSummary.result[0];
@@ -2010,7 +2025,7 @@ async function nativeFundamentals(syms){
         // raw TTM operands for JS-derived metrics (pfcf, ebitdaMargin, fcfMargin, netCashPct) — RAW, not the ||0 locals
         fcf:fcf, ebitda:rv(fd,"ebitda"), revenue:rv(fd,"totalRevenue"), cash:rv(fd,"totalCash"), debt:rv(fd,"totalDebt")};
     }catch(e){ /* leave missing -> median/seed fallback handles it */ }
-  }));
+  });
   return out;
 }
 
@@ -2037,7 +2052,7 @@ async function webStatements(syms,force){ const d=await api("/api/statements?sym
 async function nativeStatements(syms){
   const crumb=await yEnsureCrumb(); const out={}; const types=Object.keys(STMT_FIELD_MAP).join(",");
   const p2=Math.floor(Date.now()/1000), p1=p2-6*366*24*3600;
-  await Promise.all(syms.map(async sym=>{
+  await yMapLimit(syms, async sym=>{
     try{
       const r=await yGet("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"+encodeURIComponent(sym),
         {symbol:sym, type:types, period1:p1, period2:p2, merge:"false", padTimeSeries:"false", lang:"en-US", region:"US", crumb:crumb||""});
@@ -2049,7 +2064,7 @@ async function nativeStatements(syms){
       if(dates.length) out[sym]={sym, quarters:dates.map(d=>Object.assign({date:d}, byDate[d])), asOf:Math.floor(Date.now()/1000), source:"live"};
       else out[sym]={sym, quarters:[], asOf:Math.floor(Date.now()/1000), source:"empty"};   // sentinel (parity with server) so a statement-less name isn't refetched every open
     }catch(e){ /* fetch error -> leave uncached so it retries; pulled fallback stands */ }
-  }));
+  });
   return out;
 }
 async function dsStatements(syms,force){ return NATIVE? nativeStatements(syms) : webStatements(syms,force); }
