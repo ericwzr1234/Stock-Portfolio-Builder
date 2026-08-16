@@ -1,6 +1,8 @@
 # E10 — History retention and revert
 
-**Status:** requirements captured 2026-08-15. NOT built. Owner's decisions recorded verbatim below.
+**Status:** BUILT and merged 2026-08-16 (`1c8accf`). Requirements captured 2026-08-15; the owner's
+decisions are recorded verbatim below and were followed. E10.2 shipped a *third* option, not the one
+recommended here — see the BUILT note in that section for the reasoning.
 
 ## The owner's requirements
 
@@ -24,6 +26,24 @@ generic HTTP error and no diagnosis. That is the failure mode this ticket exists
 
 ### What to build
 On save, keep the 10 most recent checkpoints and drop the rest from `versions[]`.
+
+### BUILT (2026-08-16)
+`const MAX_VERSIONS=10`. The trim lives **inside `pushVersion`**, after the push — the one place
+where `head` is guaranteed to be the last index (the fork `slice(0,head+1)` directly above it, plus
+the push itself), so the trim can never cross `head` or land mid-fork. `head` is re-based by the
+number dropped **in the same operation**.
+
+One trap surfaced only in testing and is worth recording: trimming creates a **new floor for undo**.
+`head === -1` means *"before the very first build"* and `restoreVersion` wipes holdings and
+contributions to zero — correct while the first build is still in the list, a total data loss once it
+has been trimmed away. `timelineTrimmed()` detects the case from the data already present (ids start
+at 1 and only increase, so `versions()[0].id > 1` proves truncation) and `canUndo()` stops at index 0
+instead of -1. Verified: 15 pushes → 10 kept, ids 6–15, undo walks to index 0 and stops with holdings
+intact; and round-tripped through the database, where the server row genuinely holds 10.
+
+**Accepted consequence:** `valueHistory()` derives entirely from `versions()`, so the value-at-each-
+checkpoint chart now shows the last 10 checkpoints only. Preserving a longer chart would need a
+second, separate history array — more machinery than the owner's requirement asks for.
 
 ### The traps — read before writing code
 
@@ -67,22 +87,33 @@ predates the theme. The work is unrecoverable.
 This does **not** conflict with the owner's requirement — reverting to a historical moment is
 wanted. The defect is that edits made *since* the last checkpoint vanish without warning.
 
-### Two ways to fix it — decide before building
+### BUILT (2026-08-16) — neither A nor B: the library is not part of the transaction
 
-**Option A — checkpoint structural edits.** Have `createTheme`/`deleteTheme`/`renameTheme`/
-`setMembership` call `pushVersion` with a non-trade label ("THEME"). Nothing is ever lost, and undo
-walks them like any other step.
-*Cost:* more checkpoints, which the E10.1 cap then consumes — a few theme edits could push a real
-rebalance out of the retained window. Mitigate by capping trades and structural edits separately, or
-by counting only trade checkpoints toward the 10.
+Both options above were rejected during the build in favour of a third, which removes machinery
+instead of adding it.
 
-**Option B — warn, and keep the current semantics.** Undo/redo/revert tell the user plainly that
-themes, membership and the watchlist will also move to that point, and name what will be lost.
-*Cost:* the work is still lost if they accept; it just stops being a surprise.
+**What ships:** a checkpoint records the **transaction** and the **settings that produced it**
+(`holdings`, `totalContributed`, `weights`, `penalty`, `overrides`, `metrics`, `metricCfg`). It does
+**not** record the theme list, its membership, or the watchlist, and `restoreVersion` no longer
+restores them. Those are the user's *library* — edited freely between checkpoints, and never part of
+any trade. Snapshots written before this change still carry them; they are ignored, not replayed.
 
-**Recommendation: A, with only trade checkpoints counting toward the retention cap.** It matches the
-owner's stated model — *revert to a historical moment of the portfolio* — where "the portfolio"
-sensibly includes the themes that defined it. B leaves a known data-loss path open and only labels it.
+**Why this over A.** A adds a new checkpoint type, forces the History view to describe non-trade
+checkpoints honestly, and then needs a second counting rule so structural edits don't push real
+rebalances out of the retained window — three pieces of machinery to preserve something no user
+asked to rewind. The chosen fix deletes lines instead, and closes the data-loss path completely
+rather than making it walkable.
+
+**Why this over B.** B leaves the loss in place and only labels it.
+
+**It also makes the existing confirmation text true.** `revertTo` already promised *"Holdings, total
+invested and settings will be set to that point"* — it never mentioned themes or the watchlist, and
+now it no longer needs to.
+
+**The one consequence, accepted:** revert to an old checkpoint reproduces that moment's *holdings*
+against your *current* model, not the model as it stood then. Holdings whose symbol is no longer in
+any theme already restore as **"Exiting position"** (`themeOfSym` → `_exit`), which is exactly what
+the next rebalance should do with them — so this needed no new handling.
 
 ---
 

@@ -3820,6 +3820,7 @@ function renderHistory(){
   if(ctl) ctl.innerHTML =
     (vs.length?`<div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:10px">
         <div>Showing <b>version ${h+1} of ${vs.length}</b>${canRedo()?' · reverted — newer versions stay redoable until you apply a new rebalance':''}</div>
+        ${timelineTrimmed()?`<div class="xs muted" style="margin-top:5px">Only the ${MAX_VERSIONS} most recent checkpoints are kept — older ones have been dropped.</div>`:""}
         <div class="row" style="gap:8px;margin-top:6px">${undoRedoButtons()}</div></div>`:"")
     + syncCardHTML();
   if(!body) return;
@@ -4841,6 +4842,15 @@ function setupEvents(){
        cleared, every guard passed and the next autosave wrote that blank document over
        the account, the mirror and the whole checkpoint history. */
     if(booting){ toast("Still loading your account - try again in a moment"); return; }
+    /* A reset we cannot PERSIST must not happen at all. The assignment below is what stops the
+       save's own "have we read this account?" guard from firing - that guard tests
+       !state.portfolio, and this hands it a document. The write is still refused further down
+       (C3, baseRevision is null), but by then the book is blank in memory AND state.portfolio is
+       truthy, which flips accountUnreachable() off and replaces every honest "could not be
+       loaded" panel with an empty board over a live account. Ask the question only when the
+       answer can be honoured. */
+    if(storageAdapter().name==="cloud" && (accountUnreachable() || !isNum(state.baseRevision))){
+      toast("Your account has not loaded, so a reset could not be saved - nothing was changed"); return; }
     if(!confirm("Reset the portfolio? This clears ALL holdings and version history (your weights, penalty & overrides are kept). This cannot be undone."))return;
     state.portfolio={holdings:{},totalContributed:0,versions:[],head:-1,createdAt:todayISO(),
       weights:state.weights,overrides:state.overrides,penalty:state.penalty};
