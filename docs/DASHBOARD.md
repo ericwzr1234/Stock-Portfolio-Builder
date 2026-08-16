@@ -2,14 +2,14 @@
 
 _Updated 2026-08-15. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app parity · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 0 |
+| Design | 2 |
 | Implementation | 0 |
 | Testing | 10 |
 | Refinement | 0 |
@@ -34,10 +34,17 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (0)
+## Design  (2)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- _(none)_
+- **E10.1** · _E10 · History retention_ — **Keep only the last 10 checkpoints** _(depends E6.5, web)_ · [spec](features/E10_history-retention.md)
+  - OWNER (2026-08-15): "We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago."
+  - WHY IT MATTERS: every checkpoint deep-copies the whole state (holdings, themes, membership, watchlist, overrides, metric config) and nothing prunes them. Enough rebalances and the PATCH body exceeds the request limit - saving then fails PERMANENTLY with a generic error and no diagnosis.
+  - TRAPS (all in the spec): head is an INDEX into versions[] and must be re-based in the same operation or undo/redo jumps to the wrong checkpoint; never prune below head or mid-fork; prune on WRITE not on read, or the document keeps growing in the database; prune inside pushVersion so no caller can bypass it; valueHistory walks versions[] so the Overview chart shortens - its note must not claim more checkpoints than it has.
+- **E10.2** · _E10 · History retention_ — **Undo must not silently discard theme/membership/watchlist edits** _(depends E10.1, web)_ · [spec](features/E10_history-retention.md)
+  - OWNER (2026-08-15): "I still would like the idea to be able to revert back to a historical version/moment of the portfolio. This does not limit to the last edits made, but even earlier changes are fine too." - so revert-to-any-point STAYS; the defect is only that edits made SINCE the last checkpoint vanish.
+  - PRE-EXISTING, NOT introduced by E5-E9 - restoreVersion is byte-identical to prod. snapshotState versions themes/themeTickers/watchlist, but createTheme/deleteTheme/renameTheme/setMembership/addToWatchlist never push a checkpoint. So Undo replaces them from an older snapshot and persists it, while the toast says 'Redo available' - and redo restores the same pre-theme snapshot. Unrecoverable.
+  - DECIDE FIRST: (A) checkpoint structural edits so nothing is ever lost - recommended, with only TRADE checkpoints counting toward E10.1's cap so a few theme edits cannot push a real rebalance out of the window; or (B) keep the semantics and warn plainly in the undo/revert confirm. B leaves the data-loss path open and only labels it.
 
 ## Implementation  (0)
 _Being built on the dev branch._

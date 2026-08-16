@@ -18,6 +18,7 @@
     { "key": "E3",   "name": "E3 · Statement-Driven Data", "color": "#6B5B8C" },
     { "key": "E4",   "name": "E4 · Fundamentals & Screener workflow", "color": "#4D7C6F" },
     { "key": "E7",   "name": "E7 · First-run onboarding",  "color": "#8C5B6B" },
+    { "key": "E10",  "name": "E10 · History retention",   "color": "#4F8CB0" },
     { "key": "APP",  "name": "APP · iOS app parity",       "color": "#B0403A" },
     { "key": "E5",   "name": "E5 · Web UI overhaul",       "color": "#0E7C6B" },
     { "key": "E6",   "name": "E6 · Multi-user platform",   "color": "#5B6B8C" }
@@ -377,6 +378,18 @@
       "Anchored to real controls. The ring is drawn by an OVERLAY, not by restyling the target - restyling would move the very element being pointed at. Steps whose anchor is not on screen are skipped, so a tour written for a full board still reads correctly on an empty one.",
       "Shown once per ACCOUNT per view (pb_tour_<uid>_<view>), so a second person on the same browser gets their own walkthrough. Replay any time from the ? button in the header. Switching views ends the tour.",
       "Verified: all five run end to end, bubbles stay on screen, rings anchor, full teardown with no leftover DOM, seen tours do not reappear, a fresh user auto-opens.",
-      "FIRST REVIEW (2026-08-15) found 10, incl. a CRITICAL of my own making: restoreDefaultThemes() never cleared noDefaults, so on a start-fresh account the always-visible 'Restore default 5' button DELETED the user's themes and restored nothing, while toasting success. themes/noDefaults now move together through useDefaultThemes()/useNoThemes(). Also fixed: a tour could outlive its session and be inherited by the next account (its Done then wrote 'seen' against the WRONG uid); the bubble covered modals (a modal now stands the tour down via MutationObserver); Back could not step past a skipped step; a zero-height anchor could be ringed; the calc tour was a silent dead button on an empty board; and impNo started the tour twice." ] }
+      "FIRST REVIEW (2026-08-15) found 10, incl. a CRITICAL of my own making: restoreDefaultThemes() never cleared noDefaults, so on a start-fresh account the always-visible 'Restore default 5' button DELETED the user's themes and restored nothing, while toasting success. themes/noDefaults now move together through useDefaultThemes()/useNoThemes(). Also fixed: a tour could outlive its session and be inherited by the next account (its Done then wrote 'seen' against the WRONG uid); the bubble covered modals (a modal now stands the tour down via MutationObserver); Back could not step past a skipped step; a zero-height anchor could be ringed; the calc tour was a silent dead button on an empty board; and impNo started the tour twice." ] },
+
+    { "id": "E10.1", "epic": "E10", "stage": "design", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
+      "title": "Keep only the last 10 checkpoints", "notes": [
+      "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",
+      "WHY IT MATTERS: every checkpoint deep-copies the whole state (holdings, themes, membership, watchlist, overrides, metric config) and nothing prunes them. Enough rebalances and the PATCH body exceeds the request limit - saving then fails PERMANENTLY with a generic error and no diagnosis.",
+      "TRAPS (all in the spec): head is an INDEX into versions[] and must be re-based in the same operation or undo/redo jumps to the wrong checkpoint; never prune below head or mid-fork; prune on WRITE not on read, or the document keeps growing in the database; prune inside pushVersion so no caller can bypass it; valueHistory walks versions[] so the Overview chart shortens - its note must not claim more checkpoints than it has." ] },
+
+    { "id": "E10.2", "epic": "E10", "stage": "design", "platform": "web", "depends": "E10.1", "spec": "docs/features/E10_history-retention.md",
+      "title": "Undo must not silently discard theme/membership/watchlist edits", "notes": [
+      "OWNER (2026-08-15): \"I still would like the idea to be able to revert back to a historical version/moment of the portfolio. This does not limit to the last edits made, but even earlier changes are fine too.\" - so revert-to-any-point STAYS; the defect is only that edits made SINCE the last checkpoint vanish.",
+      "PRE-EXISTING, NOT introduced by E5-E9 - restoreVersion is byte-identical to prod. snapshotState versions themes/themeTickers/watchlist, but createTheme/deleteTheme/renameTheme/setMembership/addToWatchlist never push a checkpoint. So Undo replaces them from an older snapshot and persists it, while the toast says 'Redo available' - and redo restores the same pre-theme snapshot. Unrecoverable.",
+      "DECIDE FIRST: (A) checkpoint structural edits so nothing is ever lost - recommended, with only TRADE checkpoints counting toward E10.1's cap so a few theme edits cannot push a real rebalance out of the window; or (B) keep the semantics and warn plainly in the undo/revert confirm. B leaves the data-loss path open and only labels it." ] }
   ]
 }

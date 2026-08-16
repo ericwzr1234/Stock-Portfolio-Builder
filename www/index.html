@@ -2721,10 +2721,16 @@ async function offerImportIfLocalExists(){
     console.warn("skipping the import offer - the account was not confirmed empty ("+state.syncStatus+"/"+state.cloudRowExists+")");
     return;
   }
+  /* Ask the RIGHT store first. On the web the book has always lived in portfolio.json on the
+     machine, served by server.py - pb_portfolio_v1 is the iOS on-device store and, on a browser,
+     is at best stale leftovers. Preferring it offered the wrong portfolio to import: exactly the
+     one moment where getting it wrong means uploading the wrong book into a brand-new account. */
   let localP=null, src="";
-  try{ localP=nativeLoadPortfolio(); if(localP) src="in this browser"; }catch(e){}
-  if(!localP && isPrivateHost()){                  // guard 3
+  if(NATIVE){
+    try{ localP=nativeLoadPortfolio(); if(localP) src="on this device"; }catch(e){}
+  } else if(isPrivateHost()){                      // guard 3
     try{ localP=await webLoadPortfolio(); if(localP) src="on this computer"; }catch(e){}
+    if(!localP){ try{ localP=nativeLoadPortfolio(); if(localP) src="in this browser"; }catch(e){} }
   }
   const n = localP && localP.holdings ? Object.keys(localP.holdings).length : 0;
   if(!n) return;                                   // nothing local worth importing
