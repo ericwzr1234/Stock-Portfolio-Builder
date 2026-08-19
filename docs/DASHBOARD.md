@@ -9,12 +9,12 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 4 |
+| Design | 3 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 65 |
+| Done | 66 |
 
 ---
 
@@ -34,7 +34,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (4)
+## Design  (3)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.13** · _E11 · Online, for invited users_ — **Idle session timeout - sign out after inactivity** _(depends E6.4, web)_ · [spec](features/E11_online-deployment.md)
@@ -45,13 +45,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - WHAT IS LOST: nothing already saved. Membership and rebalances persist immediately, and E9 means nothing about the portfolio is on the device anyway. The exception is an UNAPPLIED rebalance plan held in lastPlan - decide whether to warn about that specifically, or accept it.
   - The teardown already exists and is proven: lockOut() clears account state, stops timers and raises the gate. This ticket is the trigger, not the mechanism.
   - Consider whether it should apply while the tab is hidden (probably yes - an unattended screen is the risk) and whether the countdown should survive a reload.
-- **E11.3** · _E11 · Online, for invited users_ — **Deploy to Cloudflare Pages, same-origin /api/*** _(depends E11.2, web)_ · [spec](features/E11_online-deployment.md)
-  - api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.
-  - Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.
-  - Add a web app manifest and icon so it opens from the phone home screen without a URL bar - that IS the demo requirement.
-  - Show the app version in the UI, or the first bug report is unanswerable.
-  - server.py stays as the local dev server, unchanged. Two environments, one codebase.
-  - Supabase Auth: Site URL plus Redirect URLs as https://<host>/** - note the DOUBLE asterisk, /* does not match nested paths. Keep the localhost entries so local dev keeps working.
 - **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
   - OWNER-BLOCKING and not a free-tier issue: Supabase's built-in mailer 'will refuse to deliver messages to addresses that are not part of the project's team', per their docs. Paying for Pro does NOT fix it. Custom SMTP does, and is available on the Free plan.
   - Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.
@@ -95,7 +88,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (65)
+## Done  (66)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -191,7 +184,7 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 12 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 13 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -202,6 +195,7 @@ _Integrated into the product (on main)._
 - **E11.3a** — Pre-deploy hygiene: noindex, robots, build stamp · [spec](features/E11_online-deployment.md)
 - **E11.11** — Fix: the guided-tour bubble was transparent · [spec](features/E11_online-deployment.md)
 - **E11.12** — Fix: money scaled by sign instead of magnitude · [spec](features/E11_online-deployment.md)
+- **E11.3** — Deploy to Cloudflare Pages, same-origin /api/* · [spec](features/E11_online-deployment.md)
 - **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
 - **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)

@@ -115,8 +115,16 @@
       "Consider whether it should apply while the tab is hidden (probably yes - an unattended screen is the risk) and whether the countdown should survive a reload."
       ] },
 
-    { "id": "E11.3", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.3", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.2", "spec": "docs/features/E11_online-deployment.md",
       "title": "Deploy to Cloudflare Pages, same-origin /api/*", "notes": [
+      "DONE 2026-08-18. LIVE at https://portfolio-builder-esb.pages.dev - app and proxy on one origin, so the client's relative api() calls work untouched.",
+      "A *.pages.dev domain cannot carry a Worker route (routes need a zone), so Pages Functions is the only way onto the same origin without buying a domain. wrangler now steers new projects to Workers-with-assets; Pages was kept for the shorter, more demo-able URL.",
+      "The Function is a FOUR-LINE ADAPTER that imports worker/src/index.js rather than a copy. There were already three implementations of the Yahoo client and two drifted apart twice - a fourth copy would be a fourth thing to forget.",
+      "PROVEN not just reachable: diff_proxy.py against the DEPLOYED origin = 1,035 fields identical to server.py. Then 16 checks in a real phone-sized browser on the live origin: gate up, manifest parses, ticker directory loads from that origin, 'appl' returns AAPL with zero /api calls, and same-origin /api/quotes returns live data.",
+      "GOTCHA WORTH REMEMBERING: Pages serves index.html with HTTP 200 for ANY unknown path. A 200 therefore does not prove a file exists - /proto/newui.html and /definitely-not-a-page both return the app byte-for-byte. Verification has to compare CONTENT, not status. Confirmed every data asset is the real file and not fallback HTML. The Function's own 404 for an unknown /api route is not shadowed by this.",
+      "Icons generated from code (tools/build_icons.py, stdlib zlib+struct) rather than committed as binaries, and verified by decoding the PNG back and checking the mark draws. Moved www/proto/ to docs/proto/ so a stale prototype is not publicly served.",
+      "pb-yahoo-spike DELETED at cutover as planned. pb-proxy is now REDUNDANT - Pages serves the same code - and is a second unauthenticated public Yahoo proxy; left running deliberately as an independent test target while E11.4/E11.7 are in flight, but it should go.",
+      "STILL NEEDS THE OWNER: Supabase Auth -> Site URL + Redirect URLs as https://portfolio-builder-esb.pages.dev/** (DOUBLE asterisk). Sign-in with an existing account already works without it; what breaks without it is email CONFIRMATION and PASSWORD RESET links, which still point at localhost.",
       "api() uses RELATIVE paths, so /api/* must be same-origin with the page - which is why Pages plus a Worker route, rather than two separate services.",
       "Add robots.txt and a noindex meta. The URL is meant to be unlisted; an indexed sign-in page is how strangers find it.",
       "Add a web app manifest and icon so it opens from the phone home screen without a URL bar - that IS the demo requirement.",

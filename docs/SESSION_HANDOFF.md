@@ -1,9 +1,16 @@
 # Session handoff — read this first
 
-**Prod `main` carries E1–E10 complete, and 12 of 16 E11 tickets.** The app is still served from
-localhost; **nothing is public yet**. Remaining in E11: `E11.3` deploy to Pages (hygiene already done in `E11.3a`), `E11.4` custom SMTP,
-`E11.7` Sentry + feedback, `E11.13` idle session timeout (owner asked for it at the end of session 2 -
-read its notes before building, 2 minutes is very short).
+**THE APP IS LIVE:** https://portfolio-builder-esb.pages.dev — app and `/api/*` on one origin,
+proven identical to `server.py` across 1,035 fields. Unlisted (`robots.txt` + `noindex`), installable
+to a phone home screen.
+
+**Prod `main` carries E1–E10 complete, and 13 of 16 E11 tickets.** Remaining: `E11.4` custom SMTP,
+`E11.7` Sentry + feedback, `E11.13` idle session timeout (read its notes — 2 minutes is very short).
+
+**ONE OWNER ACTION OUTSTANDING:** Supabase Auth → Site URL + Redirect URLs →
+`https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths).
+Keep the localhost entries. Signing in with an existing account already works without this; what
+breaks are email **confirmation** and **password reset** links, which still point at localhost.
 
 **Working agreement (owner, 2026-08-16):** sessions are capped at **4 hours**. Every unit is started,
 tested, and merged to prod within the session, or it is not started. Nothing is ever left
@@ -41,10 +48,21 @@ on invented inputs, and the output would look reasonable.
 | `E11.9` | ETFs blocked from themes at `setMembership`, before it mutates. `quoteType` from all three proxies. |
 | `E11.10` | Ticker search is **local**: 11,290 symbols, 5,575 ETFs, 12 queries in 24 ms with zero network calls. |
 
-## Next: E11.3, deploy to Pages
+## Deployment, as it now stands
 
-Everything it needs is green. The Worker (`worker/`, deployed as `pb-proxy`) is proven interchangeable
-with `server.py`. Steps:
+`wrangler pages deploy www --project-name portfolio-builder --branch main`, run from the repo root so
+`functions/` is picked up. `functions/api/[[path]].js` is a four-line adapter that **imports**
+`worker/src/index.js` — one implementation, not a fourth copy. Re-stamp first with
+`py -3 tools/stamp_version.py` so the deployed build names its own commit.
+
+**A 200 from Pages does not prove a file exists.** Unknown paths return `index.html` with HTTP 200,
+byte-identical. Verify deployments by comparing **content**, not status codes. The Function's own
+404 for an unknown `/api` route is not shadowed by this.
+
+`pb-proxy` (standalone Worker) is now redundant — Pages serves the same code — and is a second
+unauthenticated public Yahoo proxy. Kept for now as an independent test target; it should go.
+
+<details><summary>Original E11.3 plan, for reference</summary>
 
 1. Cloudflare Pages project serving `www/`. `/api/*` **must be same-origin** — `api()` uses relative
    paths — so put the Worker's code in Pages Functions rather than gluing two services together.
@@ -54,7 +72,8 @@ with `server.py`. Steps:
 4. Show the app version in the UI, or the first bug report is unanswerable.
 5. **Owner action:** Supabase Auth → Site URL + Redirect URLs as `https://<host>/**` — note the
    *double* asterisk; `/*` does not match nested paths. Keep the localhost entries.
-6. Delete the `pb-yahoo-spike` Worker at cutover.
+6. Delete the `pb-yahoo-spike` Worker at cutover. — done.
+</details>
 
 ---
 

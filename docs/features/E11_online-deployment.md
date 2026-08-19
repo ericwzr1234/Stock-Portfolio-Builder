@@ -1,9 +1,17 @@
 # E11 — Online, for invited users
 
-**Status (2026-08-16, end of session 2): 12 of 16 done.** Built, tested and merged to prod:
-`E11.0` `E11.1` `E11.2a` `E11.2b` `E11.5` `E11.6` `E11.8` `E11.9` `E11.10` `E11.3a`.
-Remaining: `E11.3` (deploy to Pages), `E11.4` (custom SMTP — needs the owner's credentials),
-`E11.7` (Sentry + feedback). **The app is still served from localhost; nothing is public yet.**
+**Status (2026-08-18, session 3): 13 of 16 done. THE APP IS LIVE at
+https://portfolio-builder-esb.pages.dev** — app and `/api/*` on one origin, proven identical to
+`server.py` across 1,035 fields, unlisted, installable to a phone home screen.
+
+Built, tested and merged: `E11.0` `E11.1` `E11.2a` `E11.2b` `E11.3` `E11.3a` `E11.5` `E11.6`
+`E11.8` `E11.9` `E11.10` `E11.11` `E11.12`.
+Remaining: `E11.4` (custom SMTP — needs the owner's credentials), `E11.7` (Sentry + feedback),
+`E11.13` (idle session timeout).
+
+**One owner action outstanding:** Supabase Auth → Site URL + Redirect URLs →
+`https://portfolio-builder-esb.pages.dev/**` (double asterisk). Existing accounts can already sign
+in; what breaks without it is email confirmation and password-reset links.
 
 ## What the diff harness bought
 
@@ -87,8 +95,8 @@ A throwaway Worker doing only the cookie/crumb handshake plus one quote call:
 - `/v8/finance/chart` needs **no cookie and no crumb**
 - all of that latency is I/O, which does not count against the 10 ms CPU budget
 
-**Verdict: the Pages + Worker route holds.** The tunnel fallback is not needed. Delete the spike
-Worker at cutover.
+**Verdict: the Pages + Worker route holds.** The tunnel fallback was not needed. The spike Worker
+was deleted at cutover on 2026-08-18.
 
 ## Order, and what blocks what
 
