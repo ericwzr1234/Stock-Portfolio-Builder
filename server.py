@@ -61,6 +61,7 @@ CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
     ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
     ".ico": "image/x-icon", ".webmanifest": "application/manifest+json", ".map": "application/json",
+    ".txt": "text/plain; charset=utf-8",   # robots.txt served as octet-stream locally, text/plain in prod
 }
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

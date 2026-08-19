@@ -6,6 +6,20 @@
 <!-- Unlisted by intent: robots.txt disallows crawling, and this covers a crawler that reads the
      page anyway. An indexed sign-in page is how strangers find an invite-only tool. -->
 <meta name="robots" content="noindex, nofollow">
+<!-- Home-screen install. display:standalone plus apple-mobile-web-app-capable is what removes the
+     URL bar once it is added to a phone home screen - which is the whole point of the deploy: pick
+     up the phone, tap an icon, demo. Relative paths so this works identically on localhost and on
+     the deployed origin. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Portfolio">
+<!-- black-translucent pairs with the viewport-fit=cover above, so the app paints under the status
+     bar instead of leaving a dead strip. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F5F7F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121A18" media="(prefers-color-scheme: dark)">
 <title>Portfolio Builder</title>
 <style>
   /* ==========================================================================
