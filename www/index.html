@@ -307,6 +307,12 @@
   .badge-sell{background:color-mix(in srgb,var(--sell) var(--tint),var(--paper));color:var(--sell)}
   .badge-hold{background:var(--chip);color:var(--muted)}
 
+  /* E11.13 - above the coach bubble (301) so it is never buried, below the gate (400) because once
+     the gate is up there is nothing left to warn about. */
+  .idle-warn{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:390;
+    background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;box-shadow:var(--shadow-lift);font-size:13px;
+    display:flex;gap:12px;align-items:center;max-width:calc(100vw - 24px)}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--cream);
     padding:10px 18px;border-radius:9px;font-size:13px;box-shadow:var(--shadow);opacity:0;pointer-events:none;
     transition:.2s;z-index:60}
@@ -1782,6 +1788,7 @@ function lockOut(msg){
   try{ coachEnd(false); }catch(e){}
   clearAccountState();
   stopAutoRefresh();
+  stopIdleWatch();                     // the idle clock is account state too
   try{ renderAll(); }catch(e){}        // wipe the previous account's numbers off the screen
   try{ renderAcctBtn(); }catch(e){}
   showGate(true);
@@ -2929,6 +2936,7 @@ function wireGate(){
       b.disabled=false; b.textContent="Sign in";
       showGate(false);
       setupAutoRefresh();                          // start the price timer only once past the gate
+      startIdleWatch();                            // ...and the idle clock, on the same condition
       await postSignInPrompts();                   // only now can the user actually see a dialog
     }catch(e){
       b.disabled=false; setMode(mode);
@@ -5114,6 +5122,73 @@ async function refreshPrices(showToast){
 }
 
 let _autoRefreshWired=false;
+/* ======================================================================
+   E11.13 - sign out after IDLE_MS with no USER activity.
+   ====================================================================== */
+const IDLE_MS = 5*60*1000;      // owner, 2026-08-18
+const IDLE_WARN_MS = 30*1000;   // the last 30s are spent warning, not acting
+let _idleLast=0, _idleTimer=null, _idleBar=null;
+
+/* Genuine user input only. Deliberately NOT 'scroll': the app scrolls ITSELF - renderRebalanceOutput
+   calls scrollIntoView - so counting it would let the app keep its own session alive, which is the
+   same mistake as counting the 60-second price poll. */
+const IDLE_EVENTS = ['pointerdown','pointermove','keydown','touchstart','wheel'];
+
+function idleExpired(){ return _idleLast>0 && (Date.now()-_idleLast) >= IDLE_MS; }
+
+/* Once the deadline has passed the session is over, and no amount of later activity may undo that.
+   Without this guard the feature defeats itself: leave the tab for ten minutes, come back, and the
+   pointermove from reaching for the window fires BEFORE the next tick and resets the clock. */
+function idleBump(){
+  if(!_idleTimer || idleExpired()) return;
+  _idleLast=Date.now();
+  if(_idleBar) idleHideWarn();
+}
+
+function idleShowWarn(secs){
+  if(!_idleBar){
+    _idleBar=document.createElement('div');
+    _idleBar.className='idle-warn';
+    _idleBar.innerHTML='<span>Signing out in <b id="idleSecs"></b>s — you have been inactive.</span>'
+      +'<button class="btn sm primary" id="idleStay">Stay signed in</button>';
+    document.body.appendChild(_idleBar);
+    $('#idleStay').addEventListener('click',()=>{ _idleLast=Date.now(); idleHideWarn(); });
+  }
+  const el=$('#idleSecs'); if(el) el.textContent=String(secs);
+}
+function idleHideWarn(){ if(_idleBar){ _idleBar.remove(); _idleBar=null; } }
+
+function idleTick(){
+  if(!signedIn() || appLocked){ stopIdleWatch(); return; }
+  const idle=Date.now()-_idleLast;
+  if(idle>=IDLE_MS){
+    stopIdleWatch();
+    lockOut('Signed out after '+Math.round(IDLE_MS/60000)+' minutes of inactivity.');
+    return;
+  }
+  if(idle>=IDLE_MS-IDLE_WARN_MS) idleShowWarn(Math.ceil((IDLE_MS-idle)/1000));
+  else if(_idleBar) idleHideWarn();
+}
+
+/* A hidden tab still counts down - an unattended screen is the whole risk - and background timers
+   are throttled, so re-check the moment it comes back rather than waiting for the next tick. */
+function idleVisibility(){ if(document.visibilityState==='visible' && _idleTimer) idleTick(); }
+
+function startIdleWatch(){
+  stopIdleWatch();
+  _idleLast=Date.now();
+  IDLE_EVENTS.forEach(e=>document.addEventListener(e, idleBump, {passive:true}));
+  document.addEventListener('visibilitychange', idleVisibility);
+  _idleTimer=setInterval(idleTick, 1000);
+}
+function stopIdleWatch(){
+  if(_idleTimer){ clearInterval(_idleTimer); _idleTimer=null; }
+  IDLE_EVENTS.forEach(e=>document.removeEventListener(e, idleBump));
+  document.removeEventListener('visibilitychange', idleVisibility);
+  idleHideWarn();
+  _idleLast=0;
+}
+
 function setupAutoRefresh(){
   const sel=$("#refreshSel");
   /* The timer keeps ticking and the GATE decides - rather than re-arming on session changes,
@@ -5267,6 +5342,7 @@ async function init(){
   // session that died during it must not be followed by a price timer running behind the gate.
   if(!signedIn() || appLocked){ showGate(true); return; }
   setupAutoRefresh();
+  startIdleWatch();
   await postSignInPrompts();
 }
 /* E5 fix: the value chart's viewBox is built from its measured box, so re-render it when that box
