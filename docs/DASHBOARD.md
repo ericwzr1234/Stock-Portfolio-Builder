@@ -14,7 +14,7 @@ _Updated 2026-08-16. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 67 |
+| Done | 68 |
 
 ---
 
@@ -42,9 +42,10 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.
   - Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.
   - Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces.
-- **E11.7** · _E11 · Online, for invited users_ — **Error monitoring and a feedback channel** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
-  - 19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.
-  - Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel.
+- **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
+  - NOT STARTED - blocked on an account only the owner can create. Sentry's free Developer tier is 5k errors/month and needs no card.
+  - WHY IT MATTERS: there are ~19 console.error calls that vanish into browsers nobody can see. Now that the app is deployed and reachable from a phone, a failure the owner hits away from the laptop leaves no trace at all.
+  - When the DSN exists this is small: init early, and let it capture what already gets logged. Do not add a second error path.
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -80,7 +81,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (67)
+## Done  (68)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -176,7 +177,7 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 14 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 15 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -191,6 +192,7 @@ _Integrated into the product (on main)._
 - **E11.3** — Deploy to Cloudflare Pages, same-origin /api/* · [spec](features/E11_online-deployment.md)
 - **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
 - **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
+- **E11.7a** — Feedback channel · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 
 </details>

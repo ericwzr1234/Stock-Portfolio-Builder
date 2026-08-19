@@ -3090,6 +3090,52 @@ async function deleteMyAccount(){
 /* E11.6 - the disclaimer and what is stored. Reachable BEFORE signing in (it is on the gate), so
    it carries .over-gate. Deliberately short: this is a free, non-commercial tool used by invited
    people, so it states the facts plainly rather than shipping a terms-of-service stack. */
+/* E11.7 - feedback. Write-only by design: sql/003_feedback.sql grants INSERT and nothing else, so
+   the client cannot read anyone's feedback back, including its own. That is also why this sends
+   Prefer: return=minimal - asking PostgREST to return the row would fail on a table behaving
+   exactly as intended. The owner reads it in the dashboard; there is no inbox and no SLA. */
+async function sendFeedback(msg){
+  const body=[{ user_id:sbUserId(), message:msg, app_version:(typeof APP_VERSION==='string'?APP_VERSION:null) }];
+  const r=await sbApi('/rest/v1/feedback',{ method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Prefer':'return=minimal' },
+    body:JSON.stringify(body) });
+  if(!r.ok){ const t=await r.text(); const e=new Error(t.slice(0,160)||('HTTP '+r.status)); e.status=r.status; throw e; }
+}
+
+function openFeedback(){
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="fbModal"><div class="modal-card card pad" style="max-width:460px">
+    <h2 style="font-size:16px;margin:0">Send feedback</h2>
+    <p class="small muted" style="margin:6px 0 10px">Goes straight to the developer with your build number. Nothing else about you is attached.</p>
+    <textarea id="fbText" rows="6" placeholder="What happened, and what did you expect instead?"
+      style="width:100%;box-sizing:border-box;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);resize:vertical"></textarea>
+    <div id="fbMsg" class="xs" style="margin-top:8px;min-height:16px"></div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px">
+      <button class="btn" id="fbCancel">Cancel</button>
+      <button class="btn primary" id="fbSend">Send</button>
+    </div></div></div>`;
+  const note=(cls,t)=>{ const el=$("#fbMsg"); if(el){ el.className='xs '+cls; el.textContent=t; } };
+  $("#fbCancel").addEventListener("click",closeModal);
+  $("#fbModal").addEventListener("click",e=>{ if(e.target.id==="fbModal")closeModal(); });
+  $("#fbText").focus();
+  $("#fbSend").addEventListener("click",async()=>{
+    const b=$("#fbSend"), msg=($("#fbText").value||"").trim();
+    if(!msg){ note('pen-ink','Write something first.'); return; }
+    if(msg.length>4000){ note('pen-ink','That is longer than 4000 characters.'); return; }
+    b.disabled=true; b.textContent='Sending…';
+    try{
+      await sendFeedback(msg);
+      closeModal(); toast('Thanks - feedback sent');
+    }catch(e){
+      b.disabled=false; b.textContent='Send';
+      /* Say what actually went wrong. Until sql/003_feedback.sql is applied this 404s, and
+         reporting success there would be a lie the user has no way to check. */
+      note('pen-ink', /relation|does not exist|42P01|404/i.test(e.message||'')
+        ? 'Not sent - the feedback table has not been created yet.'
+        : 'Not sent - '+((e&&e.message)||'the request failed'));
+    }
+  });
+}
+
 function openLegal(){
   $("#modalRoot").innerHTML=`<div class="modal-backdrop over-gate" id="legalModal"><div class="modal-card card pad" style="max-width:560px;max-height:86vh;overflow:auto">
     <h2 style="font-size:16px;margin:0">Before you use this</h2>
@@ -3150,6 +3196,7 @@ function openAccount(){
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
       </div>
+      <button class="btn" id="acctFeedback" style="width:100%;margin-top:10px">✉ Send feedback</button>
       <p class="xs muted" style="margin:14px 0 0;text-align:center"><button class="linkish" id="acctLegal" type="button">Not investment advice &middot; what we store</button></p>
       <p class="xs muted" style="margin:18px 0 6px;border-top:1px solid var(--line);padding-top:12px">Delete this account and everything in it. This cannot be undone.</p>
       <button class="btn danger ghost" id="acctDelete" style="width:100%">Delete my account</button>
@@ -3157,6 +3204,7 @@ function openAccount(){
     $("#acctClose").addEventListener("click",closeModal);
     $("#acctExport").addEventListener("click",exportMyData);
     $("#acctLegal").addEventListener("click",openLegal);
+    $("#acctFeedback").addEventListener("click",openFeedback);
     $("#acctDelete").addEventListener("click",deleteMyAccount);
     $("#acctModal").addEventListener("click",e=>{ if(e.target.id==="acctModal")closeModal(); });
     $("#acctSignOut").addEventListener("click",async()=>{

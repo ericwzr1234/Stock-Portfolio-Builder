@@ -159,10 +159,21 @@
       "So: informational only, not investment advice, no adviser relationship, data as-is with no warranty. Shown at signup and reachable from the app.",
       "Plain privacy note: what is stored, where, who can see it, how to delete it. A posted policy has no size threshold under CalOPPA. NOT a full ToS/LLC/insurance stack - that is for commercial."
       ] },
-    { "id": "E11.7", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
-      "title": "Error monitoring and a feedback channel", "notes": [
-      "19 console.error calls currently vanish into browsers nobody can see. Sentry free tier.",
-      "Feedback: a form writing to one Supabase table. No inbox, no SLA - the owner explicitly does not want a support channel."
+    { "id": "E11.7a", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Feedback channel", "notes": [
+      "DONE 2026-08-18. Split from E11.7 because the Sentry half needs an account the owner has and I do not; shipping the half that works beats blocking both.",
+      "WRITE-ONLY BY DESIGN. sql/003_feedback.sql grants INSERT and nothing else - no select policy at all - so a user cannot read anyone's feedback back, including their own. That is also why the client sends Prefer: return=minimal: asking PostgREST to return the inserted row would fail on a table behaving exactly as intended. The owner reads it in the dashboard, which is not subject to RLS.",
+      "Carries app_version, which is the entire reason E11.3a added the build stamp - a report you cannot pin to a build is hard to act on. Nothing else about the user is attached beyond their id.",
+      "ON DELETE CASCADE on user_id, so deleting an account takes its feedback with it and E11.5 stays complete.",
+      "Fails honestly: until the SQL is applied the insert 404s, and the modal says the table has not been created yet, keeps the button live, and PRESERVES the typed text rather than losing what the user wrote. Verified 15 ways.",
+      "NEEDS THE OWNER: run sql/003_feedback.sql in the Supabase SQL editor."
+      ] },
+
+    { "id": "E11.7b", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Error monitoring (Sentry)", "notes": [
+      "NOT STARTED - blocked on an account only the owner can create. Sentry's free Developer tier is 5k errors/month and needs no card.",
+      "WHY IT MATTERS: there are ~19 console.error calls that vanish into browsers nobody can see. Now that the app is deployed and reachable from a phone, a failure the owner hits away from the laptop leaves no trace at all.",
+      "When the DSN exists this is small: init early, and let it capture what already gets logged. Do not add a second error path."
       ] },
     { "id": "E11.8", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Tests and CI", "notes": [
