@@ -1,17 +1,15 @@
 # E11 — Online, for invited users
 
-**Status (2026-08-18, session 3): 13 of 16 done. THE APP IS LIVE at
+**Status (2026-08-18, session 3): 15 of 17 done. THE APP IS LIVE at
 https://portfolio-builder-esb.pages.dev** — app and `/api/*` on one origin, proven identical to
-`server.py` across 1,035 fields, unlisted, installable to a phone home screen.
+`server.py` across 1,035 fields, unlisted, installable to a phone home screen, 5-minute idle sign-out.
 
-Built, tested and merged: `E11.0` `E11.1` `E11.2a` `E11.2b` `E11.3` `E11.3a` `E11.5` `E11.6`
-`E11.8` `E11.9` `E11.10` `E11.11` `E11.12`.
-Remaining: `E11.4` (custom SMTP — needs the owner's credentials), `E11.7` (Sentry + feedback),
-`E11.13` (idle session timeout).
+Built, tested, merged and deployed: `E11.0` `E11.1` `E11.2a` `E11.2b` `E11.3` `E11.3a` `E11.5`
+`E11.6` `E11.7a` `E11.8` `E11.9` `E11.10` `E11.11` `E11.12` `E11.13`.
 
-**One owner action outstanding:** Supabase Auth → Site URL + Redirect URLs →
-`https://portfolio-builder-esb.pages.dev/**` (double asterisk). Existing accounts can already sign
-in; what breaks without it is email confirmation and password-reset links.
+**Everything buildable without the owner's accounts is done.** The two remaining tickets are blocked
+on credentials: `E11.4` (custom SMTP) and `E11.7b` (Sentry). Two owner actions also unblock features
+already shipped — the Supabase Auth URLs, and running `sql/003_feedback.sql`. See the handoff.
 
 ## What the diff harness bought
 

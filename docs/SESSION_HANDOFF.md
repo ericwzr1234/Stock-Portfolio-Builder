@@ -2,15 +2,31 @@
 
 **THE APP IS LIVE:** https://portfolio-builder-esb.pages.dev — app and `/api/*` on one origin,
 proven identical to `server.py` across 1,035 fields. Unlisted (`robots.txt` + `noindex`), installable
-to a phone home screen.
+to a phone home screen, 5-minute idle sign-out.
 
-**Prod `main` carries E1–E10 complete, and 13 of 16 E11 tickets.** Remaining: `E11.4` custom SMTP,
-`E11.7` Sentry + feedback, `E11.13` idle session timeout (read its notes — 2 minutes is very short).
+**Prod `main` carries E1–E10 complete and 15 of 17 E11 tickets.** Everything that can be built
+without the owner's accounts is done. The two that remain are blocked on credentials only the owner has:
+`E11.4` custom SMTP, `E11.7b` Sentry.
 
-**ONE OWNER ACTION OUTSTANDING:** Supabase Auth → Site URL + Redirect URLs →
-`https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths).
-Keep the localhost entries. Signing in with an existing account already works without this; what
-breaks are email **confirmation** and **password reset** links, which still point at localhost.
+## ⚠ Owner actions — nothing else moves without these
+
+| | Action | What is broken until then |
+|---|---|---|
+| 1 | **Supabase Auth → URL Configuration**: Site URL **and** Redirect URLs → `https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths). Keep the localhost entries. | Email **confirmation** and **password-reset** links still point at localhost. Signing in with an existing account already works. |
+| 2 | **Run `sql/003_feedback.sql`** in the Supabase SQL editor. | The feedback button says the table has not been created — honestly, but it cannot send. |
+| 3 | `E11.4`: a Gmail app password **or** Resend key → paste into Supabase, never into chat. Turnstile secret → Supabase; send only the **site** key. | Nobody but the owner can sign up at all — Supabase's built-in mailer only delivers to project team members. |
+| 4 | `E11.7b`: a Sentry account (free tier, no card) → DSN. | ~19 `console.error` calls vanish into browsers nobody can see. |
+
+**Deploying** (do this after ANY change under `www/`, or prod drifts from `main`):
+
+```
+py -3 tools/stamp_version.py
+npx wrangler pages deploy www --project-name portfolio-builder --branch main
+```
+
+Run it from the repo root so `functions/` is picked up. A docs-only commit moves `main` without
+moving the deployed stamp — that is correct, not drift. **Automating this is the most valuable
+un-blocked work left** (a GitHub Action on merge to `main`).
 
 **Working agreement (owner, 2026-08-16):** sessions are capped at **4 hours**. Every unit is started,
 tested, and merged to prod within the session, or it is not started. Nothing is ever left
@@ -47,6 +63,9 @@ on invented inputs, and the output would look reasonable.
 | `E11.8` | 12 engine tests + CI. **Mutation-tested** against the real E10.1 defect. |
 | `E11.9` | ETFs blocked from themes at `setMembership`, before it mutates. `quoteType` from all three proxies. |
 | `E11.10` | Ticker search is **local**: 11,290 symbols, 5,575 ETFs, 12 queries in 24 ms with zero network calls. |
+| `E11.3` | **Deployed.** Pages + a Function that *imports* `worker/src/index.js` — one implementation, not a fourth copy. |
+| `E11.13` | Idle sign-out at **5 minutes**, warning for the last 30 s. |
+| `E11.7a` | Feedback channel — **write-only**: `INSERT` granted, no select policy at all. |
 
 ## Deployment, as it now stands
 
