@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 16 |
+| Design | 15 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 71 |
+| Done | 72 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (16)
+## Design  (15)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -102,11 +102,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Undo / redo / revert-to-any-point with git-style forking - applying from a reverted point drops the redo future, and redoable futures are visually distinct. Rolling 10-checkpoint retention (E10).
   - Clear chart scrub handlers when the chart empties, or a reset portfolio still reports its old dollars.
   - Replace the V1 Wi-Fi data-sync card with an ACCOUNT card: signed in as, portfolio stored in your account only, export my data, sign out. The danger zone keeps Reset portfolio.
-- **APP2.11** · _APP · iOS app_ — **Touch pass** _(depends APP2.6, APP2.10, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
-  - Chart scrubbing is MOUSE-ONLY on web (onmousemove / onmouseleave; there is no touchstart, touchmove or pointermove anywhere in www/index.html). The scrub is the only way to read any checkpoint but the last, so on a phone that data is unreachable today. Replace with pointer events.
-  - Convert pointer maths through getScreenCTM(): an svg viewBox whose aspect differs from its CSS box is letterboxed, and bounding-rect maths goes out of register.
-  - No information may live only in a title attribute or a hover state - the donut segments, the history bars and 48 other title attributes all need a tap affordance.
-  - Tap-target audit at 44pt minimum, and check the keydown trap: a container handler calling preventDefault() swallows activation of any button inside it unless it guards on e.target.closest.
 - **APP2.12** · _APP · iOS app_ — **Stock-detail sheet** _(depends APP2.7, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
   - Ticker click-through from any view: header with price, market cap, TTM as-of, the computed-versus-pulled note and the ADR currency-mismatch tag.
   - The 27-metric grid, each tile showing value, formula and source tag.
@@ -155,7 +150,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (71)
+## Done  (72)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -224,12 +219,13 @@ _Integrated into the product (on main)._
 - **E10.2** — Undo must not silently discard theme/membership/watchlist edits · [spec](features/E10_history-retention.md)
 
 </details>
-<details><summary><b>APP · iOS app</b> — 4 done</summary>
+<details><summary><b>APP · iOS app</b> — 5 done</summary>
 
 - **APP1** — Bring the iOS app to parity with web (E1–E4.5) · [spec](APP_MIGRATION.md)
 - **APP2.1** — Strip the dead V1 native skin · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2b** — In-tab paging for the long tabs · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2c** — Header chrome moves into the Account sheet · [spec](features/APP2_ios-v2-rebuild.md)
+- **APP2.11** — Touch pass · [spec](features/APP2_ios-v2-rebuild.md)
 
 </details>
 <details><summary><b>E5 · Web UI overhaul</b> — 7 done</summary>

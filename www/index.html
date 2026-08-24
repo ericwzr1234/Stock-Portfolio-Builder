@@ -535,6 +535,8 @@
   .native .pgbar button[aria-current="true"]{ background:var(--paper); color:var(--ink);
     box-shadow:var(--shadow-lift, 0 1px 2px rgba(0,0,0,.18)); }
   .native .pg-off{ display:none !important; }
+  /* a vertical drag still scrolls the page; a horizontal one scrubs the chart */
+  .native #ovChart, .native #ovRetChart, .native #histChart{ touch-action:pan-y; }
   .native .pgwrap{ animation:pgIn .2s ease; }
   @keyframes pgIn{ from{ opacity:.35; transform:translateX(var(--pg-dir,14px)); } to{ opacity:1; transform:none; } }
 
@@ -3368,7 +3370,7 @@ function renderOverview(){
   const H=valueHistory();
   const legend=$("#ovChartLegend"), note=$("#ovChartNote");
   if(H.length<2){
-    svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null;   // else stale handlers keep reporting the OLD portfolio's dollars
+    svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);   // else stale handlers keep reporting the OLD portfolio's dollars
     if(legend)legend.innerHTML="";
     if(note)note.textContent=init?"One checkpoint so far — the curve appears once you have a second.":"";
     renderOverviewDonut(); return;
@@ -3433,6 +3435,7 @@ function renderOverview(){
       (vsEw!=null?` · equal-weight ${money(p.ew,0)} <span class="${vsEw>=0?'up':'down'}">(${vsEw>=0?'ahead by ':'behind by '}${money(Math.abs(vsEw),0)})</span>`:""));
   };
   svg.onmouseleave=heroDefault;
+  wireScrub(svg, svg.onmousemove, heroDefault);
   try{ renderReturnChart(H); }catch(e){ console.error("return chart",e); }
   renderOverviewDonut();
 }
@@ -3440,12 +3443,35 @@ function renderOverview(){
    Toggle shows either % of invested capital or absolute dollars. Both series use identical
    cash flows on identical dates, so they are directly comparable. */
 let RET_UNIT="pct";
+/* APP2.11 - the charts were mouse-only (onmousemove / onmouseleave), and the scrub is the ONLY
+   way to read any checkpoint but the last. On a phone that made every earlier checkpoint
+   unreachable. These wire the same handlers to pointer events.
+
+   Assigned as PROPERTIES, not addEventListener: a chart re-renders on every refresh, and
+   addEventListener would stack a new set each time. Mouse pointers are skipped so the existing
+   onmousemove is not fired twice. CSS gives the charts touch-action:pan-y, so a vertical drag
+   still scrolls the page while a horizontal drag scrubs - and the pager already refuses swipes
+   that begin on an svg, so scrubbing never flips the page. */
+function wireScrub(svg, move, leave){
+  if(!svg) return;
+  svg.onpointerdown=e=>{ if(e.pointerType==="mouse") return;
+    try{ svg.setPointerCapture(e.pointerId); }catch(err){} move(e); };
+  svg.onpointermove=e=>{ if(e.pointerType==="mouse") return;
+    if(!e.buttons && !e.pressure) return; move(e); };
+  svg.onpointerup=e=>{ if(e.pointerType==="mouse") return; leave(); };
+  svg.onpointercancel=()=>leave();
+}
+function clearScrub(svg){
+  if(!svg) return;
+  svg.onpointerdown=svg.onpointermove=svg.onpointerup=svg.onpointercancel=null;
+}
+
 function renderReturnChart(H){
   const svg=$("#ovRetChart"), leg=$("#ovRetLegend"), head=$("#ovRetHead"); if(!svg) return;
   const pts=(H||[]).filter(p=>isNum(p.invested)&&p.invested>0);
   const val=(p,k)=>{ const v=p[k]; if(!isNum(v)) return null;
     return RET_UNIT==="pct" ? (v-p.invested)/p.invested*100 : (v-p.invested); };
-  if(pts.length<2){ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null;
+  if(pts.length<2){ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);
     if(leg)leg.innerHTML=""; if(head)head.textContent="Needs at least two checkpoints."; return; }
   const W=Math.max(240,Math.round(svg.clientWidth||520)), Ht=Math.max(70,Math.round(svg.clientHeight||96));
   const PB=Math.max(8,Math.round(Ht*0.12)), PT=Math.max(5,Math.round(Ht*0.08));
@@ -3494,6 +3520,7 @@ function renderReturnChart(H){
     setHead(pts[i]);
   };
   svg.onmouseleave=()=>setHead(last);
+  wireScrub(svg, svg.onmousemove, ()=>setHead(last));
 }
 function renderOverviewDonut(){
   const svg=$("#ovDonut"), leg=$("#ovDonutLegend"); if(!svg||!leg) return;

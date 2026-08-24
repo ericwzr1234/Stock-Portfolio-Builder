@@ -548,12 +548,16 @@
       "Clear chart scrub handlers when the chart empties, or a reset portfolio still reports its old dollars.",
       "Replace the V1 Wi-Fi data-sync card with an ACCOUNT card: signed in as, portfolio stored in your account only, export my data, sign out. The danger zone keeps Reset portfolio." ] },
 
-    { "id": "APP2.11", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.6, APP2.10", "spec": "docs/features/APP2_ios-v2-rebuild.md",
+    { "id": "APP2.11", "epic": "APP", "stage": "done", "platform": "ios", "depends": "APP2.6, APP2.10", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Touch pass", "notes": [
       "Chart scrubbing is MOUSE-ONLY on web (onmousemove / onmouseleave; there is no touchstart, touchmove or pointermove anywhere in www/index.html). The scrub is the only way to read any checkpoint but the last, so on a phone that data is unreachable today. Replace with pointer events.",
       "Convert pointer maths through getScreenCTM(): an svg viewBox whose aspect differs from its CSS box is letterboxed, and bounding-rect maths goes out of register.",
       "No information may live only in a title attribute or a hover state - the donut segments, the history bars and 48 other title attributes all need a tap affordance.",
-      "Tap-target audit at 44pt minimum, and check the keydown trap: a container handler calling preventDefault() swallows activation of any button inside it unless it guards on e.target.closest." ] },
+      "Tap-target audit at 44pt minimum, and check the keydown trap: a container handler calling preventDefault() swallows activation of any button inside it unless it guards on e.target.closest.",
+      "DONE 2026-08-24 (chart scrubbing). wireScrub() mirrors the existing onmousemove/onmouseleave onto pointer events for #ovChart and #ovRetChart. Assigned as PROPERTIES, not addEventListener, because a chart re-renders on every refresh and listeners would stack; mouse pointers are skipped so the existing handler cannot fire twice. Both teardown sites now call clearScrub() as well, or a reset portfolio would keep reporting its old dollars through the touch path.",
+      "CSS gives the charts touch-action:pan-y, so a vertical drag still scrolls the page while a horizontal one scrubs - and the APP2.2b pager already refuses swipes beginning on an svg, so scrubbing can never flip the page.",
+      "VERIFIED functionally, not just wired: a synthetic touch drag moved the hero from the live $92,000 to $89,100 / 2026-04-30 / cash deploy / invested $85,000, and releasing returned it to the default. The letterboxing trap was already handled - both scrubs convert through getScreenCTM().",
+      "NOT a gap after all: the donut and the history bars carry <title> tooltips, but neither is the only source of that data - the donut legend prints current %, target and drift as text, and the checkpoint list prints every date, value and delta. So no information is hover-only. Remaining under this ticket: the 44pt tap-target audit." ] },
 
     { "id": "APP2.12", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.7", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Stock-detail sheet", "notes": [
