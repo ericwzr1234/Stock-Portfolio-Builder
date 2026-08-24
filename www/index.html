@@ -444,6 +444,22 @@
   .native .band{ grid-template-columns:1fr 1fr; }
   .native .stat .v{ font-size:19px; }
   .native .thm-stats{ grid-template-columns:1fr 1fr; }
+  /* A theme header on a phone cannot hold name + source tag + three actions + the target pill on
+     one line: the name is what gets truncated, and every theme reads "St...", "Pe...". So let the
+     header wrap - name and pill on the first line, the actions on their own full-width row with
+     their labels spelled out (the markup already carries data-lbl for exactly this). */
+  .native .thm-head{ flex-wrap:wrap; row-gap:9px; align-items:center; padding:11px 12px; }
+  .native .thm-head .nm{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; font-size:14.5px; }
+  .native .thm-head .pill{ order:-1; margin-left:auto; }   /* the actions take a full row, so without
+     an order bump the target pill would be pushed onto a third line of its own */
+  .native .thm-head .theme-acts{ display:flex; flex:1 0 100%; gap:6px; }
+  .native .addname-btn{ flex:1 1 0; min-width:0; white-space:nowrap; min-height:36px; padding:8px 6px;
+    font-size:12.5px; font-weight:550; display:inline-flex; align-items:center; justify-content:center;
+    gap:5px; border-radius:10px; }
+  .native .addname-btn::after{ content:attr(data-lbl); overflow:hidden; text-overflow:ellipsis; }
+  .native .addname-btn .lbl{ display:none; }      /* the data-lbl label replaces the web wording */
+  .native .addname-btn[data-addticker]{ color:var(--teal); }
   /* wide data tables scroll inside their own card, never the page */
   .native .tscroll, .native .thm-body{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .native table{ max-width:none; }
