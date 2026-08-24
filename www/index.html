@@ -364,16 +364,124 @@
   .swap-opt .spacer{flex:1}
 
   /* ====================================================================
-     iOS / native app skin - REMOVED (APP2.1, 2026-08-24).
-     The V1 phone skin was written for V1 markup that the E5 accordion
-     rewrite replaced, so much of it already matched nothing. Owner
-     decision D3: delete it and rebuild from docs/V2_WEB_BASELINE.md
-     rather than repair it. The new phone UI lands in APP2.2 onward -
-     see docs/features/APP2_ios-v2-rebuild.md. Until then the app renders
-     the web layout on the device, which is expected, not a regression.
-     None of this affected the web build: every removed rule was prefixed
-     .native, and that class is only ever set inside Capacitor.
+     APP2.2 - iOS / native app shell. Applied ONLY inside Capacitor
+     (html.native, set pre-paint). The web build never has that class, so
+     nothing here can reach it.
+
+     Colour comes entirely from the existing V2 tokens, so light and dark
+     both work for free. This block restyles LAYOUT and CHROME only:
+     the desktop rail becomes a bottom tab bar, the context bar becomes a
+     sticky phone header, cards tighten, modals become bottom sheets.
+     Spec: docs/features/APP2_ios-v2-rebuild.md
      ==================================================================== */
+  .native body{ -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  .native *{ -webkit-tap-highlight-color:transparent; }
+  .native .app{ display:block; }
+  .native .rail{ display:none; }
+  .native .appmain{ min-width:0; }
+
+  /* ---- header: one compact row, under the notch ---- */
+  /* backdrop-filter makes an element a containing block for fixed-position descendants, so with
+     the base header's blur in place the bottom tab bar anchored to the HEADER instead of the
+     viewport. Drop the blur on native and paint the header opaque. */
+  .native header.top{ padding-top:env(safe-area-inset-top); backdrop-filter:none;
+    -webkit-backdrop-filter:none; background:var(--paper); }
+  .native .top-in{ padding:8px 14px 9px; gap:9px 10px; align-items:center; }
+  .native .brand .mark{ font-size:15px; }
+  .native .brand .sub{ display:none; }            /* the tagline is desktop garnish */
+  .native .status{ font-size:11px; }
+  .native .spacer{ display:none; }
+  /* the control row must stay ONE compact line - these are chrome, not primary actions, so they
+     are exempt from the 44pt rule that governs real controls in the content area */
+  .native .ctrls{ gap:5px; margin-left:auto; flex-wrap:nowrap; align-items:center; }
+  .native .ctrls .btn{ min-height:32px; padding:6px 9px; font-size:12.5px; border-radius:9px;
+    white-space:nowrap; }
+  .native #updated{ display:none; }               /* the timestamp lives on the Refresh press */
+  .native #refreshSel{ font-size:14px; padding:5px 4px; max-width:86px; min-width:0; }
+  .native .themesw button{ padding:4px 8px; font-size:12px; }
+
+  /* ---- context bar: portfolio state on EVERY view, compact and scrollable ---- */
+  .native .kpis{ flex-basis:100%; gap:0; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; margin:2px -14px -2px; padding:0 14px; }
+  .native .kpis::-webkit-scrollbar{ display:none; }
+  .native .kpis > *{ flex:0 0 auto; margin-right:18px; }
+
+  /* ---- the rail becomes a bottom tab bar ---- */
+  .native nav.tabs{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:40;
+    background:var(--paper); border-top:1px solid var(--line); border-bottom:0;
+    padding:6px 2px calc(4px + env(safe-area-inset-bottom)); gap:0; overflow:visible; }
+  .native nav.tabs button{ flex:1 1 0; min-width:0; margin:0; padding:5px 2px 3px; border-bottom:0;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    font-size:0; color:var(--muted); }
+  .native nav.tabs button.active{ color:var(--teal); border-bottom-color:transparent; }
+  .native nav.tabs button::before{ content:""; display:block; width:23px; height:23px;
+    background:currentColor; }
+  .native nav.tabs button::after{ font-size:10px; font-weight:650; letter-spacing:.01em; }
+  .native main{ padding:12px 14px calc(74px + env(safe-area-inset-bottom)); }
+  .native nav.tabs button[data-view="prices"]::before{ -webkit-mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 17l6-6 4 4 7-8M3 21h18'/%3E%3C/svg%3E");
+    mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 17l6-6 4 4 7-8M3 21h18'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="fundamentals"]::before{ -webkit-mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v9l7 4'/%3E%3C/svg%3E");
+    mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v9l7 4'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="calc"]::before{ -webkit-mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h13l-3-3M20 17H7l3 3'/%3E%3C/svg%3E");
+    mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h13l-3-3M20 17H7l3 3'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="screener"]::before{ -webkit-mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4a7 7 0 100 14 7 7 0 000-14zM16.5 16.5L21 21'/%3E%3C/svg%3E");
+    mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4a7 7 0 100 14 7 7 0 000-14zM16.5 16.5L21 21'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="history"]::before{ -webkit-mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v4l3 2'/%3E%3C/svg%3E");
+    mask:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a9 9 0 100 18 9 9 0 000-18zM12 8v4l3 2'/%3E%3C/svg%3E"); }
+  .native nav.tabs button[data-view="prices"]::after{ content:"Overview"; }
+  .native nav.tabs button[data-view="fundamentals"]::after{ content:"Model"; }
+  .native nav.tabs button[data-view="calc"]::after{ content:"Rebalance"; }
+  .native nav.tabs button[data-view="screener"]::after{ content:"Research"; }
+  .native nav.tabs button[data-view="history"]::after{ content:"History"; }
+
+  /* ---- content: phone spacing, stacked sections, nothing wider than the screen ---- */
+  .native .section-title h2{ font-size:17px; }
+  .native .card{ border-radius:15px; padding:13px; margin-bottom:11px; }
+  .native .pad{ padding:13px; }
+  .native .note, .native .hint{ font-size:11.5px; }
+  .native .ov-layout, .native .grid2, .native .calc-layout,
+  .native .res-layout, .native .hist-layout{ grid-template-columns:1fr; gap:11px; }
+  .native .band{ grid-template-columns:1fr 1fr; }
+  .native .stat .v{ font-size:19px; }
+  .native .thm-stats{ grid-template-columns:1fr 1fr; }
+  /* wide data tables scroll inside their own card, never the page */
+  .native .tscroll, .native .thm-body{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .native table{ max-width:none; }
+
+  /* every focusable field >= 16px, or iOS magnifies the whole page on focus and
+     throws each sheet oversized and off-screen (the V1 bug; must not regress) */
+  .native input:not([type=checkbox]):not([type=radio]), .native textarea{ font-size:16px !important; }
+  .native select{ font-size:15px; }               /* a picker, not a text field - it never zooms */
+  .native input[type=number]{ padding:9px 11px; border-radius:10px; }
+  /* A <select> is as wide as its longest option, and a flex item will not shrink below its
+     min-content, so the Rebalance controls forced their card 133px past the screen. Stack them
+     (which is the right phone layout regardless) and let every field shrink. */
+  .native .calc-controls{ flex-direction:column; align-items:stretch; gap:10px; }
+  .native .field{ min-width:0; width:100%; }
+  .native .field input, .native .field select, .native .calc-controls .btn{ width:100%; min-width:0; }
+  .native select, .native input, .native textarea{ max-width:100%; }
+  .native .card, .native .thm, .native .band, .native .grid2 > *{ min-width:0; }
+
+  .native .btn{ padding:11px 15px; font-size:15px; border-radius:11px; min-height:44px; }
+  .native .btn.sm{ padding:8px 12px; font-size:13px; border-radius:10px; min-height:0; }
+
+  /* ---- modals become bottom sheets ---- */
+  .native .modal-backdrop{ align-items:flex-end; padding:0; overflow-x:hidden; }
+  .native .modal-card{ min-width:0; width:100%; max-width:100vw; box-sizing:border-box;
+    border-radius:18px 18px 0 0; max-height:88vh; overflow-y:auto; overflow-x:hidden;
+    padding:16px 16px calc(18px + env(safe-area-inset-bottom));
+    animation:pbSheet .26s cubic-bezier(.2,.8,.2,1); }
+  @keyframes pbSheet{ from{ transform:translateY(100%); } to{ transform:none; } }
+  .native .modal-card > *{ max-width:100%; }
+  .native .modal-card table.mono{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .native .modal-card table.mono th:first-child, .native .modal-card table.mono td:first-child{
+    position:sticky; left:0; background:var(--paper); z-index:2; }
+  .native .modal-card .row{ flex-wrap:wrap; }
+  .native .modal-card .row .btn{ min-height:44px; }
+
+  /* the login gate sits higher than dead-centre on a tall screen */
+  .native #gate{ align-items:flex-start; padding-top:calc(38px + env(safe-area-inset-top)); }
+
 
   /* ===== E5.3 Rebalance: plan left, holdings right ===== */
   .calc-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;align-items:start}
@@ -4899,9 +5007,9 @@ function initTheme(){
   let saved=null; try{ saved=localStorage.getItem(THEME_KEY); }catch(e){}
   // The iOS app ships its own light-tuned native skin (APP2 will revisit dark there),
   // so on native we never auto-follow the OS — only an explicit choice applies.
-  const os = !NATIVE && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+  const os = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;   // APP2.2: the phone follows the OS too
   setTheme(saved || (os?"dark":"light"), false);
-  if(!NATIVE && window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener("change",e=>{
+  if(window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener("change",e=>{
     let s=null; try{ s=localStorage.getItem(THEME_KEY); }catch(err){}
     if(!s) setTheme(e.matches?"dark":"light",false);     // follow the OS only until they choose
   });
