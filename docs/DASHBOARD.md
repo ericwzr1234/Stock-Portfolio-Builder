@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 15 |
+| Design | 14 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 72 |
+| Done | 73 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (15)
+## Design  (14)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -50,12 +50,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - DECISION (2026-08-08): the iPhone app does NOT have to copy the web UI — platform/Xcode constraints make a shared pixel-level design a poor fit. It MUST carry the same CONTENT and FEATURES.
   - So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).
   - Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone.
-- **APP2.2** · _APP · iOS app_ — **Native shell: tab bar, context bar, tokens, sheets** _(depends APP2.1, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
-  - Bottom tab bar for the five V2 sections (Overview/Model/Rebalance/Research/History); internal view ids stay prices/fundamentals/calc/screener/history.
-  - Sticky CONTEXT BAR on every screen: Total value / Today / Invested / Gain / Max drift. It must refresh on the PRICE-REFRESH path, not only on structural re-renders - stale money beside live money was a real V2 bug.
-  - Safe-area insets, bottom sheets, and light+dark through tokens: follow the OS by default, remember an explicit choice, and let no component rule branch on the theme.
-  - Every form field at least 16px: iOS auto-zooms the whole page below that and throws every sheet oversized and off-screen. Fixed once in V1; must not regress.
-  - FOUND during APP2.1: the phone does NOT follow iOS dark mode. Theme init reads const os = !NATIVE && matchMedia(prefers-color-scheme: dark).matches, and the change listener is likewise guarded by !NATIVE - so on the phone os is always false, the app always starts LIGHT, and it never reacts to the OS. This contradicts the baseline rule that themes default to the OS setting. The guards existed because V1 native chrome hardcoded light colours, so dark mode would have looked broken; now that the skin is deleted they are the only thing pinning the phone to light. Remove both !NATIVE guards as part of this ticket and verify dark mode end to end on device.
 - **APP2.3** · _APP · iOS app_ — **Account on device: Supabase auth** _(depends APP2.2, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
   - GoTrue over CapacitorHttp. The web calls Supabase with plain fetch and the publishable key, so it ports directly; only the publishable key ever ships - the secret key carries BYPASSRLS and must never enter the repo.
   - The login gate must FAIL CLOSED before any portfolio paint, as web does with its inline pre-paint script.
@@ -150,7 +144,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (72)
+## Done  (73)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -219,10 +213,11 @@ _Integrated into the product (on main)._
 - **E10.2** — Undo must not silently discard theme/membership/watchlist edits · [spec](features/E10_history-retention.md)
 
 </details>
-<details><summary><b>APP · iOS app</b> — 5 done</summary>
+<details><summary><b>APP · iOS app</b> — 6 done</summary>
 
 - **APP1** — Bring the iOS app to parity with web (E1–E4.5) · [spec](APP_MIGRATION.md)
 - **APP2.1** — Strip the dead V1 native skin · [spec](features/APP2_ios-v2-rebuild.md)
+- **APP2.2** — Native shell: tab bar, context bar, tokens, sheets · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2b** — In-tab paging for the long tabs · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2c** — Header chrome moves into the Account sheet · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.11** — Touch pass · [spec](features/APP2_ios-v2-rebuild.md)
