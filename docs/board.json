@@ -439,7 +439,7 @@
       "DESIGN 2026-08-24: ideation CLOSED, broken into APP2.1-APP2.14. Spec: docs/features/APP2_ios-v2-rebuild.md. Interactive visual reference: docs/prototypes/APP2_phone_demo.html (open on a phone; design reference only - no engine, faked data).",
       "OWNER DECISION D4 (2026-08-24): the phone uses SUPABASE for account-based data, exactly as web. The native app is therefore ACCOUNT-ONLY: no offline read, STORAGE_ADAPTERS.native (localStorage pb_portfolio_v1) and the LAN Wi-Fi sync are RETIRED, and a mirror must never come back - that hybrid is what produced the ~120 defects of E6-E9. This settles the question V2_WEB_BASELINE.md 9.1 flagged as needing a deliberate answer rather than a copy-paste.",
       "OWNER DECISION D5 (2026-08-24): UI direction is ROBINHOOD - clean, simple, easy to follow - carrying identical content and features to V2 web.",
-      "STILL OPEN for the owner: (D6) market data via the deployed /api/* [recommended] vs keeping on-device Yahoo; the phone idle-timeout value [web signs out at 5 min]; and APP2.13 signing [free weekly re-sign vs paid].",
+      "OWNER DECISIONS D6-D8 (2026-08-24), all three open questions now CLOSED: (D6) the phone KEEPS FETCHING YAHOO DIRECTLY on-device via CapacitorHttp - it is Yahoo on every platform, since the web app cannot call Yahoo from a browser (no CORS on Yahoo endpoints) and server.py/the Worker are only proxies; the phone is the one platform that CAN call Yahoo directly, and keeping it means the Cloudflare Pages origin being down or drifting cannot stop the phone pricing a portfolio. (D7) phone idle timeout is 15 MINUTES, web stays at 5. (D8) FREE personal-team signing for now, revisit a paid account at the production/testing stage.",
       "START HERE: docs/V2_WEB_BASELINE.md — the definition of what the phone must carry. V2 web shipped to main 2026-08-15 (d2b7405); V1, INCLUDING the shipped iPhone app, is superseded.",
       "DECISION (user, 2026-08-15): the iOS app does NOT have to look like the web app — platform constraints make a shared pixel design a poor fit — but it MUST carry the same content and features. Do not reconcile the old .native CSS with V2; it targets V1 markup that no longer exists. Delete it and rebuild from the baseline doc.",
       "KNOWN + ACCEPTED V1 debt (audited, deliberately not fixed): every `.native .theme …` rule is dead after the accordion rewrite, so on the V1 phone build the metric table loses its frozen ticker column and phone cell density and the theme header cannot wrap; native header/tab bar also hardcode light colours so dark mode is wrong there.",
@@ -465,7 +465,7 @@
       "GoTrue over CapacitorHttp. The web calls Supabase with plain fetch and the publishable key, so it ports directly; only the publishable key ever ships - the secret key carries BYPASSRLS and must never enter the repo.",
       "The login gate must FAIL CLOSED before any portfolio paint, as web does with its inline pre-paint script.",
       "Session persistence and token refresh. A TOKEN REFRESH IS NOT AN IDENTITY CHANGE - counting it as one discarded a live portfolio on every stale reload.",
-      "OWNER DECISION needed: web signs out after 5 minutes idle, which is likely too aggressive on a phone. Alternatives are a longer window or Face ID re-unlock instead of sign-out." ] },
+      "OWNER DECISION D7 (2026-08-24): the phone idle timeout is 15 MINUTES; web stays at 5. Keep a visible warning before it fires, as web does for its last 30 seconds." ] },
 
     { "id": "APP2.4", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.3", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Storage: cloud-only on native", "notes": [
@@ -476,12 +476,12 @@
       "Anything stored per-user on the device is keyed by uid and cleared on sign-out: RLS separates accounts, not devices." ] },
 
     { "id": "APP2.5", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
-      "title": "Market data via the deployed /api/*", "notes": [
-      "GATED ON OWNER DECISION D6. Recommended: point ds* at https://portfolio-builder-esb.pages.dev/api/* through CapacitorHttp and DELETE the native Yahoo client (nativeQuotes/nativeFundamentals/nativeStatements/nativeSearch).",
-      "Why: E11 added the Cloudflare Worker as a second proxy, and E11.2b needed 1027 fields to match server.py. Keeping the native path means maintaining THREE proxies of one Yahoo surface forever, plus re-porting the E11.9 ETF quoteType guard and E11.10 local ticker search by hand. Porting logic ports its bugs.",
-      "CORS: the Worker sends NO CORS headers, so a browser fetch from a capacitor:// origin would fail - but CapacitorHttp is native HTTP and is not subject to CORS. It is already enabled in capacitor.config.json and must be the transport.",
-      "Cost accepted: the phone needs that origin reachable. D4 already requires the network for the portfolio, so this adds no new failure mode.",
-      "Bundle or lazy-load www/data/tickers.json so search stays local (11k+ symbols, zero network calls). NOTE: prod currently serves an older directory than main because the weekly workflow commits without deploying." ] },
+      "title": "Verify the on-device Yahoo client", "notes": [
+      "OWNER DECISION D6 (2026-08-24): the phone KEEPS fetching Yahoo DIRECTLY on-device via CapacitorHttp, as V1 did. This is a VERIFY ticket, not a rewrite.",
+      "The framing that matters: it is Yahoo Finance on every platform. The web app cannot call Yahoo from a browser because Yahoo sends no CORS headers - that is the entire reason server.py (dev) and worker/src/index.js (prod) exist, as proxies fetching Yahoo on its behalf. The phone is the one platform that CAN call Yahoo directly, because CapacitorHttp is native HTTP and is not subject to CORS.",
+      "Why keep it: no dependency on the Cloudflare Pages origin. Under D4 the phone needs the network for the portfolio, but that is SUPABASE - so Pages being down, renamed or drifting cannot stop the phone pricing a portfolio. And V1 already proved this path on a physical iPhone with live data, so it is zero new code.",
+      "Accepted cost: three implementations of one Yahoo surface stay in sync - server.py, the Worker, and the native client. E11.2b confirmed the native JS client ALREADY mirrors server.py exactly. Police any future field change with py -3 tools/diff_proxy.py, and remember that porting logic ports its bugs (the search tie-break was fixed in Python and reintroduced identically in JS the same afternoon).",
+      "Scope: confirm nativeQuotes/nativeFundamentals/nativeStatements/nativeSearch still match field-for-field on device; keep EVERY CapacitorHttp param stringified (numbers cast-crash NSCFNumber to NSString - the V1 crash); keep search on the local ticker directory www/data/tickers.json, which is client-side and needs no proxy on either platform; and confirm quoteType still arrives so the ETF never-a-theme-member guard holds." ] },
 
     { "id": "APP2.6", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Overview view", "notes": [
@@ -535,7 +535,7 @@
 
     { "id": "APP2.13", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.6, APP2.7, APP2.8, APP2.9, APP2.10", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Signing and distribution", "notes": [
-      "OWNER DECISION: free personal team (certs expire every 7 days, so a weekly Xcode re-run) versus a paid Apple Developer account at $99/yr (year-long certs plus TestFlight, no cable). Note that under D4 an in-place re-run no longer preserves anything on the device, because the portfolio lives in the account.",
+      "OWNER DECISION D8 (2026-08-24): stay on the FREE personal team for now, accepting 7-day certs and a weekly Xcode re-run. Upgrade to a paid Apple Developer account ($99/yr: year-long certs plus TestFlight, no cable) at the production/testing stage. Note that under D4 a re-run no longer needs to preserve anything on the device, because the portfolio lives in the account.",
       "Known-good setup from APP1: the bundle id must be globally unique for a free team (com.ericwzr.portfoliobuilder123453, team 5F48K52NKV); a device must be connected once to mint a provisioning profile; Developer Mode on; trust the cert on first launch; and SKIP the Xcode Update to recommended settings prompt, because its User Script Sandboxing breaks the CocoaPods build. Full walkthrough in docs/IOS_BUILD.md.",
       "CocoaPods needs LANG and LC_ALL set to en_US.UTF-8 or pod install throws a Unicode ASCII-8BIT error. Build from the clone OUTSIDE OneDrive." ] },
 

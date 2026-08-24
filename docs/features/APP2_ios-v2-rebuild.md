@@ -20,6 +20,9 @@
 | D3 | **Delete the V1 `.native` CSS** rather than repair it. 91 rules target V1 markup V2 no longer emits. | owner, 2026-08-15 |
 | D4 | **The phone uses Supabase for account-based data**, exactly as the web does. | owner, 2026-08-24 |
 | D5 | **UI direction: Robinhood** — clean, simple, easy to follow. | owner, 2026-08-24 |
+| D6 | **The phone keeps fetching Yahoo directly on-device** via CapacitorHttp, not through the deployed `/api/*`. It is Yahoo either way; this removes any dependency on the Pages origin. | owner, 2026-08-24 |
+| D7 | **Idle timeout on the phone is 15 minutes** (web stays at 5). | owner, 2026-08-24 |
+| D8 | **Free personal-team signing for now**; revisit a paid account at the production/testing stage. | owner, 2026-08-24 |
 
 ### D4 in full, because it settles the question the baseline flagged
 
@@ -36,25 +39,35 @@ copy-paste": either the app is account-only, or on-device storage stays its prim
 - Market data is unaffected — quotes/fundamentals/statements are not portfolio data and may be
   fetched and cached freely.
 
-### D6 — market data comes from the deployed `/api/*`, not on-device Yahoo (**confirm before APP2.5**)
+### D6 — the phone keeps fetching Yahoo directly on-device (owner, 2026-08-24)
 
-V1 talked to Yahoo directly from the device (`nativeQuotes` / `nativeFundamentals` /
-`nativeStatements`). Since E11 there is a third implementation — the Cloudflare Worker — and
-`E11.2b` needed **1,027 fields** to match `server.py`. Keeping the native path means maintaining
-**three** proxies of the same Yahoo surface forever.
+**It is Yahoo Finance on every platform.** The web app cannot call Yahoo from the browser — Yahoo's
+endpoints send no CORS headers — which is the entire reason `server.py` (dev) and the Cloudflare
+Worker (prod) exist: they are proxies that fetch Yahoo on the web app's behalf. The phone is the one
+platform that **can** call Yahoo directly, because **CapacitorHttp is native HTTP and is not subject
+to CORS**. So this decision was never about the data source, only about who makes the call.
 
-**Recommendation: point the phone at `https://portfolio-builder-esb.pages.dev/api/*`** and delete
-the native Yahoo client. This collapses three implementations to two (Worker + `server.py` for dev),
-and inherits E11.9's `quoteType` ETF guard and E11.10's local ticker directory for free.
+**Decision: keep the V1 approach** — `nativeQuotes` / `nativeFundamentals` / `nativeStatements` /
+`nativeSearch` continue to hit Yahoo directly through CapacitorHttp.
 
-- **CORS is a non-issue on native.** The Worker sends **no CORS headers at all**, so a plain browser
-  `fetch` from a `capacitor://` origin would fail — but **CapacitorHttp is native HTTP and is not
-  subject to CORS**. It must therefore be enabled (it already is) and used for `/api/*`.
-- Cost of the change: the phone stops working when Cloudflare or the Pages project is down, where V1
-  would have kept fetching quotes. Given D4 already requires the network for the portfolio itself,
-  this adds no new failure mode.
-- Trade-off if rejected: keep `nativeQuotes` etc. and accept a third parity surface, plus re-porting
-  E11.9/E11.10 by hand. `tools/diff_proxy.py` exists to police it.
+Why this is the robust choice:
+
+- **No dependency on the Cloudflare Pages origin.** Under D4 the phone needs the network for the
+  portfolio, but that is *Supabase*. Keeping Yahoo on-device means Pages being down, renamed, or
+  drifting cannot stop the phone from pricing a portfolio.
+- **Zero new code.** V1 proved this path on a physical iPhone with live data. APP2.5 becomes a
+  *verification* ticket, not a rewrite.
+- **Search needs no proxy anyway.** E11.10 made ticker search local and client-side
+  (`www/data/tickers.json`, 11k+ symbols), so it reaches the phone through `cap sync` regardless.
+- **The ETF guard already works natively.** E11.9 put `quoteType` in all three proxies, so
+  "researchable, never a theme member" holds unchanged.
+
+**Accepted cost:** three implementations of one Yahoo surface must stay in sync — `server.py` (dev),
+`worker/src/index.js` (prod web), and the native client (phone). `E11.2b` confirmed the native JS
+client **already mirrors `server.py` exactly**. Police any future field change with
+`py -3 tools/diff_proxy.py`, and remember the rule that earned itself here: **porting logic ports its
+bugs** — the search tie-break was fixed in Python and reintroduced identically in JavaScript the same
+afternoon.
 
 ---
 
@@ -116,9 +129,9 @@ Each is sized to be started, tested and merged inside one session, per the 4-hou
 |---|---|---|
 | **APP2.1** | Strip the dead V1 native skin — delete all 91 `.native` rules and the V1-only native chrome; tokenise header/tab bar so dark mode is correct. Baseline for everything after. | — |
 | **APP2.2** | Native shell: bottom tab bar, sticky context bar, safe-area insets, bottom sheets, light/dark tokens, 16px form fields (iOS auto-zooms below that and mis-places every sheet). | 2.1 |
-| **APP2.3** | Account on device: Supabase GoTrue over CapacitorHttp, login gate that fails closed, session persistence and token refresh (**a token refresh is not an identity change**), idle-timeout policy for a phone. | 2.2 |
+| **APP2.3** | Account on device: Supabase GoTrue over CapacitorHttp, login gate that fails closed, session persistence and token refresh (**a token refresh is not an identity change**), idle timeout at **15 minutes** on the phone. | 2.2 |
 | **APP2.4** | Storage: cloud adapter only on native; retire `STORAGE_ADAPTERS.native` and LAN sync; honour C1–C5; unreachable account reported, never cached. | 2.3 |
-| **APP2.5** | Market data via the deployed `/api/*` through CapacitorHttp; delete the native Yahoo client; bundle/lazy-load the local ticker directory. **Gated on D6.** | 2.2 |
+| **APP2.5** | Verify the on-device Yahoo client still mirrors the Worker field-for-field (D6 keeps it); keep every CapacitorHttp param stringified; keep the local ticker directory for search. | 2.2 |
 | **APP2.6** | Overview view. | 2.2 |
 | **APP2.7** | Model view, incl. per-theme metric tables with a frozen ticker column, inline overrides, and the metric-picker sheet. | 2.2 |
 | **APP2.8** | Rebalance view, incl. first-run build and the docked Apply & save. | 2.2 |
@@ -126,7 +139,7 @@ Each is sized to be started, tested and merged inside one session, per the 4-hou
 | **APP2.10** | History view + Account card (replaces the Wi-Fi sync card). | 2.2, 2.4 |
 | **APP2.11** | Touch pass: pointer-based chart scrubbing (replaces mouse-only), tap-target audit, no hover-only or `title`-only information anywhere. | 2.6, 2.10 |
 | **APP2.12** | Stock-detail sheet: 27-metric grid with source tags + three statement tables with a frozen line-item column. | 2.7 |
-| **APP2.13** | Signing & distribution: free personal team (7-day certs, weekly Xcode re-run) vs a paid account (year-long certs + TestFlight). **Owner decision**, then install. | 2.6–2.10 |
+| **APP2.13** | Signing & distribution: **free personal team** for now (7-day certs, weekly Xcode re-run); revisit a paid account at the production/testing stage. Then install. | 2.6-2.10 |
 | **APP2.14** | On-device verification against the §3 feature contract + regression of theme CRUD, rebalance, history forking, and account isolation. | all |
 
 ---
@@ -152,12 +165,15 @@ From `E6_database_design.md` §16–21 and the baseline's §9, all learned by br
 - **There are no default themes (E8).** Do not rebuild `noDefaults` or a "Use the built-in 5" button;
   both were deleted.
 
-## 6. Open items the owner must settle
+## 6. Owner decisions, now settled
 
-1. **D6** — market data via the deployed `/api/*` (recommended) or keep on-device Yahoo.
-2. **Idle timeout** — web signs out after 5 minutes of inactivity. On a phone that is likely too
-   aggressive; pick a phone value (or make it Face ID re-unlock rather than sign-out).
-3. **APP2.13** — free signing with a weekly re-run, or a paid Apple account for year-long certs.
-4. **Reachability** — prod currently serves an older ticker directory than `main`
-   (`460edaa` vs `13699e8`); the weekly workflow commits but never deploys, so this widens. Worth
-   automating the deploy before the phone depends on that origin.
+1. **D6 - market data:** the phone keeps fetching **Yahoo directly on-device** (see above). Three
+   proxies stay in sync; `tools/diff_proxy.py` polices it.
+2. **Idle timeout:** **15 minutes** on the phone (web stays at 5). Set in APP2.3.
+3. **Signing:** **free personal team** for now, accepting the 7-day cert and a weekly Xcode re-run.
+   Upgrade to a paid account at the production/testing stage, which is also when TestFlight becomes
+   worth it.
+
+Still worth doing independently of APP2: prod serves an older ticker directory than `main`
+(`460edaa` vs HEAD) because the weekly workflow commits without deploying. That affects the **web**
+app, not the phone, now that D6 keeps the phone off that origin - but it widens every Sunday.
