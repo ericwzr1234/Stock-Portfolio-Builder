@@ -374,7 +374,12 @@
      sticky phone header, cards tighten, modals become bottom sheets.
      Spec: docs/features/APP2_ios-v2-rebuild.md
      ==================================================================== */
-  .native body{ -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  /* Belt and braces on top of fixing the actual offenders: the page itself must never pan
+     sideways. clip beats hidden here because it does not turn the element into a scroll
+     container, so the sticky header keeps working. */
+  html.native{ overflow-x:hidden; overflow-x:clip; }
+  .native body{ -webkit-font-smoothing:antialiased; overflow-x:hidden; overflow-x:clip;
+    max-width:100vw; }
   .native *{ -webkit-tap-highlight-color:transparent; }
   .native .app{ display:block; }
   .native .rail{ display:none; }
@@ -391,11 +396,21 @@
   .native .brand .sub{ display:none; }            /* the tagline is desktop garnish */
   .native .status{ font-size:11px; }
   .native .spacer{ display:none; }
-  /* the control row must stay ONE compact line - these are chrome, not primary actions, so they
-     are exempt from the 44pt rule that governs real controls in the content area */
-  .native .ctrls{ gap:5px; margin-left:auto; flex-wrap:nowrap; align-items:center; }
-  .native .ctrls .btn{ min-height:32px; padding:6px 9px; font-size:12.5px; border-radius:9px;
+  /* the control row is chrome, not primary actions, so it is exempt from the 44pt rule that
+     governs real controls in the content area. It must WRAP rather than overflow: when signed in
+     the account button becomes "* user@example.com", and pinned to nowrap that unbounded string
+     pushed the whole page sideways. */
+  .native .top-in{ max-width:100%; min-width:0; }
+  .native .ctrls{ gap:5px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end;
+    align-items:center; min-width:0; max-width:100%; }
+  .native .ctrls > *{ min-width:0; }
+  /* an email is informational here - the Account sheet shows it in full */
+  .native #acctBtn{ max-width:148px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    display:inline-block; }
+  .native .ctrls{ row-gap:5px; }
+  .native .ctrls .btn{ min-height:30px; padding:5px 9px; font-size:12.5px; border-radius:9px;
     white-space:nowrap; }
+  .native #acctBtn{ max-width:132px; }
   .native #updated{ display:none; }               /* the timestamp lives on the Refresh press */
   .native #refreshSel{ font-size:14px; padding:5px 4px; max-width:86px; min-width:0; }
   .native .themesw button{ padding:4px 8px; font-size:12px; }
