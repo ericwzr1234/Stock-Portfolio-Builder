@@ -19,9 +19,12 @@ data or straight from the financial statements). It runs in two forms from **one
    the device** — no mirror, no stash, no cached copy. A save that cannot reach the account did not
    happen and says so. `portfolio.json` is the *pre-account* file: read once for the import, never
    written. This is the dev path and works on Windows + Mac.
-2. **iOS app** — the same `www/` wrapped with **Capacitor**. On iOS there is no server: it fetches
-   Yahoo directly on-device (via CapacitorHttp, no CORS) and stores the portfolio on-device
-   (localStorage). Private and free. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
+2. **iOS app** — the same `www/` wrapped with **Capacitor**. It fetches Yahoo **directly on-device**
+   (via CapacitorHttp, which is native HTTP and so not subject to CORS — the reason the web needs a
+   proxy and the phone does not). The portfolio itself is **account-only since APP2**: it lives in
+   Supabase exactly as on web, with no on-device copy and no mirror. See
+   [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md) and
+   [`docs/features/APP2_ios-v2-rebuild.md`](docs/features/APP2_ios-v2-rebuild.md).
 
 **Status:** **E1–E10 are in `main`/prod** (merged 2026-08-16) — themes, metrics, statement-driven
 data, the Fundamentals/Screener redesign, the V2 web UI, **accounts + a hosted database with a
@@ -46,13 +49,17 @@ once a week is itself the activity that prevents it. Ticket `E6.7` stays open as
   touching the sync layer** — it records ~120 defects across thirteen review rounds, each invariant
   written next to the failure that motivated it. The single most useful lesson: *a guard must
   measure the thing it guards against*, and *a refusal that has already mutated is not a refusal*.
-- **iOS is PARKED at V1.** It still runs on a real iPhone, but it predates E5 and E6. Rebuilding it
-  is board ticket **APP2**; the hand-off spec is
-  [`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md) (§9 lists the sync rules the native build
-  must inherit — they matter more there, because on-device storage is the *only* copy).
-  Maintenance while parked: the **weekly re-run from Xcode** to refresh the free personal-team
-  signing cert, which expires every 7 days. See [`docs/APP_MIGRATION.md`](docs/APP_MIGRATION.md)
-  and [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
+- **iOS is being REBUILT as V2** (board epic `APP`, ticket **APP2**, spec
+  [`docs/features/APP2_ios-v2-rebuild.md`](docs/features/APP2_ios-v2-rebuild.md); the *what* stays
+  [`docs/V2_WEB_BASELINE.md`](docs/V2_WEB_BASELINE.md)). Owner decisions: the phone is
+  **account-only via Supabase** (no offline read, no mirror), the UI direction is **Robinhood**, it
+  **keeps fetching Yahoo directly on-device**, idle timeout is **15 min**, and signing stays on the
+  **free** personal team for now. Shipped so far: the V1 native skin deleted, a new phone shell
+  (bottom tab bar, sticky context bar, OS-following theme), **in-tab paging**, and
+  **touch-scrubbable charts**. Verify phone work with
+  [`tools/phone/`](tools/phone/README.md) — and read its README first, it documents three ways it
+  produced false passes. Maintenance while iterating: the **weekly re-run from Xcode** to refresh
+  the 7-day free-signing cert. See [`docs/IOS_BUILD.md`](docs/IOS_BUILD.md).
 
 ## The default themes (user-editable since E1)
 Themes and their names are no longer hardcoded — the user can create/rename/recolour/delete themes and
@@ -91,6 +98,9 @@ docs/
   IOS_BUILD.md                ← step-by-step: build & run the iOS app (free, private)
   APP_MIGRATION.md            ← web→iOS parity status + the app-dev checklist (parity complete)
 dashboard.html                ← visual project-board kanban (double-click; reads docs/board.js)
+tools/phone/                  ← phone-UI verification harness (APP2): renders every page at
+                                 402x874 past the gate with a synthetic portfolio. READ ITS README:
+                                 it records three ways it produced false passes.
 server.py                     ← Python stdlib server: serves www/ + Yahoo proxy + portfolio.json
                                  (PB_DB / PB_PORT env override the db file + port for dev)
 portfolio.json                ← the web app's saved data (holdings, versions, settings)

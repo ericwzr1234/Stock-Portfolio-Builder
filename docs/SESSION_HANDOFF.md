@@ -8,6 +8,46 @@ to a phone home screen, 5-minute idle sign-out.
 without the owner's accounts is done. The two that remain are blocked on credentials only the owner has:
 `E11.4` custom SMTP, `E11.7b` Sentry.
 
+## Where the phone rebuild stands (session 4, 2026-08-24)
+
+**APP2 is under way and five sub-tickets are merged to prod.** The iOS app now has its own shell
+instead of the desktop layout squeezed onto a phone. Spec:
+[`features/APP2_ios-v2-rebuild.md`](features/APP2_ios-v2-rebuild.md) (the *how*);
+[`V2_WEB_BASELINE.md`](V2_WEB_BASELINE.md) stays the *what*.
+
+| Done | |
+|---|---|
+| `APP2.1` | Deleted all 90 V1 `.native` rules. Web proven untouched: 293 web-facing selectors before and after, none lost or gained. |
+| `APP2.2` | New shell — fixed **bottom tab bar**, sticky context bar on every view, one-line header, bottom sheets, and the phone now **follows the OS light/dark setting** (it never did; `!NATIVE` guards were pinning it to light). |
+| `APP2.2b` | **In-tab paging.** Overview 2221px → 874px, exactly one screen. Split on *reading* seams so no action spans two pages. |
+| `APP2.2c` | Tour / theme switch / auto-refresh **moved into the Account sheet**. Header 310px → 92px. |
+| `APP2.11` | **Charts scrub by touch.** Previously mouse-only, so every checkpoint but the last was unreachable on a phone. |
+
+**Next: `APP2.3` — Supabase auth on device** (GoTrue over CapacitorHttp, gate fails closed, token
+refresh is *not* an identity change, idle timeout **15 min** on the phone per D7). Then `APP2.4`
+storage (retire `STORAGE_ADAPTERS.native` and LAN sync), then the per-view tickets `APP2.6`–`APP2.10`.
+
+**Owner decisions taken this session** — all recorded as D4–D8 in the spec: the phone is
+**account-only via Supabase**; UI direction is **Robinhood**; it **keeps fetching Yahoo directly
+on-device** (it is Yahoo either way — the proxies exist only because a browser cannot call Yahoo);
+idle timeout **15 min**; **free** signing until the production/testing stage.
+
+**Standing rule the owner set, after finding the bug on device:** *a user must never scroll the whole
+screen sideways. Only a data table may scroll horizontally, and only inside its own card or sheet.*
+
+**Verify phone work with [`../tools/phone/`](../tools/phone/README.md) — and read that README first.**
+It gave me three false passes in one session: it ran signed **out** (the overflow only exists once
+the account button holds an email), it measured `scrollWidth` **after** `overflow-x:clip` had hidden
+the evidence, and it checked only **page 1** of each tab. All three are fixed and it is now
+mutation-tested, but the lesson generalises: *verify in the state the user is actually in.*
+
+**Not yet done on the phone:** the 44pt tap-target audit (rest of `APP2.11`), the stock-detail sheet
+(`APP2.12`), and everything from `APP2.3` onward. The demo prototype
+[`../docs/prototypes/APP2_phone_demo.html`](prototypes/APP2_phone_demo.html) remains the visual
+reference — it is a mock with no engine, not a code source.
+
+---
+
 ## ⚠ Owner actions — nothing else moves without these
 
 | | Action | What is broken until then |
@@ -24,7 +64,9 @@ py -3 tools/stamp_version.py
 npx wrangler pages deploy www --project-name portfolio-builder --branch main
 ```
 
-Run it from the repo root so `functions/` is picked up. A docs-only commit moves `main` without
+Run it from the repo root so `functions/` is picked up. **`wrangler` is not authenticated on the
+Mac**, so the deploy has to run from the Windows machine or after `npx wrangler login` — the Mac
+sessions can commit but cannot publish. A docs-only commit moves `main` without
 moving the deployed stamp — that is correct, not drift. **Automating this is the most valuable
 un-blocked work left** (a GitHub Action on merge to `main`).
 

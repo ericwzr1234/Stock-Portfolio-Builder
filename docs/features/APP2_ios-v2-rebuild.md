@@ -1,6 +1,9 @@
 # APP2 — Rebuild the iOS app against the V2 web baseline
 
-> **Board:** epic `APP`, ticket **APP2** → now **design**, broken into `APP2.1`–`APP2.14`.
+> **Board:** epic `APP`, ticket **APP2** → **design**, broken into `APP2.1`–`APP2.14`.
+> **Progress (2026-08-24):** `APP2.1`, `APP2.2`, `APP2.2b`, `APP2.2c` and `APP2.11` are **done and
+> merged**. The phone now has its own shell — bottom tab bar, sticky context bar, in-tab paging,
+> OS-following theme, touch-scrubbable charts. **Next: `APP2.3` (Supabase auth on device).**
 > **Depends:** E5.5 (done), E6/E8/E9 (done), E11.2–E11.3 (done).
 > **The contract:** [`V2_WEB_BASELINE.md`](../V2_WEB_BASELINE.md) defines what the phone must carry.
 > This file is *how*. Read §9 of the baseline before touching the sync layer.
@@ -153,8 +156,8 @@ Each is sized to be started, tested and merged inside one session, per the 4-hou
 
 | Ticket | Scope | Depends |
 |---|---|---|
-| **APP2.1** | Strip the dead V1 native skin — delete all 91 `.native` rules and the V1-only native chrome; tokenise header/tab bar so dark mode is correct. Baseline for everything after. | — |
-| **APP2.2** | Native shell: bottom tab bar, sticky context bar, safe-area insets, bottom sheets, light/dark tokens, 16px form fields (iOS auto-zooms below that and mis-places every sheet). | 2.1 |
+| **APP2.1** | ✅ done — Strip the dead V1 native skin — delete all 91 `.native` rules and the V1-only native chrome; tokenise header/tab bar so dark mode is correct. Baseline for everything after. | — |
+| **APP2.2** | ✅ done — Native shell: bottom tab bar, sticky context bar, safe-area insets, bottom sheets, light/dark tokens, 16px form fields (iOS auto-zooms below that and mis-places every sheet). | 2.1 |
 | **APP2.3** | Account on device: Supabase GoTrue over CapacitorHttp, login gate that fails closed, session persistence and token refresh (**a token refresh is not an identity change**), idle timeout at **15 minutes** on the phone. | 2.2 |
 | **APP2.4** | Storage: cloud adapter only on native; retire `STORAGE_ADAPTERS.native` and LAN sync; honour C1–C5; unreachable account reported, never cached. | 2.3 |
 | **APP2.5** | Verify the on-device Yahoo client still mirrors the Worker field-for-field (D6 keeps it); keep every CapacitorHttp param stringified; keep the local ticker directory for search. | 2.2 |
@@ -163,12 +166,30 @@ Each is sized to be started, tested and merged inside one session, per the 4-hou
 | **APP2.8** | Rebalance view, incl. first-run build and the docked Apply & save. | 2.2 |
 | **APP2.9** | Research view: local search, watchlist table, add/swap flow. | 2.2, 2.5 |
 | **APP2.10** | History view + Account card (replaces the Wi-Fi sync card). | 2.2, 2.4 |
-| **APP2.11** | Touch pass: pointer-based chart scrubbing (replaces mouse-only), tap-target audit, no hover-only or `title`-only information anywhere. | 2.6, 2.10 |
+| **APP2.11** | ✅ done (chart scrubbing; 44pt audit remains) — Touch pass: pointer-based chart scrubbing (replaces mouse-only), tap-target audit, no hover-only or `title`-only information anywhere. | 2.6, 2.10 |
 | **APP2.12** | Stock-detail sheet: 27-metric grid with source tags + three statement tables with a frozen line-item column. | 2.7 |
 | **APP2.13** | Signing & distribution: **free personal team** for now (7-day certs, weekly Xcode re-run); revisit a paid account at the production/testing stage. Then install. | 2.6-2.10 |
+| **APP2.2b** | ✅ done — in-tab paging: long tabs split into swipeable pages, split on reading seams so no action spans two pages. | 2.2 |
+| **APP2.2c** | ✅ done — header chrome (tour, theme switch, auto-refresh) moved into the Account sheet; header 310px → 92px. | 2.2 |
 | **APP2.14** | On-device verification against the §3 feature contract + regression of theme CRUD, rebalance, history forking, and account isolation. | all |
 
 ---
+
+## 4b. Rules this rebuild earned on the device
+
+- **A user must NEVER scroll the whole screen sideways.** Only a data table may scroll
+  horizontally, and only inside its own card or sheet. *(Owner, 2026-08-24, after the signed-in
+  header pushed the page 65px wide.)*
+- **A page split separates reading, never a transaction.** The whole rebalance — capital, mode,
+  Calculate, the plan, Apply and save — stays on one page.
+- **Move a control, don't duplicate it.** Everything here is wired by element, so relocating the
+  real node keeps its handler and its state; a copy needs both mirrored, and shadow state is what
+  E6–E9 bled over.
+- **Anything unbounded in a fixed row will overflow eventually.** The account button becomes an
+  email once signed in. Cap it, and let the row wrap.
+- **A guard can hide the bug it was meant to catch.** `body{overflow-x:hidden}` made
+  `scrollWidth` read clean while the device still panned. Measure the cause, not the clipped result.
+- **Verify in the state the user is actually in.** Signed out, on page 1, is not that state.
 
 ## 5. Landmines
 

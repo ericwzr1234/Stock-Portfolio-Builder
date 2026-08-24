@@ -1,6 +1,8 @@
 # Web → iOS app migration — status & checklist
 
-> ## ⚠️ SUPERSEDED FOR NEW WORK — read [`V2_WEB_BASELINE.md`](V2_WEB_BASELINE.md) first
+> ## ⚠️ SUPERSEDED FOR NEW WORK — read [`V2_WEB_BASELINE.md`](V2_WEB_BASELINE.md) first,
+> then [`features/APP2_ios-v2-rebuild.md`](features/APP2_ios-v2-rebuild.md), which is the live
+> plan and is **in progress** (APP2.1, .2, .2b, .2c and .11 merged as of 2026-08-24).
 > This file documents how the **V1** iOS app reached parity with the **V1** web app (that work is
 > done and shipped). The web app has since been **rebuilt as V2** (epic E5, on `main` since
 > 2026-08-15). **V1 — including the shipped iPhone app — is superseded.**
