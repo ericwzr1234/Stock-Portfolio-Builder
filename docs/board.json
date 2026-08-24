@@ -447,18 +447,23 @@
       "So the shared layer is the engine + data layer + feature set; the presentation layer may legitimately diverge per platform. During E5 the phone keeps its current shipped native UI (the rail/context bar are web-only chrome).",
       "Do this on the Mac with Xcode after E5 settles: re-verify every E5 capability exists on-device, then redesign the native presentation to suit the phone." ] },
 
-    { "id": "APP2.1", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
+    { "id": "APP2.1", "epic": "APP", "stage": "done", "platform": "ios", "depends": "APP2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Strip the dead V1 native skin", "notes": [
       "Delete all 91 `.native` rules: they target V1 markup (.theme/.head/.lhs/.theme-grid) that the E5 accordion rewrite replaced, so they already match nothing. Owner decision 2026-08-15 was to delete, not repair.",
       "Tokenise the native header and tab bar - V1 hardcodes light colours there, so dark mode is wrong on the phone.",
-      "This is the clean baseline every other APP2 ticket builds on." ] },
+      "This is the clean baseline every other APP2 ticket builds on.",
+      "DONE 2026-08-24. Removed all 90 .native CSS rules; the style block went 639 -> 487 lines. Kept every NATIVE *JS* path untouched (the pre-paint classList.add, the NATIVE constant, useRemote, STORAGE_ADAPTERS.native, the ds* branches) - those are retired later, by APP2.4 and APP2.5.",
+      "PROOF the web is unaffected, not just asserted: web-facing selectors number 293 BEFORE and 293 AFTER, with none lost and none gained; every removed line belonged to a .native rule, its body, or its comment; and no dangling @keyframes remain (pbSheet went with the bottom sheet that was its only user - defined and referenced animation names now match exactly).",
+      "GATES: py -3 tools/check_syntax.py exit 0, final depth 0. npx playwright test 12/12 PASSED, so the engine is provably untouched. npx cap sync ios + xcodebuild = BUILD SUCCEEDED. (Playwright and its chromium had never been installed on this Mac; both are now.)",
+      "EXPECTED INTERMEDIATE STATE: with the skin gone the app renders the WEB layout on the device - desktop rail and all - until APP2.2 builds the new shell. That is the plan, not a regression." ] },
 
     { "id": "APP2.2", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.1", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Native shell: tab bar, context bar, tokens, sheets", "notes": [
       "Bottom tab bar for the five V2 sections (Overview/Model/Rebalance/Research/History); internal view ids stay prices/fundamentals/calc/screener/history.",
       "Sticky CONTEXT BAR on every screen: Total value / Today / Invested / Gain / Max drift. It must refresh on the PRICE-REFRESH path, not only on structural re-renders - stale money beside live money was a real V2 bug.",
       "Safe-area insets, bottom sheets, and light+dark through tokens: follow the OS by default, remember an explicit choice, and let no component rule branch on the theme.",
-      "Every form field at least 16px: iOS auto-zooms the whole page below that and throws every sheet oversized and off-screen. Fixed once in V1; must not regress." ] },
+      "Every form field at least 16px: iOS auto-zooms the whole page below that and throws every sheet oversized and off-screen. Fixed once in V1; must not regress.",
+      "FOUND during APP2.1: the phone does NOT follow iOS dark mode. Theme init reads const os = !NATIVE && matchMedia(prefers-color-scheme: dark).matches, and the change listener is likewise guarded by !NATIVE - so on the phone os is always false, the app always starts LIGHT, and it never reacts to the OS. This contradicts the baseline rule that themes default to the OS setting. The guards existed because V1 native chrome hardcoded light colours, so dark mode would have looked broken; now that the skin is deleted they are the only thing pinning the phone to light. Remove both !NATIVE guards as part of this ticket and verify dark mode end to end on device." ] },
 
     { "id": "APP2.3", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Account on device: Supabase auth", "notes": [
