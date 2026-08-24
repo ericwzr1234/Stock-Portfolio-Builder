@@ -479,6 +479,22 @@
   .native .modal-card .row{ flex-wrap:wrap; }
   .native .modal-card .row .btn{ min-height:44px; }
 
+  /* ---- APP2.2b: in-tab paging. A long tab splits into a few swipeable pages so each
+     screen carries less. The split follows the desktop two-column seams, which are already
+     the semantic grouping - and the rule is that ONE ACTION NEVER SPANS TWO PAGES: the whole
+     rebalance transaction (capital, mode, Calculate, the plan, Apply & save) lives on one
+     page, with holdings as reference beside it. ---- */
+  .native .pgbar{ display:flex; gap:3px; background:var(--chip); border:1px solid var(--line);
+    border-radius:12px; padding:3px; margin:0 0 12px; }
+  .native .pgbar button{ flex:1 1 0; min-width:0; padding:9px 4px; border:0; background:none;
+    border-radius:9px; font-size:12.5px; font-weight:650; color:var(--muted); cursor:pointer;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .native .pgbar button[aria-current="true"]{ background:var(--paper); color:var(--ink);
+    box-shadow:var(--shadow-lift, 0 1px 2px rgba(0,0,0,.18)); }
+  .native .pg-off{ display:none !important; }
+  .native .pgwrap{ animation:pgIn .2s ease; }
+  @keyframes pgIn{ from{ opacity:.35; transform:translateX(var(--pg-dir,14px)); } to{ opacity:1; transform:none; } }
+
   /* the login gate sits higher than dead-centre on a tall screen */
   .native #gate{ align-items:flex-start; padding-top:calc(38px + env(safe-area-inset-top)); }
 
@@ -5358,6 +5374,115 @@ async function init(){
   if(window.ResizeObserver){ try{ const ro=new ResizeObserver(redraw); els.forEach(e=>ro.observe(e)); return; }catch(e){} }
   window.addEventListener("resize",redraw);
 })();
+
+/* ======================================================================
+   APP2.2b - in-tab paging (native only).
+   Overview and Model run to ~2.3 screens on a phone. Rather than one long
+   scroll, each long tab becomes a few pages you swipe or tap between.
+
+   The seams are the desktop two-column boundaries, because those already
+   express the grouping. The hard rule is WORKFLOW COHERENCE: a single
+   action must complete on a single page. So the entire rebalance
+   transaction stays on the Plan page, and holdings sit on their own page
+   as reference; anything not listed in a manifest (the version banner,
+   for instance) stays visible on every page of its tab.
+
+   Nothing is moved in the DOM - members are just marked .pg-off - so a
+   partial re-render cannot break the structure, and it self-heals.
+   ====================================================================== */
+const PG_MANIFEST = {
+  prices:[
+    ["Value",      [".ov-left > .card:nth-of-type(1)", ".ov-left > .card:nth-of-type(2)"]],
+    ["Allocation", [".ov-left > .card:nth-of-type(3)", "#priceBand"]],
+    ["Holdings",   [".ov-right"]]],
+  fundamentals:[
+    ["Targets",    [".grid2 > .card:nth-of-type(1)"]],
+    ["Model",      [".grid2 > .card:nth-of-type(2)"]],
+    ["Themes",     [".fund-gridhead", "#fundGrid"]]],
+  calc:[
+    ["Plan",       [".calc-plan"]],          /* capital -> mode -> Calculate -> plan -> Apply & save */
+    ["Holdings",   [".calc-holdings"]]],
+  history:[
+    ["Timeline",   [".hist-side"]],
+    ["Checkpoints",[".hist-list"]]],
+};
+const pgState={};
+let _pgObs=null;
+
+function pgViewEl(){ return document.querySelector(".view.active"); }
+function pgId(el){ return el ? (el.id||"").replace("view-","") : ""; }
+
+function pgApply(){
+  if(!NATIVE) return;
+  const view=pgViewEl(); if(!view) return;
+  const id=pgId(view), man=PG_MANIFEST[id];
+  if(_pgObs) _pgObs.disconnect();                      // never observe our own writes
+  view.querySelectorAll(".pg-off").forEach(e=>e.classList.remove("pg-off"));
+  let bar=view.querySelector(":scope > .pgbar");
+  if(!man){ if(bar) bar.remove(); pgObserve(view); return; }
+  const active=Math.max(0,Math.min(pgState[id]||0, man.length-1));
+  pgState[id]=active;
+  man.forEach((pg,i)=>{ if(i===active) return;
+    pg[1].forEach(sel=>{ view.querySelectorAll(sel).forEach(el=>el.classList.add("pg-off")); }); });
+  if(!bar){ bar=document.createElement("div"); bar.className="pgbar"; bar.setAttribute("role","tablist");
+    view.insertBefore(bar, view.firstChild); }
+  const html=man.map((pg,i)=>'<button type="button" role="tab" data-pgi="'+i+'" aria-current="'+
+    (i===active)+'">'+pg[0]+'</button>').join("");
+  if(bar.innerHTML!==html) bar.innerHTML=html;
+  pgObserve(view);
+}
+function pgObserve(view){
+  if(!("MutationObserver" in window)) return;
+  if(!_pgObs) _pgObs=new MutationObserver(muts=>{
+    // a re-render replaced content: re-tag. Ignore our own bar.
+    if(muts.every(m=>m.target.classList&&m.target.classList.contains("pgbar"))) return;
+    clearTimeout(pgObserve._t); pgObserve._t=setTimeout(pgApply,40);   // timer, not rAF: rAF is paused in a background tab
+  });
+  _pgObs.observe(view,{childList:true,subtree:true});
+}
+function pgGo(id,i,dir){
+  const man=PG_MANIFEST[id]; if(!man) return;
+  const next=Math.max(0,Math.min(i,man.length-1));
+  if(next===pgState[id]) return;
+  pgState[id]=next; pgApply();
+  const view=pgViewEl();
+  if(view){ view.style.setProperty("--pg-dir",(dir<0?-14:14)+"px");
+    man[next][1].forEach(sel=>view.querySelectorAll(sel).forEach(el=>{
+      el.classList.remove("pgwrap"); void el.offsetWidth; el.classList.add("pgwrap"); })); }
+  const sc=document.scrollingElement||document.documentElement; sc.scrollTop=0;
+}
+if(NATIVE){
+  document.addEventListener("click",e=>{
+    const b=e.target.closest(".pgbar button[data-pgi]"); if(!b) return;
+    const view=pgViewEl(); if(!view) return;
+    const i=+b.dataset.pgi; pgGo(pgId(view), i, i-(pgState[pgId(view)]||0));
+  });
+  /* swipe between pages - but never steal a gesture that began inside something which itself
+     scrolls sideways (the per-theme metric tables and the watchlist do). */
+  let sx=0, sy=0, sOK=false;
+  const scrollsX=el=>{ for(let a=el; a && a!==document.body; a=a.parentElement){
+      const cs=getComputedStyle(a);
+      if((cs.overflowX==="auto"||cs.overflowX==="scroll") && a.scrollWidth>a.clientWidth+2) return true; }
+    return false; };
+  document.addEventListener("touchstart",e=>{
+    if(e.touches.length!==1){ sOK=false; return; }
+    const t=e.touches[0]; sx=t.clientX; sy=t.clientY;
+    sOK=!!pgViewEl() && !!PG_MANIFEST[pgId(pgViewEl())] && !scrollsX(e.target) &&
+        !e.target.closest("input,select,textarea,.modal-backdrop,svg");
+  },{passive:true});
+  document.addEventListener("touchend",e=>{
+    if(!sOK) return; sOK=false;
+    const t=e.changedTouches&&e.changedTouches[0]; if(!t) return;
+    const dx=t.clientX-sx, dy=t.clientY-sy;
+    if(Math.abs(dx)<56 || Math.abs(dx)<Math.abs(dy)*1.6) return;
+    const view=pgViewEl(), id=pgId(view), cur=pgState[id]||0;
+    pgGo(id, cur+(dx<0?1:-1), dx<0?1:-1);
+  },{passive:true});
+  const _renderAll=renderAll, _switchView=switchView;
+  renderAll=function(){ _renderAll.apply(this,arguments); pgApply(); };
+  switchView=function(v){ _switchView.apply(this,arguments); pgApply(); };
+}
+
 init();
 </script>
 </body>
