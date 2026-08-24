@@ -62,6 +62,32 @@ Why this is the robust choice:
 - **The ETF guard already works natively.** E11.9 put `quoteType` in all three proxies, so
   "researchable, never a theme member" holds unchanged.
 
+**Does this risk Yahoo locking us out? The evidence says direct is the *safer* side.** The owner
+raised this as the one caveat, and it is the right question to ask:
+
+- **The Worker is the risky path, not the phone.** `E11.0` existed precisely to test it: *"Yahoo
+  deployed TLS fingerprinting in Apr 2025 and a Worker cannot control its TLS fingerprint. This is
+  the only evidence that exists either way for Cloudflare specifically."* A Worker is a datacenter IP
+  with an uncontrollable fingerprint; a real iPhone is a residential/carrier IP presenting a stock
+  iOS fingerprint — the most ordinary-looking client available.
+- **A proxy concentrates, a device distributes.** Routed through the Worker, every user's traffic
+  exits a handful of shared Cloudflare IPs, so a throttle takes everyone down at once. Direct from
+  the phone, one device's traffic is indistinguishable from a person using Yahoo's site.
+- **Volume is nowhere near a limit.** Measured 2026-08-24 from a residential IP through `server.py`
+  (the same call pattern the phone uses): the heaviest realistic operation — a forced 25-name
+  fundamentals refresh, three times, plus 25-name statements, i.e. **100 Yahoo calls in ~4 seconds** —
+  returned **25/25 live every run with zero throttle signals**. The client also caps fan-out at
+  `Y_CONCURRENCY = 4` (matching `server.py`), so a phone never bursts harder than that; steady-state
+  use is one quote call per refresh.
+- **Already proven on the device.** V1 ran direct-to-Yahoo on a physical iPhone with live data.
+
+**The fallback, if Yahoo ever does lock out direct device calls.** This is deliberately not a one-way
+bet: the Worker keeps existing for the web app, and the `ds*` layer already branches, so switching
+the phone to the deployed `/api/*` is a small, localised change. `APP2.14` must therefore watch for
+throttling during on-device verification, and degradation is already graceful — the hardening from
+`f4eb179` rejects an error body as a crumb, forces a crumb refresh, and falls back to seed rather
+than crashing.
+
 **Accepted cost:** three implementations of one Yahoo surface must stay in sync — `server.py` (dev),
 `worker/src/index.js` (prod web), and the native client (phone). `E11.2b` confirmed the native JS
 client **already mirrors `server.py` exactly**. Police any future field change with
