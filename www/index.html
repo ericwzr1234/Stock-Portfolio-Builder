@@ -401,7 +401,9 @@
      the account button becomes "* user@example.com", and pinned to nowrap that unbounded string
      pushed the whole page sideways. */
   .native .top-in{ max-width:100%; min-width:0; }
-  .native .ctrls{ gap:5px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end;
+  /* .kpis takes a full row, so without an order bump .ctrls is pushed to a third line. Put it
+     beside the brand instead: brand + account/Refresh on line 1, the KPI strip on line 2. */
+  .native .ctrls{ order:-1; gap:5px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end;
     align-items:center; min-width:0; max-width:100%; }
   .native .ctrls > *{ min-width:0; }
   /* an email is informational here - the Account sheet shows it in full */
@@ -412,6 +414,16 @@
     white-space:nowrap; }
   .native #acctBtn{ max-width:132px; }
   .native #updated{ display:none; }               /* the timestamp lives on the Refresh press */
+  /* these three live in the Account sheet on a phone (APP2.2c); .ctrls keeps only the account
+     button and Refresh, which is what a one-line header can hold honestly */
+  .native .ctrls > #tourBtn, .native .ctrls > .themesw, .native .ctrls > #refreshSel{ display:none; }
+  .native .acct-settings{ margin-top:14px; border-top:1px solid var(--line); padding-top:12px; }
+  .native .acct-srow{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:9px 0; font-size:13.5px; border-top:1px solid var(--line2); }
+  .native .acct-srow:first-of-type{ border-top:0; }
+  .native .acct-srow .themesw, .native .acct-srow #refreshSel, .native .acct-srow #tourBtn{
+    display:inline-flex; flex:0 0 auto; }
+  .native .acct-srow #refreshSel{ max-width:130px; }
   .native #refreshSel{ font-size:14px; padding:5px 4px; max-width:86px; min-width:0; }
   .native .themesw button{ padding:4px 8px; font-size:12px; }
 
@@ -3192,6 +3204,12 @@ function openAccount(){
       <h2 style="font-size:16px">Account</h2>
       <p class="small muted" style="margin:6px 0 0">Signed in as <b>${sbUserEmail()}</b></p>
       <p class="xs muted" style="margin:2px 0 0">Build ${APP_VERSION}</p>
+      ${NATIVE?`<div class="acct-settings" id="acctSettings">
+        <div class="ov-k" style="margin-bottom:8px">Settings</div>
+        <div class="acct-srow"><span>Theme</span><span id="slotTheme"></span></div>
+        <div class="acct-srow"><span>Auto-refresh prices</span><span id="slotRefresh"></span></div>
+        <div class="acct-srow"><span>Guided tour</span><span id="slotTour"></span></div>
+      </div>`:""}
       <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account &mdash; this app stores nothing about it on your device.</p>
       <button class="btn" id="acctExport" style="width:100%;margin-top:12px">\u2b07 Download my data</button>
       <p class="xs muted" style="margin:6px 0 0">Everything the account holds, as JSON &mdash; holdings, checkpoints, themes, watchlist and settings.</p>
@@ -3204,6 +3222,7 @@ function openAccount(){
       <p class="xs muted" style="margin:18px 0 6px;border-top:1px solid var(--line);padding-top:12px">Delete this account and everything in it. This cannot be undone.</p>
       <button class="btn danger ghost" id="acctDelete" style="width:100%">Delete my account</button>
       </div></div>`;
+    if(NATIVE) nativeAdoptChrome();
     $("#acctClose").addEventListener("click",closeModal);
     $("#acctExport").addEventListener("click",exportMyData);
     $("#acctLegal").addEventListener("click",openLegal);
@@ -4658,6 +4677,28 @@ function maybeCoach(view){
    answer. lockOut() calls closeModal(), so an import prompt closed by a mid-flight session death
    would otherwise leave bootSignedIn suspended for the rest of the page's life. */
 let _modalResolve=null;
+/* APP2.2c - on the phone the header keeps only what you act on constantly: the account and
+   Refresh. The tour button, the theme switch and the auto-refresh interval move INTO the Account
+   sheet. They are MOVED, not duplicated - every one of them is wired by element, so relocating the
+   real node keeps its handler and its state; a copy would have needed both mirrored. */
+let _chromeHome=null;
+function nativeAdoptChrome(){
+  const tour=$("#tourBtn"), sw=document.querySelector(".themesw"), sel=$("#refreshSel");
+  const ctrls=document.querySelector(".ctrls");
+  if(!ctrls||!tour||!sw||!sel) return;
+  if(!_chromeHome) _chromeHome=[[tour,tour.nextSibling],[sw,sw.nextSibling],[sel,sel.nextSibling]];
+  const put=(id,el)=>{ const slot=$("#"+id); if(slot) slot.appendChild(el); };
+  put("slotTour",tour); put("slotTheme",sw); put("slotRefresh",sel);
+}
+function nativeReturnChrome(){
+  if(!_chromeHome) return;
+  const ctrls=document.querySelector(".ctrls"); if(!ctrls) return;
+  _chromeHome.forEach(([el,next])=>{
+    if(el.parentElement===ctrls) return;
+    if(next&&next.parentElement===ctrls) ctrls.insertBefore(el,next); else ctrls.appendChild(el);
+  });
+}
+
 function closeModal(){
   const m=$("#modalRoot"); if(m)m.innerHTML="";
   if(_modalResolve){ const r=_modalResolve; _modalResolve=null; try{ r(); }catch(e){} }
@@ -5483,6 +5524,10 @@ function pgGo(id,i,dir){
   const sc=document.scrollingElement||document.documentElement; sc.scrollTop=0;
 }
 if(NATIVE){
+  /* the sheet is torn down with innerHTML="", which would take the relocated controls with it,
+     so they must go home first - on every dismissal path, not just the Close button */
+  const _closeModal=closeModal;
+  closeModal=function(){ try{ nativeReturnChrome(); }catch(e){} return _closeModal.apply(this,arguments); };
   document.addEventListener("click",e=>{
     const b=e.target.closest(".pgbar button[data-pgi]"); if(!b) return;
     const view=pgViewEl(); if(!view) return;
