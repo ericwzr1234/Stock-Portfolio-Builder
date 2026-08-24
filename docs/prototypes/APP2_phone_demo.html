@@ -1,0 +1,939 @@
+<title>Portfolio Builder for iPhone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* -- tokens -----------------------------------------------------------------
+   Dark-first (the direction is Robinhood). :root carries the complete dark
+   palette; light is redefined for prefers-color-scheme AND for an explicit
+   [data-theme="light"], so all three viewer states resolve as a set.        */
+:root{
+  --bg:#0B0E11; --surface:#14181D; --surface-2:#1A1F26; --line:#232A31; --line-soft:#1C222A;
+  --ink:#F2F5F7; --ink-2:#9BA6B1; --ink-3:#6B7683;
+  --gain:#00D26B; --loss:#FF5A52; --brand:#19A38F; --ew:#5B8DEF; --warn:#E8A33D;
+  --chip:#1A1F26; --sheet:#14181D; --frame:#000;
+  --gain-wash:rgba(0,210,107,.13); --brand-wash:rgba(25,163,143,.16); --loss-wash:rgba(255,90,82,.13);
+  --shadow:0 18px 50px rgba(0,0,0,.55);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#FBFCFD; --surface:#FFFFFF; --surface-2:#F4F6F8; --line:#E3E8ED; --line-soft:#EDF1F4;
+    --ink:#0E1419; --ink-2:#5C6873; --ink-3:#8C97A2;
+    --gain:#00A85A; --loss:#E03B32; --brand:#0F7F6E; --ew:#3F6FD1; --warn:#B87A1C;
+    --chip:#F1F4F7; --sheet:#FFFFFF; --frame:#C9D2DA;
+    --gain-wash:rgba(0,168,90,.12); --brand-wash:rgba(15,127,110,.14); --loss-wash:rgba(224,59,50,.10);
+    --shadow:0 18px 50px rgba(19,32,44,.16);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#FBFCFD; --surface:#FFFFFF; --surface-2:#F4F6F8; --line:#E3E8ED; --line-soft:#EDF1F4;
+  --ink:#0E1419; --ink-2:#5C6873; --ink-3:#8C97A2;
+  --gain:#00A85A; --loss:#E03B32; --brand:#0F7F6E; --ew:#3F6FD1; --warn:#B87A1C;
+  --chip:#F1F4F7; --sheet:#FFFFFF; --frame:#C9D2DA;
+  --gain-wash:rgba(0,168,90,.12); --brand-wash:rgba(15,127,110,.14); --loss-wash:rgba(224,59,50,.10);
+  --shadow:0 18px 50px rgba(19,32,44,.16);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Inter Tight",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; font-size:15px; line-height:1.45;
+}
+.num,.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* -- desktop staging: caption strip + phone frame ------------------------- */
+.stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:18px;padding:26px 16px 40px}
+.stage-head{width:100%;max-width:760px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.stage-head h1{margin:0 0 4px;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.stage-head p{margin:0;font-size:13.5px;color:var(--ink-2);max-width:56ch}
+.tog{display:flex;gap:2px;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px;flex:0 0 auto}
+.tog button{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:500;color:var(--ink-2)}
+.tog button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+
+.phone{
+  width:390px;height:844px;flex:0 0 auto;position:relative;
+  background:var(--bg);border-radius:44px;overflow:hidden;
+  border:9px solid var(--frame); box-shadow:var(--shadow);
+}
+.notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:26px;
+  background:var(--frame);border-radius:0 0 16px 16px;z-index:60}
+@media (max-width:760px){
+  .stage{padding:0;gap:0}
+  .stage-head{display:none}
+  .phone{width:100%;height:100vh;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .notch{display:none}
+}
+
+/* -- app shell ----------------------------------------------------------- */
+.app{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
+.statusbar{height:34px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 22px 2px;font-size:12.5px;font-weight:600;color:var(--ink);letter-spacing:.01em}
+.statusbar .sb-r{display:flex;align-items:center;gap:5px}
+@media (max-width:760px){.statusbar{height:max(34px,env(safe-area-inset-top))}}
+
+/* context bar &mdash; the one structural idea carried from V2: portfolio context on EVERY view */
+.ctx{flex:0 0 auto;padding:6px 16px 10px;border-bottom:1px solid var(--line-soft);background:var(--bg)}
+.ctx-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ctx-val{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.ctx-day{font-size:13px;font-weight:600}
+.ctx-row{display:flex;gap:14px;margin-top:3px;overflow-x:auto;scrollbar-width:none}
+.ctx-row::-webkit-scrollbar{display:none}
+.ctx-row div{font-size:11px;color:var(--ink-3);white-space:nowrap}
+.ctx-row b{color:var(--ink-2);font-weight:500}
+.up{color:var(--gain)} .down{color:var(--loss)}
+
+.scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+.view{display:none;padding:0 16px}
+.view.on{display:block}
+
+/* type + section rhythm */
+.eyebrow{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  margin:20px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.eyebrow button{font-size:11px;letter-spacing:0;text-transform:none;color:var(--brand);font-weight:600}
+.hero{padding:12px 0 2px}
+.hero-val{font-size:38px;font-weight:600;letter-spacing:-.035em;line-height:1.05}
+.hero-sub{font-size:13px;color:var(--ink-2);margin-top:5px}
+.hero-scrub{font-size:11.5px;color:var(--ink-3);margin-top:3px;min-height:15px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card.flush{padding:0;overflow:hidden}
+.note{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin-top:8px}
+
+/* segmented control (Robinhood-style plain tabs w/ underline) */
+.seg{display:flex;gap:20px;border-bottom:1px solid var(--line-soft);margin-top:6px}
+.seg button{padding:8px 0 9px;font-size:13px;font-weight:600;color:var(--ink-3);position:relative}
+.seg button[aria-pressed="true"]{color:var(--ink)}
+.seg button[aria-pressed="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:var(--brand);border-radius:2px}
+
+/* pill segmented (modes, %/$ ) */
+.pills{display:flex;gap:3px;background:var(--chip);border-radius:11px;padding:3px}
+.pills button{flex:1;padding:8px 6px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.pills button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+
+svg{display:block;max-width:100%}
+.chartwrap{position:relative;margin:8px -4px 0}
+
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 12px}
+.tile span{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.tile b{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em;margin-top:3px}
+.tile i{display:block;font-size:11px;color:var(--ink-3);font-style:normal;margin-top:1px}
+
+/* legend rows (donut + allocation) */
+.lg{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line-soft);font-size:13px}
+.lg:first-child{border-top:0}
+.sw{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+.lg-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-num{font-variant-numeric:tabular-nums;font-weight:600}
+.lg-sub{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+/* accordion (themes / checkpoints) */
+.acc{border-top:1px solid var(--line-soft)}
+.acc:first-of-type{border-top:0}
+.acc-head{display:flex;align-items:center;gap:10px;width:100%;padding:13px 0;text-align:left}
+.chev{width:9px;height:9px;border-right:1.8px solid var(--ink-3);border-bottom:1.8px solid var(--ink-3);
+  transform:rotate(-45deg);transition:transform .18s ease;flex:0 0 auto;margin-right:1px}
+.acc[open] .chev,.acc.open .chev{transform:rotate(45deg)}
+.acc-name{flex:1 1 auto;min-width:0;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-right{text-align:right;flex:0 0 auto}
+.acc-right b{display:block;font-size:14.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.acc-right span{display:block;font-size:11.5px;font-variant-numeric:tabular-nums}
+.acc-body{display:none;padding:0 0 14px}
+.acc.open .acc-body{display:block}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;padding:2px 5px;border-radius:5px;
+  background:var(--chip);color:var(--ink-3);letter-spacing:.02em;flex:0 0 auto}
+.tag.live{color:var(--gain);background:var(--gain-wash)}
+.tag.cur{color:var(--brand);background:var(--brand-wash)}
+
+/* the 5 spelled-out theme stats (V2 contract: no abbreviations) */
+.stats5{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px;padding:2px 0 10px}
+.stats5 div{font-size:11px;color:var(--ink-3)}
+.stats5 b{display:block;font-size:13px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px}
+
+/* holdings rows */
+.row{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--line-soft);width:100%;text-align:left}
+.row-id{flex:1 1 auto;min-width:0}
+.row-sym{display:block;font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;letter-spacing:.01em}
+.row-co{display:block;font-size:11.5px; color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-r{text-align:right;flex:0 0 auto}
+.row-r b{display:block;font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.row-r span{display:block;font-size:11.5px;font-variant-numeric:tabular-nums}
+
+/* wide data tables that scroll inside their own card, ticker column frozen */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.data{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+table.data th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  text-align:right;padding:9px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
+table.data td{padding:10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line-soft);
+  font-variant-numeric:tabular-nums}
+table.data th:first-child,table.data td:first-child{
+  text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;
+  font-family:"IBM Plex Mono",monospace;font-weight:600;
+  box-shadow:8px 0 8px -8px rgba(0,0,0,.45)}
+table.data tfoot td{font-weight:600;border-bottom:0;background:var(--surface-2)}
+table.data tfoot td:first-child{background:var(--surface-2)}
+.ovr{color:var(--brand);border-bottom:1px dashed currentColor}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:11.5px;color:var(--ink-2);font-weight:500}
+input[type=text],input[type=number],select{
+  width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+  border-radius:11px;padding:12px 13px;font-size:16px;font-family:inherit;font-variant-numeric:tabular-nums}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 21px,calc(100% - 12px) 21px;background-size:5px 5px;background-repeat:no-repeat}
+.search{display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:999px;padding:11px 15px}
+.search input{background:none;border:0;color:var(--ink);font-size:16px;flex:1;padding:0;outline:none}
+
+.btn{display:block;width:100%;text-align:center;padding:14px;border-radius:13px;font-size:15px;font-weight:600;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#03110F}
+:root[data-theme="light"] .btn.primary{color:#fff}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .btn.primary{color:#fff}}
+.btn.danger{color:var(--loss);border-color:var(--line)}
+.btn.sm{padding:10px;font-size:13px;border-radius:11px}
+.btnrow{display:flex;gap:8px}
+.btnrow .btn{flex:1}
+.sticky-cta{position:sticky;bottom:0;z-index:6;margin:4px -16px 0;padding:11px 16px;
+  background:var(--bg);border-top:1px solid var(--line)}
+
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft);font-size:13px}
+.kv:first-child{border-top:0}
+.kv span{color:var(--ink-2)} .kv b{font-weight:600;font-variant-numeric:tabular-nums}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line-soft);font-size:13.5px}
+.switch:first-child{border-top:0}
+.sw-box{width:44px;height:27px;border-radius:999px;background:var(--chip);border:1px solid var(--line);position:relative;flex:0 0 auto;transition:background .16s}
+.sw-box::after{content:"";position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--ink-2);transition:transform .16s,background .16s}
+.sw-box[aria-checked="true"]{background:var(--brand-wash);border-color:var(--brand)}
+.sw-box[aria-checked="true"]::after{transform:translateX(17px);background:var(--brand)}
+
+.badge{display:inline-block;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:6px;letter-spacing:.02em}
+.badge.buy{color:var(--gain);background:var(--gain-wash)}
+.badge.sell{color:var(--loss);background:var(--loss-wash)}
+.banner{display:flex;gap:9px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:12px;padding:11px 12px;font-size:12px;color:var(--ink-2);margin-bottom:12px}
+.banner.warn{border-color:var(--warn);color:var(--warn);background:transparent}
+.alloc-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;margin:10px 0 2px;gap:1.5px}
+
+/* tab bar */
+.tabs{flex:0 0 auto;display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding:7px 4px calc(7px + env(safe-area-inset-bottom))}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 2px;
+  font-size:10px;font-weight:600;color:var(--ink-3);letter-spacing:.01em}
+.tabs button[aria-current="page"]{color:var(--brand)}
+.tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* bottom sheet */
+.sheet-wrap{position:absolute;inset:0;z-index:70;display:none}
+.sheet-wrap.on{display:block}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:86%;overflow-y:auto;background:var(--sheet);
+  border-radius:20px 20px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom));
+  animation:up .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
+.sheet h3{margin:0 0 3px;font-size:17px;font-weight:600;letter-spacing:-.015em}
+.sheet .sub{font-size:12.5px;color:var(--ink-3);margin:0 0 14px}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mcell{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:9px 10px}
+.mcell span{display:block;font-size:10.5px;color:var(--ink-3)}
+.mcell b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.pickrow{display:flex;align-items:center;gap:11px;padding:12px 0;border-top:1px solid var(--line-soft);width:100%;text-align:left;font-size:14px}
+.check{width:20px;height:20px;border-radius:6px;border:1.7px solid var(--line);flex:0 0 auto;position:relative}
+.check[aria-checked="true"]{background:var(--brand);border-color:var(--brand)}
+.check[aria-checked="true"]::after{content:"";position:absolute;left:6px;top:2.5px;width:5px;height:10px;
+  border-right:2px solid #03110F;border-bottom:2px solid #03110F;transform:rotate(40deg)}
+</style>
+
+<div class="stage">
+  <div class="stage-head">
+    <div>
+      <h1>Portfolio Builder &mdash; iPhone rebuild (APP2 demo)</h1>
+      <p>Same content and features as the V2 web app, re-laid-out for a phone in a Robinhood-style
+         direction. Every tab is live: scrub the charts by dragging, expand any theme, tap a ticker.
+         Resize below 760px to see it full-bleed as it would be on the device.</p>
+    </div>
+    <div class="tog" role="group" aria-label="Theme">
+      <button id="tDark" aria-pressed="true">Dark</button>
+      <button id="tLight" aria-pressed="false">Light</button>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="app">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">&#9702;&#9702;&#9702; &#8961; &#9646;</span></div>
+
+      <!-- context bar: on every view -->
+      <div class="ctx">
+        <div class="ctx-top">
+          <div class="ctx-val num" id="ctxVal">$112,481</div>
+          <div class="ctx-day num up" id="ctxDay">+$858 (0.77%)</div>
+        </div>
+        <div class="ctx-row">
+          <div>Invested <b class="num" id="ctxInv">$95,000</b></div>
+          <div>Gain <b class="num up" id="ctxGain">+$17,481 (18.4%)</b></div>
+          <div>Max drift <b class="num" id="ctxDrift">3.1pp</b></div>
+        </div>
+      </div>
+
+      <div class="scroll" id="scroll">
+        <section class="view on" id="v-overview"></section>
+        <section class="view" id="v-model"></section>
+        <section class="view" id="v-rebalance"></section>
+        <section class="view" id="v-research"></section>
+        <section class="view" id="v-history"></section>
+      </div>
+
+      <nav class="tabs" id="tabs"></nav>
+
+      <div class="sheet-wrap" id="sheetWrap">
+        <div class="sheet-bg" id="sheetBg"></div>
+        <div class="sheet" id="sheet"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* A phone demo is meaningless zoomed out to 980px, so guarantee the viewport meta whether
+   this file is opened directly, served, or injected into a host page that omits it. */
+if(!document.querySelector('meta[name="viewport"]')){
+  const m=document.createElement("meta");
+  m.name="viewport"; m.content="width=device-width, initial-scale=1, viewport-fit=cover";
+  document.head.appendChild(m);
+}
+/* -- data -------------------------------------------------------------------
+   Realistic and internally consistent: every total is computed from shares &times;
+   price, so the demo never shows numbers that contradict each other.        */
+const THEMES=[
+  {key:"stablecoin",  name:"Stablecoin",     color:"#19A38F", target:22.9, live:true,
+   holds:[["CRCL","Circle Internet Group",56,65.45,3.52,3100],["MA","Mastercard",9,535.78,-0.42,4310],
+          ["V","Visa",13.6,356.29,0.08,4520],["COIN","Coinbase Global",26,167.81,3.91,3980],
+          ["JPM","JP Morgan Chase",13.8,347.23,1.27,4210]]},
+  {key:"personalai",  name:"Personal AI",    color:"#3A6EA5", target:21.2, live:true,
+   holds:[["AAPL","Apple",15.2,312.20,0.92,3980],["AMZN","Amazon",19,241.60,1.14,4120],
+          ["META","Meta Platforms",6.1,712.40,-0.61,3860],["GOOGL","Alphabet",21,224.15,0.44,4210],
+          ["IBM","IBM",17,286.90,-0.20,4460]]},
+  {key:"enterpriseai",name:"Enterprise AI",  color:"#6B5B8C", target:19.4, live:true,
+   holds:[["NOW","ServiceNow",4.2,1042.30,1.83,3720],["PLTR","Palantir",42,182.55,2.41,5180],
+          ["MSFT","Microsoft",8.4,548.70,0.35,4090],["CRM","Salesforce",13,268.40,-1.12,3980],
+          ["PATH","UiPath",118,14.62,-2.05,2240]]},
+  {key:"robotics",    name:"Robotics",       color:"#4D7C6F", target:18.6, live:true,
+   holds:[["ISRG","Intuitive Surgical",6.4,612.80,0.71,3610],["ROK","Rockwell Automation",9.8,368.15,0.22,3450],
+          ["NVDA","NVIDIA",22,214.90,2.86,3980],["SYM","Symbotic",44,52.30,-1.44,2610],
+          ["TSLA","Tesla",11,438.60,1.92,4020]]},
+  {key:"data",        name:"Data Providers", color:"#A4683C", target:17.9, live:false,
+   holds:[["SNOW","Snowflake",17,238.45,1.36,3720],["SPGI","S&P Global",6.2,584.20,0.18,3540],
+          ["MCO","Moody's",6.8,512.75,-0.34,3410],["MSCI","MSCI",5.1,628.40,0.55,3180],
+          ["RDDT","Reddit",28,196.30,4.12,3010]]}
+];
+const METRICS=[
+  {k:"peg",   label:"PEG",             w:20, dir:"lower",  pol:"penalize", pen:"10"},
+  {k:"evebit",label:"EV/EBITDA",       w:20, dir:"lower",  pol:"penalize", pen:"200"},
+  {k:"dfcf",  label:"Debt/FCF",        w:20, dir:"lower",  pol:"penalize", pen:"25"},
+  {k:"pe",    label:"P/E",             w:15, dir:"lower",  pol:"carry",    pen:""},
+  {k:"mcap",  label:"Avg market cap",  w:10, dir:"higher", pol:"ignore",   pen:""},
+  {k:"mom",   label:"Momentum",        w:15, dir:"higher", pol:"carry",    pen:""}
+];
+const CATALOG_EXTRA=["Forward P/E","EV/Revenue","Price/Sales","Price/Book","Gross margin","Operating margin",
+  "Net margin","Return on equity","Return on assets","Debt/Equity","Current ratio","Quick ratio",
+  "Revenue growth","Earnings growth","Dividend yield","Payout ratio","Beta","Price/FCF","EBITDA margin",
+  "FCF margin","Net cash %"];
+/* per-ticker metric values (demo figures) + a source tag per V2's tag set */
+const MCAP={CRCL:17.4,MA:474,V:680,COIN:44,JPM:928,AAPL:4560,AMZN:2740,META:1720,
+  GOOGL:4520,IBM:200,NOW:216,PLTR:432,MSFT:4080,CRM:256,PATH:8,ISRG:218,ROK:42,NVDA:5210,
+  SYM:30,TSLA:1460,SNOW:79,SPGI:178,MCO:92,MSCI:49,RDDT:36};
+const MVALS={CRCL:[4.34,-106.6,null,null,-2.1,"prem"],MA:[1.62,22.8,1.11,30.4,4.1,"calc"],
+  V:[1.53,24.3,1.13,30.8,3.6,"calc"],COIN:[1.51,32.1,4.53,55.0,-1.2,"calc"],JPM:[1.76,18.3,0.26,14.8,1.9,"qual"],
+  AAPL:[2.55,30.2,0.66,39.3,14.0,"calc"],AMZN:[1.41,14.9,null,30.2,3.9,"prem"],META:[0.97,15.5,1.80,24.4,9.8,"calc"],
+  GOOGL:[1.41,20.5,1.40,28.2,6.0,"calc"],IBM:[2.71,14.7,5.69,18.6,-20.4,"calc"],
+  NOW:[2.94,41.2,0.88,112.4,7.2,"calc"],PLTR:[3.81,88.6,0.12,214.0,22.4,"ovr"],MSFT:[2.18,22.4,0.71,33.1,5.5,"calc"],
+  CRM:[1.34,17.8,0.94,41.2,-3.8,"calc"],PATH:[null,null,null,null,-18.2,"n/a"],
+  ISRG:[3.42,52.1,0.05,68.4,4.4,"calc"],ROK:[2.06,19.4,1.62,28.6,1.1,"calc"],NVDA:[1.18,34.8,0.18,42.6,11.6,"calc"],
+  SYM:[2.88,64.2,0.22,null,-9.4,"prem"],TSLA:[4.62,72.4,0.61,148.2,8.2,"calc"],
+  SNOW:[2.44,null,0.34,null,6.8,"prem"],SPGI:[1.92,21.6,0.88,32.4,2.2,"calc"],MCO:[2.11,23.8,1.04,35.1,0.9,"calc"],
+  MSCI:[2.34,26.4,2.18,38.7,1.6,"calc"],RDDT:[1.88,44.2,null,86.4,18.4,"seed"]};
+const WATCH=[["AMD","Advanced Micro Devices",529.14,-3.46,584.73,149.22,"27.7M","36.6M"],
+             ["TSM","Taiwan Semiconductor",419.48,-0.22,479.00,223.70,"16.8M","14.1M"]];
+/* checkpoints: value as RECORDED at each save (never re-derived) + equal-weight counterfactual */
+const CKPT=[
+  {id:1,date:"2026-02-14",type:"initial build",cash:80000,trades:25,before:0,     after:80000, ew:80000},
+  {id:2,date:"2026-03-28",type:"full rebalance",cash:0,   trades:9, before:82900, after:82760, ew:82300},
+  {id:3,date:"2026-04-30",type:"cash deploy",   cash:5000,trades:5, before:84100, after:89100, ew:88200},
+  {id:4,date:"2026-05-29",type:"full rebalance",cash:0,   trades:12,before:91400, after:91180, ew:90100},
+  {id:5,date:"2026-06-30",type:"cash deploy",   cash:10000,trades:6,before:93600, after:103600,ew:102000},
+  {id:6,date:"2026-07-31",type:"full rebalance",cash:0,   trades:11,before:104900,after:104700,ew:102600},
+  {id:7,date:"2026-08-21",type:"full rebalance",cash:0,   trades:8, before:106100,after:105950,ew:103200}
+];
+
+/* -- derive --------------------------------------------------------------- */
+const fmt=(v,dp=0)=>Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const money=(v,dp=0)=>(v<0?"-$":"$")+fmt(v,dp);
+const smoney=(v,dp=0)=>(v>=0?"+$":"-$")+fmt(v,dp);   // signed, separated: +$11,869
+const sgn=(v,dp=2)=>(v>=0?"+":"-")+Math.abs(v).toFixed(dp);
+const capFmt=b=>b>=1000?(b/1000).toFixed(2)+"T":b.toFixed(0)+"B";
+const pctS=(v,dp=2)=>sgn(v,dp)+"%";
+const cls=v=>v>=0?"up":"down";
+const nz=v=>v==null?"&mdash;":v;
+THEMES.forEach(t=>{
+  t.value=t.holds.reduce((a,h)=>a+h[2]*h[3],0);
+  t.cost =t.holds.reduce((a,h)=>a+h[5],0);
+  t.day  =t.holds.reduce((a,h)=>a+h[2]*h[3]*(h[4]/100)/(1+h[4]/100),0);
+});
+const TOTAL=THEMES.reduce((a,t)=>a+t.value,0);
+const COST =THEMES.reduce((a,t)=>a+t.cost,0);
+const DAY  =THEMES.reduce((a,t)=>a+t.day,0);
+const INVESTED=95000;
+THEMES.forEach(t=>{t.cur=t.value/TOTAL*100; t.drift=t.cur-t.target;});
+const MAXDRIFT=Math.max(...THEMES.map(t=>Math.abs(t.drift)));
+const LIVE={...CKPT[CKPT.length-1],id:"now",date:"today",type:"live prices",after:TOTAL,
+            ew:CKPT[CKPT.length-1].ew*1.004,live:true};
+const SERIES=[...CKPT,LIVE];
+
+/* context bar &mdash; refreshed on the price path, not only on re-render (a real V2 bug) */
+function renderContext(){
+  const gain=TOTAL-INVESTED, gp=gain/INVESTED*100, dp=DAY/(TOTAL-DAY)*100;
+  document.getElementById("ctxVal").textContent=money(TOTAL);
+  const d=document.getElementById("ctxDay");
+  d.textContent=`${smoney(DAY)} (${pctS(dp).replace("+","")})`;
+  d.className="ctx-day num "+cls(DAY);
+  document.getElementById("ctxInv").textContent=money(INVESTED);
+  const g=document.getElementById("ctxGain");
+  g.textContent=`${smoney(gain)} (${pctS(gp,1)})`;
+  g.className="num "+cls(gain);
+  document.getElementById("ctxDrift").textContent=MAXDRIFT.toFixed(1)+"pp";
+}
+
+/* -- charts --------------------------------------------------------------- */
+function line(pts,w,h,pad){ // pts:[{x,y}] normalized later
+  return pts.map((p,i)=>(i?"L":"M")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
+}
+function scale(vals,w,h,padY=10){
+  const mn=Math.min(...vals), mx=Math.max(...vals), sp=(mx-mn)||1;
+  return v=>h-padY-((v-mn)/sp)*(h-padY*2);
+}
+/* value chart: area + brand line + dashed equal-weight, touch-scrubbable */
+function valueChart(mode){
+  const w=358,h=132, xs=SERIES.map((_,i)=>i/(SERIES.length-1)*w);
+  let a,b,fmt;
+  if(mode==="value"){ a=SERIES.map(s=>s.after); b=SERIES.map(s=>s.ew); fmt=v=>money(v); }
+  else if(mode==="pct"){
+    a=SERIES.map(s=>(s.after-INVESTED)/INVESTED*100); b=SERIES.map(s=>(s.ew-INVESTED)/INVESTED*100); fmt=v=>pctS(v,1);
+  } else { a=SERIES.map(s=>s.after-INVESTED); b=SERIES.map(s=>s.ew-INVESTED); fmt=v=>money(v); }
+  const y=scale([...a,...b,...(mode==="value"?[INVESTED]:[0])],w,h);
+  const pA=xs.map((x,i)=>({x,y:y(a[i])})), pB=xs.map((x,i)=>({x,y:y(b[i])}));
+  const base=mode==="value"?y(INVESTED):y(0);
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" id="mainChart" role="img"
+      aria-label="Portfolio ${mode==="value"?"value":"return"} at each checkpoint against an equal-weight strategy">
+    <defs><linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--brand)" stop-opacity=".26"/>
+      <stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" y1="${base}" x2="${w}" y2="${base}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/>
+    <path d="${line(pA)} L ${w} ${h} L 0 ${h} Z" fill="url(#gv)"/>
+    <path d="${line(pB)}" fill="none" stroke="var(--ew)" stroke-width="1.6" stroke-dasharray="4 4" opacity=".85"/>
+    <path d="${line(pA)}" fill="none" stroke="var(--brand)" stroke-width="2.4"/>
+    <circle cx="${pA[pA.length-1].x}" cy="${pA[pA.length-1].y}" r="4" fill="var(--brand)"/>
+    <g id="crosshair" style="display:none">
+      <line id="chLine" y1="0" y2="${h}" stroke="var(--ink-3)" stroke-width="1"/>
+      <circle id="chDot" r="4.5" fill="var(--brand)" stroke="var(--bg)" stroke-width="2"/>
+    </g>
+    <rect id="chHit" x="0" y="0" width="${w}" height="${h}" fill="transparent"/>
+  </svg>`;
+}
+function donut(){
+  const R=62,r0=40,C=80,cx=C,cy=C; let ang=-Math.PI/2, out="";
+  THEMES.forEach(t=>{
+    const sweep=t.cur/100*Math.PI*2, e=ang+sweep, big=sweep>Math.PI?1:0;
+    const p=(rad,A)=>[cx+rad*Math.cos(A),cy+rad*Math.sin(A)];
+    const [x1,y1]=p(R,ang),[x2,y2]=p(R,e),[x3,y3]=p(r0,e),[x4,y4]=p(r0,ang);
+    out+=`<path d="M${x1} ${y1} A${R} ${R} 0 ${big} 1 ${x2} ${y2} L${x3} ${y3} A${r0} ${r0} 0 ${big} 0 ${x4} ${y4} Z"
+      fill="${t.color}"><title>${t.name} &mdash; ${t.cur.toFixed(1)}% (target ${t.target}%)</title></path>`;
+    ang=e;
+  });
+  return `<svg viewBox="0 0 160 160" width="146" height="146" role="img" aria-label="Current allocation by theme">
+    ${out}<text x="80" y="76" text-anchor="middle" font-size="9.5" font-weight="600" fill="var(--ink-3)"
+      letter-spacing="1.2">CURRENT</text>
+    <text x="80" y="92" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">${THEMES.length} themes</text></svg>`;
+}
+function histBars(){
+  const w=358,h=124,n=SERIES.length,gap=7,bw=(w-gap*(n-1))/n;
+  const y=scale(SERIES.map(s=>s.after),w,h,8);
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Value at each checkpoint">
+    ${SERIES.map((s,i)=>{const yy=y(s.after),x=i*(bw+gap);
+      return `<rect x="${x}" y="${yy}" width="${bw}" height="${h-yy}" rx="3"
+        fill="${s.live?"var(--brand)":"var(--brand)"}" opacity="${s.live?".45":"1"}">
+        <title>#${s.id} ${s.date} &mdash; ${money(s.after)}</title></rect>`}).join("")}
+  </svg>`;
+}
+
+/* -- views ---------------------------------------------------------------- */
+let CHART_MODE="value";
+const openThemes=new Set(["stablecoin"]);   // open state lives in module state, so a refresh never collapses it
+const openCk=new Set();
+
+function overview(){
+  const gain=TOTAL-INVESTED, dp=DAY/(TOTAL-DAY)*100;
+  const last=SERIES[SERIES.length-1], ahead=(last.after-last.ew);
+  return `
+  <div class="hero">
+    <div class="hero-val num" id="heroVal">${money(TOTAL)}</div>
+    <div class="hero-sub" id="heroSub">
+      <span class="${cls(DAY)}">${smoney(DAY)} (${pctS(dp,2).replace("+","")})</span>
+      today &middot; <span class="${cls(gain)}">${smoney(gain)}
+      (${pctS(gain/INVESTED*100,1)})</span> all time
+    </div>
+    <div class="hero-scrub" id="heroScrub">Drag the chart to read any checkpoint</div>
+  </div>
+  <div class="seg" role="group" aria-label="Chart series">
+    <button data-mode="value" aria-pressed="${CHART_MODE==="value"}">Value</button>
+    <button data-mode="pct" aria-pressed="${CHART_MODE==="pct"}">Return %</button>
+    <button data-mode="dol" aria-pressed="${CHART_MODE==="dol"}">Return $</button>
+  </div>
+  <div class="chartwrap">${valueChart(CHART_MODE)}</div>
+  <div class="lg" style="border:0;padding:6px 0 0">
+    <span class="sw" style="background:var(--brand)"></span><span class="lg-name">Our strategy</span>
+    <span class="sw" style="background:var(--ew)"></span><span class="lg-name">Equal weight</span>
+    <span class="lg-num ${cls(ahead)}">${ahead>=0?"ahead":"behind"} ${money(Math.abs(ahead))}</span>
+  </div>
+  <div class="note">${CKPT.length} checkpoints &middot; value as recorded at each save &middot; plus today at live prices &middot;
+     equal weight compared over the kept checkpoints only</div>
+
+  <div class="eyebrow">Allocation</div>
+  <div class="card" style="display:flex;flex-direction:column;align-items:center;gap:4px">
+    ${donut()}
+    <div style="width:100%;margin-top:6px">
+      ${THEMES.map(t=>`<div class="lg">
+        <span class="sw" style="background:${t.color}"></span>
+        <span class="lg-name">${t.name}</span>
+        <span style="text-align:right">
+          <span class="lg-num">${t.cur.toFixed(1)}%</span>
+          <span class="lg-sub"> (tgt ${t.target}%, ${sgn(t.drift,1)}pp)</span>
+        </span></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><span>Portfolio value</span><b class="num">${money(TOTAL)}</b><i>${THEMES.length} themes</i></div>
+    <div class="tile"><span>Day P/L</span><b class="num ${cls(DAY)}">${smoney(DAY)}</b><i>unrealised today</i></div>
+    <div class="tile"><span>Total invested</span><b class="num">${money(INVESTED)}</b><i>since 2026-02-14</i></div>
+    <div class="tile"><span>Themes / tickers</span><b class="num">${THEMES.length} / 25</b><i>equal weight within theme</i></div>
+  </div>
+
+  <div class="eyebrow">Holdings by theme <button data-act="expandAll">Expand all</button></div>
+  <div class="card flush" style="padding:0 14px">
+    ${THEMES.map(t=>{
+      const pl=t.value-t.cost, ret=pl/t.cost*100, open=openThemes.has(t.key);
+      return `<div class="acc ${open?"open":""}" data-theme="${t.key}">
+        <button class="acc-head" data-toggle="${t.key}" aria-expanded="${open}">
+          <span class="chev"></span><span class="sw" style="background:${t.color}"></span>
+          <span class="acc-name">${t.name}</span>
+          <span class="tag ${t.live?"live":""}">${t.live?"live":"seed"}</span>
+          <span class="acc-right"><b class="num">${money(t.value)}</b>
+            <span class="num ${cls(pl)}">${pctS(ret,1)}</span></span>
+        </button>
+        <div class="acc-body">
+          <div class="stats5">
+            <div>% of book <b>${t.cur.toFixed(1)}%</b></div>
+            <div>Market value <b>${money(t.value)}</b></div>
+            <div>Cost basis <b>${money(t.cost)}</b></div>
+            <div>Profit / loss <b class="${cls(pl)}">${smoney(pl)}</b></div>
+            <div>Return <b class="${cls(ret)}">${pctS(ret,1)}</b></div>
+            <div>Names <b>${t.holds.length}</b></div>
+          </div>
+          ${t.holds.map(h=>`<button class="row" data-stock="${h[0]}">
+            <span class="row-id"><span class="row-sym">${h[0]}</span>
+              <span class="row-co">${h[1]}</span></span>
+            <span class="row-r"><b>${money(h[2]*h[3],0)}</b>
+              <span class="${cls(h[4])}">${money(h[3],2)} &middot; ${pctS(h[4])}</span></span></button>`).join("")}
+        </div></div>`}).join("")}
+  </div>`;
+}
+
+function model(){
+  const eff=METRICS.map(m=>m.w).reduce((a,b)=>a+b,0);
+  return `
+  <div class="eyebrow">Target vs current</div>
+  <div class="card">
+    <div class="alloc-bar">${THEMES.map(t=>`<i style="flex:${t.cur};background:${t.color}"></i>`).join("")}</div>
+    ${THEMES.map(t=>`<div class="lg"><span class="sw" style="background:${t.color}"></span>
+      <span class="lg-name">${t.name}</span>
+      <span style="text-align:right"><span class="lg-num">${t.target}%</span>
+      <span class="lg-sub"> &rarr; ${t.cur.toFixed(1)}% (${sgn(t.drift,1)}pp)</span></span></div>`).join("")}
+    <div class="btnrow" style="margin-top:12px">
+      <button class="btn sm">+ New theme</button><button class="btn sm">Presets</button></div>
+  </div>
+
+  <div class="eyebrow">The model <button data-act="refreshF">&#8635; Refresh</button></div>
+  <div class="card">
+    <div style="font-size:11.5px;color:var(--ink-3);margin-bottom:8px">&#9312; METRICS &amp; WEIGHTS</div>
+    ${METRICS.map(m=>`<div class="switch">
+      <span>${m.label} <span class="tag">${m.dir}</span></span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <input type="number" value="${m.w}" style="width:74px;padding:8px 10px;text-align:right" aria-label="${m.label} weight">
+        <span style="color:var(--ink-3);font-size:12px">%</span></span></div>`).join("")}
+    <button class="btn sm" style="margin-top:11px" data-act="pickMetrics">&#9998; Choose metrics &mdash; 6 of 27 active</button>
+    <div class="note">Effective weights &rarr; ${METRICS.map(m=>m.w).join("/")}% (sum ${eff}%)</div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:11.5px;color:var(--ink-3);margin-bottom:4px">&#9313; EXCEPTION HANDLING</div>
+    ${METRICS.map(m=>`<div style="padding:10px 0;border-top:1px solid var(--line-soft)">
+      <div style="font-size:12.5px;margin-bottom:6px">${m.label} &mdash; when negative or missing</div>
+      <div style="display:flex;gap:8px">
+        <select style="flex:1" aria-label="${m.label} policy">
+          <option${m.pol==="penalize"?" selected":""}>Penalize</option>
+          <option${m.pol==="carry"?" selected":""}>Carry over</option>
+          <option${m.pol==="ignore"?" selected":""}>Ignore</option></select>
+        ${m.pen?`<input type="number" value="${m.pen}" style="width:88px;text-align:right" aria-label="${m.label} penalty value">`:""}
+      </div></div>`).join("")}
+  </div>
+
+  <div class="card">
+    <div style="font-size:11.5px;color:var(--ink-3);margin-bottom:4px">&#9314; LIMITS &amp; SOURCE</div>
+    <div class="switch"><span>Maximum weight per theme</span>
+      <input type="number" value="30" style="width:78px;text-align:right" aria-label="Max weight per theme"></div>
+    <div class="switch"><span>Compute metrics from statements</span>
+      <span class="sw-box" role="switch" aria-checked="true" tabindex="0" data-act="toggleStmt"></span></div>
+    <div class="switch"><span>Compare sources &mdash; computed vs pulled</span><span style="color:var(--ink-3)">&rsaquo;</span></div>
+    <div class="note">&rarr; 23 of 25 names computed from statements</div>
+  </div>
+
+  <div class="eyebrow">Per-theme metrics</div>
+  <div class="card flush" style="padding:0 14px">
+    ${THEMES.map(t=>{
+      const open=openThemes.has(t.key);
+      return `<div class="acc ${open?"open":""}">
+        <button class="acc-head" data-toggle="${t.key}" aria-expanded="${open}">
+          <span class="chev"></span><span class="sw" style="background:${t.color}"></span>
+          <span class="acc-name">${t.name}</span>
+          <span class="tag cur">target ${t.target}%</span></button>
+        <div class="acc-body">
+          <div class="btnrow" style="margin-bottom:10px">
+            <button class="btn sm">+ Add ticker</button><button class="btn sm">&#9998; Rename</button>
+            <button class="btn sm">&#10005; Delete</button></div>
+          <div class="tscroll"><table class="data"><thead><tr>
+            <th>Ticker</th><th>Cap</th>${METRICS.filter(m=>m.k!=="mcap").map(m=>`<th>${m.label}</th>`).join("")}<th>Src</th>
+          </tr></thead><tbody>
+            ${t.holds.map(h=>{const v=MVALS[h[0]]||[];
+              return `<tr><td>${h[0]}</td>
+                <td>${capFmt(MCAP[h[0]]||0)}</td>
+                <td class="${v[5]==="ovr"?"ovr":""}">${nz(v[0])}</td><td>${nz(v[1])}</td>
+                <td>${nz(v[2])}</td><td>${nz(v[3])}</td><td>${v[4]==null?"&mdash;":pctS(v[4],1)}</td>
+                <td><span class="tag">${v[5]||"&mdash;"}</span></td></tr>`}).join("")}
+          </tbody><tfoot><tr><td>Theme</td><td>&mdash;</td><td>1.67</td><td>29.5</td><td>1.22</td>
+            <td>25.7</td><td>+7.2%</td><td></td></tr></tfoot></table></div>
+          <div class="note">Tap any value to override it &middot; &#8634; resets to live</div>
+        </div></div>`}).join("")}
+  </div>`;
+}
+
+function rebalance(){
+  const plan=[["PLTR","Enterprise AI","sell",-1180],["CRCL","Stablecoin","buy",940],
+              ["RDDT","Data Providers","buy",820],["IBM","Personal AI","sell",-610],
+              ["NVDA","Robotics","buy",520],["PATH","Enterprise AI","buy",380],
+              ["SYM","Robotics","buy",290],["MCO","Data Providers","sell",-160]];
+  return `
+  <div class="banner"><span>Last saved <b class="mono">#7</b> &middot; full rebalance &middot; 2026-08-21 &middot; 8 trades</span></div>
+  <div class="btnrow" style="margin-bottom:14px">
+    <button class="btn sm">&#8630; Undo</button><button class="btn sm" disabled style="opacity:.45">&#8631; Redo</button></div>
+
+  <div class="eyebrow">Plan a rebalance</div>
+  <div class="card">
+    <div class="field"><label for="cash">Add capital</label>
+      <input type="number" id="cash" value="0" inputmode="decimal"></div>
+    <div class="field"><label>Mode</label>
+      <div class="pills" role="group" aria-label="Rebalance mode">
+        <button aria-pressed="true">Full rebalance</button><button aria-pressed="false">New cash only</button>
+      </div></div>
+    <button class="btn primary" data-act="calc">Calculate &rarr;</button>
+    <button class="btn sm" style="margin-top:8px">Realign only &mdash; no new money</button>
+    <div class="note">Full rebalance buys and sells to hit every target. New-cash-only never sells.</div>
+  </div>
+
+  <div class="eyebrow">By theme</div>
+  <div class="card flush">
+    <div class="tscroll"><table class="data"><thead><tr>
+      <th>Theme</th><th>Target</th><th>Before</th><th>After</th><th>&Delta;$</th></tr></thead><tbody>
+      ${THEMES.map(t=>{const after=TOTAL*t.target/100, d=after-t.value;
+        return `<tr><td>${t.name}</td><td>${t.target}%</td>
+          <td>${money(t.value)}</td><td>${money(after)}</td>
+          <td class="${cls(d)}">${smoney(d)}</td></tr>`}).join("")}
+    </tbody></table></div>
+  </div>
+
+  <div class="eyebrow">Per-stock instructions <span style="color:var(--ink-3);font-weight:500;letter-spacing:0;text-transform:none">5 buys &middot; 3 sells</span></div>
+  <div class="card flush" style="padding:0 14px">
+    ${plan.map(p=>`<div class="row">
+      <span class="row-id"><span class="row-sym">${p[0]}</span><span class="row-co">${p[1]}</span></span>
+      <span class="row-r"><b>${money(Math.abs(p[3]))}</b>
+        <span><span class="badge ${p[2]}">${p[2].toUpperCase()}</span></span></span></div>`).join("")}
+  </div>
+  <div class="sticky-cta"><button class="btn primary" data-act="apply">&#10003; Apply &amp; save this rebalance</button></div>
+
+  <div class="eyebrow">Current holdings</div>
+  <div class="card">
+    <div class="kv"><span>Portfolio start</span><b>2026-02-14</b></div>
+    <div class="kv"><span>Cost basis</span><b>${money(COST)}</b></div>
+    <div class="kv"><span>Unrealised gain</span>
+      <b class="${cls(TOTAL-COST)}">${smoney(TOTAL-COST)} (${pctS((TOTAL-COST)/COST*100,1)})</b></div>
+  </div>`;
+}
+
+function research(){
+  return `
+  <div class="eyebrow">Find a name</div>
+  <div class="search"><span style="color:var(--ink-3)">&#8981;</span>
+    <input type="text" placeholder="Search any symbol or company" aria-label="Search ticker" id="resQ">
+    <span class="tag">local</span></div>
+  <div class="note">11,290 symbols searched on-device &mdash; no network call. Picks go to your watchlist and never
+     touch the portfolio. ETFs are researchable but can never join a theme.</div>
+
+  <div class="eyebrow">Watchlist &mdash; ${WATCH.length} <button>+ Add</button></div>
+  <div class="card flush">
+    <div class="tscroll"><table class="data"><thead><tr>
+      <th>Ticker</th><th>Last</th><th>Chg %</th><th>52W High</th><th>52W Low</th><th>Volume</th><th>Avg Vol</th><th></th>
+    </tr></thead><tbody>
+      ${WATCH.map(w=>`<tr><td>${w[0]}</td><td>${money(w[2],2)}</td>
+        <td class="${cls(w[3])}">${pctS(w[3])}</td><td>${money(w[4],2)}</td><td>${money(w[5],2)}</td>
+        <td>${w[6]}</td><td>${w[7]}</td>
+        <td><button class="tag cur" data-act="addTheme" data-sym="${w[0]}">+ theme</button></td></tr>`).join("")}
+    </tbody></table></div>
+  </div>
+  <div class="card">
+    ${WATCH.map(w=>`<div class="kv"><span><b class="mono">${w[0]}</b> ${w[1]}</span>
+      <button class="tag cur" data-act="addTheme" data-sym="${w[0]}">Add to theme &rsaquo;</button></div>`).join("")}
+    <div class="note">Adding asks whether it is a new name or a swap for a holding, then shows the
+      rebalance to review before anything saves.</div>
+  </div>
+
+  <div class="eyebrow">Where things stand</div>
+  <div class="card">
+    <div class="kv"><span>On watchlist</span><b>${WATCH.length}</b></div>
+    <div class="kv"><span>Holdings across themes</span><b>25 across ${THEMES.length}</b></div>
+    <div class="kv"><span>Names in the model</span><b>25</b></div>
+  </div>`;
+}
+
+function history(){
+  return `
+  <div class="eyebrow">Value at each checkpoint</div>
+  <div class="card">${histBars()}
+    <div class="note">${CKPT.length} checkpoints &middot; solid = current and past &middot; faded = today at live prices &middot;
+      rolling window keeps the last 10</div></div>
+
+  <div class="banner"><span>Currently at <b class="mono">#7</b> &middot; 2026-08-21 &middot; nothing to redo</span></div>
+  <div class="btnrow" style="margin-bottom:6px">
+    <button class="btn sm">&#8630; Undo</button><button class="btn sm" disabled style="opacity:.45">&#8631; Redo</button></div>
+
+  <div class="eyebrow">Checkpoints</div>
+  <div class="card flush" style="padding:0 14px">
+    ${[...CKPT].reverse().map(c=>{
+      const open=openCk.has(c.id), d=c.after-c.before;
+      return `<div class="acc ${open?"open":""}">
+        <button class="acc-head" data-ck="${c.id}" aria-expanded="${open}">
+          <span class="chev"></span>
+          <span class="acc-name"><span class="mono" style="font-size:12px">#${c.id}</span> ${c.type}
+            <span style="display:block;font-size:11.5px;color:var(--ink-3);font-weight:400">${c.date} &middot;
+            ${c.cash?money(c.cash)+" added &middot; ":""}${c.trades} trades</span></span>
+          ${c.id===7?'<span class="tag cur">current</span>':""}
+          <span class="acc-right"><b class="num">${money(c.after)}</b>
+            <span class="num ${cls(d)}">${smoney(d)}</span></span></button>
+        <div class="acc-body">
+          <div class="kv"><span>Value before &rarr; after</span>
+            <b>${money(c.before)} &rarr; ${money(c.after)}</b></div>
+          ${THEMES.slice(0,3).map(t=>`<div class="kv"><span>${t.name}</span>
+            <b>${(t.target+(c.id%3?0.4:-0.3)).toFixed(1)}%</b></div>`).join("")}
+          <button class="btn sm" style="margin-top:10px">${c.id===7?"Current point":"Revert to here"}</button>
+        </div></div>`}).join("")}
+  </div>
+
+  <div class="eyebrow">Account</div>
+  <div class="card">
+    <div class="kv"><span>Signed in</span><b class="mono" style="font-size:12px">you@example.com</b></div>
+    <div class="kv"><span>Portfolio stored</span><b>Your account only</b></div>
+    <div class="note">Nothing about your portfolio is written to this phone. A save that cannot reach your
+      account has not happened, and says so.</div>
+    <button class="btn sm" style="margin-top:11px">Export my data</button>
+  </div>
+
+  <div class="eyebrow">Danger zone</div>
+  <div class="card"><button class="btn danger" data-act="reset">Reset portfolio&hellip;</button></div>`;
+}
+
+/* -- tabs + wiring -------------------------------------------------------- */
+const VIEWS=[
+  {id:"overview", label:"Overview", render:overview,
+   icon:'<path d="M3 17l6-6 4 4 7-8"/><path d="M3 21h18"/>'},
+  {id:"model",    label:"Model",    render:model,
+   icon:'<circle cx="12" cy="12" r="9"/><path d="M12 3v9l7 4"/>'},
+  {id:"rebalance",label:"Rebalance",render:rebalance,
+   icon:'<path d="M4 7h13l-3-3"/><path d="M20 17H7l3 3"/>'},
+  {id:"research", label:"Research", render:research,
+   icon:'<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>'},
+  {id:"history",  label:"History",  render:history,
+   icon:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/><path d="M3.5 9a9 9 0 010-1"/>'}
+];
+let CUR="overview";
+document.getElementById("tabs").innerHTML=VIEWS.map(v=>
+  `<button data-view="${v.id}" ${v.id===CUR?'aria-current="page"':""}>
+     <svg viewBox="0 0 24 24">${v.icon}</svg>${v.label}</button>`).join("");
+
+function paint(id){
+  const v=VIEWS.find(x=>x.id===id);
+  document.getElementById("v-"+id).innerHTML=v.render();
+  if(id==="overview") wireChart();
+}
+function go(id){
+  CUR=id;
+  VIEWS.forEach(v=>document.getElementById("v-"+v.id).classList.toggle("on",v.id===id));
+  document.querySelectorAll("#tabs button").forEach(b=>
+    b.toggleAttribute("aria-current",b.dataset.view===id));
+  document.querySelectorAll("#tabs button").forEach(b=>{
+    if(b.dataset.view===id) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");});
+  paint(id);
+  document.getElementById("scroll").scrollTop=0;
+}
+
+/* touch-scrubbable chart &mdash; the web app's scrub is mouse-only, so on a phone
+   every checkpoint but the last is currently unreadable. Pointer events fix that. */
+function wireChart(){
+  const svg=document.getElementById("mainChart"); if(!svg) return;
+  const hit=svg.querySelector("#chHit"), ch=svg.querySelector("#crosshair"),
+        ln=svg.querySelector("#chLine"), dot=svg.querySelector("#chDot");
+  const heroVal=document.getElementById("heroVal"), heroSub=document.getElementById("heroSub"),
+        scrub=document.getElementById("heroScrub");
+  const w=358, n=SERIES.length;
+  const vals=CHART_MODE==="value"?SERIES.map(s=>s.after)
+        :CHART_MODE==="pct"?SERIES.map(s=>(s.after-INVESTED)/INVESTED*100)
+        :SERIES.map(s=>s.after-INVESTED);
+  const ews=CHART_MODE==="value"?SERIES.map(s=>s.ew)
+        :CHART_MODE==="pct"?SERIES.map(s=>(s.ew-INVESTED)/INVESTED*100)
+        :SERIES.map(s=>s.ew-INVESTED);
+  const y=scale([...vals,...ews,...(CHART_MODE==="value"?[INVESTED]:[0])],w,132);
+  function at(ev){
+    const r=svg.getBoundingClientRect();
+    const px=(ev.clientX-r.left)/r.width*w;              // convert through the box, not raw px
+    const i=Math.max(0,Math.min(n-1,Math.round(px/w*(n-1))));
+    const s=SERIES[i], v=vals[i], e=ews[i], gap=v-e;
+    ch.style.display="";
+    ln.setAttribute("x1",(i/(n-1)*w));ln.setAttribute("x2",(i/(n-1)*w));
+    dot.setAttribute("cx",(i/(n-1)*w));dot.setAttribute("cy",y(v));
+    heroVal.textContent=CHART_MODE==="pct"?pctS(v,2):money(v);
+    heroSub.innerHTML=`<span class="mono" style="font-size:12px">#${s.id}</span> ${s.date} &middot; ${s.type}`+
+      (s.cash?` &middot; ${money(s.cash)} added`:"");
+    scrub.innerHTML=`equal weight ${CHART_MODE==="pct"?pctS(e,2):money(e)} &middot; `+
+      `<span class="${cls(gap)}">${gap>=0?"ahead by":"behind by"} ${CHART_MODE==="pct"?Math.abs(gap).toFixed(2)+"pp":money(Math.abs(gap))}</span>`;
+  }
+  function end(){
+    ch.style.display="none";
+    const gain=TOTAL-INVESTED, dp=DAY/(TOTAL-DAY)*100;
+    heroVal.textContent=CHART_MODE==="pct"?pctS(gain/INVESTED*100,2):money(CHART_MODE==="dol"?gain:TOTAL);
+    heroSub.innerHTML=`<span class="${cls(DAY)}">${smoney(DAY)}
+      (${pctS(dp,2).replace("+","")})</span> today &middot; <span class="${cls(gain)}">${smoney(gain)}
+      (${pctS(gain/INVESTED*100,1)})</span> all time`;
+    scrub.textContent="Drag the chart to read any checkpoint";
+  }
+  hit.addEventListener("pointerdown",e=>{hit.setPointerCapture(e.pointerId);at(e);});
+  hit.addEventListener("pointermove",e=>{if(e.pressure>0||e.buttons)at(e);});
+  hit.addEventListener("pointerup",end);
+  hit.addEventListener("pointercancel",end);
+  hit.addEventListener("mousemove",at); hit.addEventListener("mouseleave",end);
+}
+
+/* sheets */
+function sheet(html){
+  document.getElementById("sheet").innerHTML='<div class="grip"></div>'+html;
+  document.getElementById("sheetWrap").classList.add("on");
+}
+const closeSheet=()=>document.getElementById("sheetWrap").classList.remove("on");
+document.getElementById("sheetBg").addEventListener("click",closeSheet);
+
+function stockSheet(sym){
+  const t=THEMES.find(t=>t.holds.some(h=>h[0]===sym)), h=t.holds.find(h=>h[0]===sym), v=MVALS[sym]||[];
+  const labels=["PEG","EV/EBITDA","Debt/FCF","P/E","Momentum"];
+  sheet(`<h3>${sym} <span style="font-weight:400;color:var(--ink-3);font-size:14px">${h[1]}</span></h3>
+    <p class="sub">${money(h[3],2)} <span class="${cls(h[4])}">${pctS(h[4])}</span> today &middot;
+      ${t.name} &middot; TTM as of Q2 2026</p>
+    <div class="mgrid">${labels.map((L,i)=>`<div class="mcell"><span>${L}</span>
+      <b>${v[i]==null?"&mdash;":(i===4?pctS(v[i],1):v[i])}</b>
+      <span class="tag">${v[5]||"&mdash;"}</span></div>`).join("")}
+      <div class="mcell"><span>Value held</span><b>${money(h[2]*h[3],0)}</b>
+        <span class="tag">${h[2]} sh</span></div></div>
+    <div class="eyebrow" style="margin-top:16px">Income statement</div>
+    <div class="tscroll"><table class="data"><thead><tr><th>Line item</th><th>Q2 26</th><th>Q1 26</th>
+      <th>Q4 25</th><th>TTM</th></tr></thead><tbody>
+      <tr><td>Revenue</td><td>24.8B</td><td>23.1B</td><td>26.4B</td><td>97.2B</td></tr>
+      <tr><td>Gross profit</td><td>11.2B</td><td>10.4B</td><td>12.1B</td><td>44.0B</td></tr>
+      <tr><td>Operating income</td><td>6.4B</td><td>5.8B</td><td>7.2B</td><td>25.1B</td></tr>
+      <tr><td>Net income</td><td>5.1B</td><td>4.6B</td><td>5.9B</td><td>20.2B</td></tr>
+    </tbody></table></div>
+    <button class="btn sm" style="margin-top:14px" onclick="this.closest('.sheet-wrap').classList.remove('on')">Close</button>`);
+}
+function metricSheet(){
+  sheet(`<h3>Choose metrics</h3><p class="sub">6 of 27 active &middot; each has a direction and an
+    exception policy</p>
+    ${METRICS.map(m=>`<button class="pickrow"><span class="check" aria-checked="true"></span>
+      <span style="flex:1">${m.label}<span style="display:block;font-size:11.5px;color:var(--ink-3)">
+      ${m.dir==="lower"?"cheaper is better":"higher is better"} &middot; ${m.pol}</span></span>
+      <span class="mono" style="font-size:12px;color:var(--ink-3)">${m.w}%</span></button>`).join("")}
+    ${CATALOG_EXTRA.map(l=>`<button class="pickrow"><span class="check" aria-checked="false"></span>
+      <span style="flex:1">${l}</span></button>`).join("")}
+    <button class="btn primary" style="margin-top:14px"
+      onclick="this.closest('.sheet-wrap').classList.remove('on')">Done</button>`);
+}
+function themeSheet(sym){
+  sheet(`<h3>Add ${sym} to a theme</h3><p class="sub">Then review the rebalance before anything saves</p>
+    ${THEMES.map(t=>`<button class="pickrow"><span class="sw" style="background:${t.color}"></span>
+      <span style="flex:1">${t.name}<span style="display:block;font-size:11.5px;color:var(--ink-3)">
+      ${t.holds.length} names &middot; target ${t.target}%</span></span>
+      <span style="color:var(--ink-3)">&rsaquo;</span></button>`).join("")}
+    <div class="note">You'll choose whether it joins as a new name or replaces a holding.</div>
+    <button class="btn sm" style="margin-top:12px"
+      onclick="this.closest('.sheet-wrap').classList.remove('on')">Cancel</button>`);
+}
+
+/* one delegated listener for the whole prototype */
+document.addEventListener("click",e=>{
+  const tab=e.target.closest("#tabs button"); if(tab){ go(tab.dataset.view); return; }
+  const mode=e.target.closest("[data-mode]");
+  if(mode){ CHART_MODE=mode.dataset.mode; paint("overview"); return; }
+  const tog=e.target.closest("[data-toggle]");
+  if(tog){ const k=tog.dataset.toggle;
+    openThemes.has(k)?openThemes.delete(k):openThemes.add(k); paint(CUR); return; }
+  const ck=e.target.closest("[data-ck]");
+  if(ck){ const id=+ck.dataset.ck; openCk.has(id)?openCk.delete(id):openCk.add(id); paint(CUR); return; }
+  const st=e.target.closest("[data-stock]"); if(st){ stockSheet(st.dataset.stock); return; }
+  const act=e.target.closest("[data-act]"); if(!act) return;
+  const a=act.dataset.act;
+  if(a==="pickMetrics") metricSheet();
+  else if(a==="addTheme") themeSheet(act.dataset.sym);
+  else if(a==="expandAll"){ THEMES.forEach(t=>openThemes.add(t.key)); paint(CUR); }
+  else if(a==="toggleStmt"){ const on=act.getAttribute("aria-checked")==="true";
+    act.setAttribute("aria-checked",String(!on)); }
+});
+
+/* theme switch (mirrors the app's own light/dark, which follows the OS by default) */
+const root=document.documentElement;
+document.getElementById("tDark").addEventListener("click",()=>{
+  root.setAttribute("data-theme","dark");
+  document.getElementById("tDark").setAttribute("aria-pressed","true");
+  document.getElementById("tLight").setAttribute("aria-pressed","false");});
+document.getElementById("tLight").addEventListener("click",()=>{
+  root.setAttribute("data-theme","light");
+  document.getElementById("tLight").setAttribute("aria-pressed","true");
+  document.getElementById("tDark").setAttribute("aria-pressed","false");});
+
+renderContext();
+paint("overview");
+</script>
