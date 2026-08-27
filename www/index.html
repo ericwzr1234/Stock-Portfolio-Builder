@@ -1102,7 +1102,7 @@ function migrateThemes(p){
 }
 function useNoThemes(){ state.themes=[]; state.themeTickers={}; }
 // N-adaptive default cap (1.5/N => 30% at five themes); guarded so an empty board cannot divide by zero.
-function defaultCap(){ const n=themes().length; return n>0 ? clamp(1.5/n, 1/n+1e-9, 1) : 0.3; }
+function defaultCap(){ const n=themes().length; return n>0 ? weightBounds(n).hi : 0.3; }   // owner's 1/(n-1)
 function themeByKey(k){ return themes().find(x=>x.key===k); }
 const THEME_PALETTE=["#13605C","#3A6EA5","#7E9C84","#5B6B8C","#B0894F","#8C5B6B","#4F8CB0","#A4683C","#6B8C5B","#5B8C87","#7A5B8C","#9C7E84"];
 
@@ -1116,7 +1116,6 @@ function tradeUniverse(){ return [...new Set([...membership(), ...holdingSyms()]
 let themeOf = {};
 function rebuildThemeOf(){ themeOf={}; themes().forEach(t=>tickersOf(t.key).forEach(s=>{ themeOf[s]=t; })); }
 function themeOfSym(s){ return themeOf[s] || {key:"_exit", name:"Exiting position", color:"#9AA3A1"}; }
-const perTheme = t => tickersOf(t.key).length;                                        // equal-weight within theme (5 names ⇒ 20% each)
 
 /* ======================================================================
    State
@@ -1419,40 +1418,114 @@ function computeAllocation(){
   allRows.forEach(r=>{ if(tickersOf(r.theme.key).length===0){ r.empty=true; r.alloc=0; r.allocRaw=0; } });
   const rows = allRows.filter(r=>!r.empty);   // funded themes only — scored, normalized, capped below
   if(!rows.length){ const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);   // all themes empty: nothing to allocate yet
-    return Object.assign({rows:allRows, byKey, cap:(state.cap!=null?state.cap:0.3), carry, wByKey:wN}, aliasWeights(wN)); }
+    return Object.assign({rows:allRows, byKey, cap:(state.cap!=null?state.cap:0.3), carry, wByKey:wN, within:{}}, aliasWeights(wN)); }
   const med={}; M.forEach(m=>{ if(m.useMedian) med[m.key]=median(rows.map(r=>m.readValue(r))); });   // theme-level median fill (per metric; not momentum)
   rows.forEach(r=>M.forEach(m=>{ const raw=m.readValue(r); const used=m.useMedian?(isNum(raw)?raw:med[m.key]):raw;
     if(m.useMedian) r[m.key+'Used']=used; r[m.key+'Score']=scoreOf(m,used); }));                      // 6 keep score() closure; catalog metrics score by direction
   const S={}; M.forEach(m=>{ S[m.key]=rows.reduce((a,r)=>a+r[m.key+'Score'],0); });
   rows.forEach(r=>{ M.forEach(m=>{ r[m.key+'N']= S[m.key]>0 ? r[m.key+'Score']/S[m.key] : 1/rows.length; });
     r.alloc = M.reduce((a,m)=>a+wN[m.key]*r[m.key+'N'],0); });                                        // blend in fixed metric order == the old wPeg*pegN + … sum
-  const tot=rows.reduce((a,r)=>a+r.alloc,0)||1;
-  rows.forEach(r=>r.alloc/=tot);
-  const capEff = state.cap!=null ? state.cap : clamp(1.5/rows.length, 1/rows.length+1e-9, 1);  // E1.1: N-adaptive default (1.5/N => 0.30 at N=5)
-  applyThemeCap(rows, capEff);   // no theme over the cap; excess spills to the rest, iteratively
+  const rawT=rows.map(r=>r.alloc);
+  const rawSum=rawT.reduce((a,v)=>a+v,0)||1;
+  rows.forEach((r,i)=>{ r.allocRaw=rawT[i]/rawSum; });        // the UNBOUNDED model weight, for the UI
+  const capEff = (state.cap!=null) ? state.cap : weightBounds(rows.length).hi;   // owner's 1/(n-1)
+  const wT=boundedWeights(rawT, state.cap!=null?state.cap:null);
+  rows.forEach((r,i)=>{ r.alloc=wT[i]; });
+  /* ---- the SAME model, one level down (owner, 2026-08-27) --------------------------------
+     Capital used to be split equally between the names inside a theme, which threw away the very
+     judgement the model applies BETWEEN themes: two names rated PEG 0.6 and PEG 3.5 got identical
+     money. Each name is now scored on its OWN metric values, by the same weights, normalised
+     within its theme and bounded by the same 1/(2n) .. 1/(n-1) rule.
+
+     This lives here, inside computeAllocation, rather than in a function of its own, because M,
+     wN, carry and getFor are already built above. Rebuilding them elsewhere is how the crumb
+     validator and the concurrency cap each ended up fixed in one place and wrong in another. */
+  const within={};
+  themes().forEach(t=>{
+    const tk=tickersOf(t.key);
+    if(!tk.length){ within[t.key]={}; return; }
+    const perM={};
+    M.forEach(m=>{
+      const pol=effBadData(m), get=getFor(m);
+      const penVal=(m.direction==='higher')?0:effPenalty(m);   // same convention as the theme level
+      let vals=tk.map(sym=>{ const v=get(sym);
+        return isNum(v) ? v : (pol==='penalize' ? penVal : null); });
+      if(m.useMedian){ const med=median(vals.filter(isNum));
+        vals=vals.map(v=>isNum(v)?v:med); }                    // fill from the THEME's own median
+      perM[m.key]=vals.map(v=>scoreOf(m,v));
+    });
+    const S={}; M.forEach(m=>{ S[m.key]=perM[m.key].reduce((a,v)=>a+v,0); });
+    const raw=tk.map((_,i)=>M.reduce((a,m)=>
+      a + wN[m.key]*(S[m.key]>0 ? perM[m.key][i]/S[m.key] : 1/tk.length), 0));
+    const w=boundedWeights(raw);
+    const o={}; tk.forEach((sym,i)=>{ o[sym]=w[i]; });
+    within[t.key]=o;
+  });
   const byKey={}; allRows.forEach(r=>byKey[r.theme.key]=r);
-  return Object.assign({rows:allRows, byKey, cap:capEff, carry, wByKey:wN}, aliasWeights(wN));
+  return Object.assign({rows:allRows, byKey, cap:capEff, carry, wByKey:wN, within}, aliasWeights(wN));
 }
 
-// Iterative weight cap: no theme may exceed `cap`. Excess from over-cap themes is redistributed to the
-// still-uncapped themes in proportion to their model weight; repeated until every theme is <= cap.
-function applyThemeCap(rows, cap){
-  rows.forEach(r=>{ r.allocRaw=r.alloc; });               // remember the uncapped model weight
-  const n=rows.length;
-  if(!(cap>0 && cap<1)) return;                           // 100% (or invalid) -> no cap
-  if(cap<=1/n+1e-9){ rows.forEach(r=>{ r.alloc=1/n; }); return; }   // cap at/below equal weight -> equalize
-  const capped=new Set();
-  for(let guard=0; guard<=n; guard++){
-    const uncapped=rows.filter(r=>!capped.has(r.theme.key));
-    const rawSum=uncapped.reduce((a,r)=>a+r.allocRaw,0);
-    const remaining=1-cap*capped.size;
-    if(!uncapped.length || rawSum<=0) break;
-    uncapped.forEach(r=>{ r.alloc = remaining*r.allocRaw/rawSum; });
-    const over=uncapped.filter(r=>r.alloc > cap+1e-9);
-    if(!over.length) break;
-    over.forEach(r=>capped.add(r.theme.key));
+
+/* ======================================================================
+   Bounded weights - owner's formula, 2026-08-27. Used at BOTH levels: between themes, and
+   between the tickers inside one theme. Same scoring, same bounds, one implementation.
+
+     ceiling = 1/(n-1)    3 themes -> 50% each max;  5 tickers -> 25% each max
+     floor   = 1/(2n)     3 themes -> 16.67% min;    5 tickers -> 10% min
+
+   Always satisfiable for n >= 2: the floors sum to exactly 1/2 at every n and the ceilings sum to
+   n/(n-1) > 1, so there is always precisely half the book left to distribute by score. n === 1 is
+   special-cased because 1/(n-1) divides by zero - a lone theme, or a theme holding one name,
+   simply takes all of its parent's capital.
+
+   Owner's decision, taken with the trade-off in front of him: the floor is always exactly 0.5x
+   equal weight while the ceiling falls from 2x equal at n=2 to 1.05x at n=20, so the model can
+   always halve a weak name but its room to reward a strong one shrinks as the basket grows.
+   That asymmetry is deliberate - anti-concentration was preferred to symmetry.
+   ====================================================================== */
+function weightBounds(n){
+  if(n<=1) return {lo:0, hi:1};
+  return { lo: 1/(2*n), hi: 1/(n-1) };
+}
+/* raw = each item's model score (>= 0). Returns weights summing to 1, each within the bounds,
+   preserving the model's ORDER - a better score is never given less weight than a worse one. */
+function boundedWeights(raw, capOverride){
+  const n=raw.length;
+  if(n===0) return [];
+  if(n===1) return [1];
+  const b=weightBounds(n), lo=b.lo;
+  const hi=(isNum(capOverride)&&capOverride>0&&capOverride<1) ? Math.max(capOverride, 1/n) : b.hi;
+  const clean=raw.map(v=>(isNum(v)&&v>0)?v:0);
+  const tot=clean.reduce((a,v)=>a+v,0);
+  const p = tot>0 ? clean.map(v=>v/tot) : clean.map(()=>1/n);   // an all-zero model falls back to equal
+  const w=p.slice(), locked=new Array(n).fill(false);
+  for(let guard=0; guard<=n+2; guard++){
+    let changed=false;
+    for(let i=0;i<n;i++){
+      if(locked[i]) continue;
+      if(w[i]>hi+1e-12){ w[i]=hi; locked[i]=true; changed=true; }
+      else if(w[i]<lo-1e-12){ w[i]=lo; locked[i]=true; changed=true; }
+    }
+    if(!changed) break;
+    const free=[]; let fixed=0;
+    for(let i=0;i<n;i++){ if(locked[i]) fixed+=w[i]; else free.push(i); }
+    if(!free.length) break;
+    const remaining=1-fixed;
+    const ps=free.reduce((a,i)=>a+p[i],0);
+    free.forEach(i=>{ w[i] = ps>0 ? remaining*p[i]/ps : remaining/free.length; });
   }
-  capped.forEach(k=>{ const r=rows.find(x=>x.theme.key===k); if(r)r.alloc=cap; });
+  /* Repair, so the caller never has to trust the loop: push any residual onto whichever items
+     still have room in the right direction. Feasibility guarantees the room exists. */
+  let sum=w.reduce((a,v)=>a+v,0);
+  for(let pass=0; pass<3 && Math.abs(sum-1)>1e-9; pass++){
+    const need=1-sum;
+    const room=w.map(v=> need>0 ? Math.max(0,hi-v) : Math.max(0,v-lo));
+    const rt=room.reduce((a,v)=>a+v,0);
+    if(rt<=1e-12) break;
+    for(let i=0;i<n;i++) w[i] += (need>0?1:-1)*Math.abs(need)*room[i]/rt;
+    sum=w.reduce((a,v)=>a+v,0);
+  }
+  return w;
 }
 
 /* ======================================================================
@@ -1598,7 +1671,12 @@ function planTrades(addCash, mode){
   const newTotal=cur0+addCash;
   const target={}, trade={}, sharesD={}, missing=[];
   U.forEach(s=>{ target[s]=0; });          // default: not in any theme ⇒ target $0 (sell to zero)
-  themes().forEach(t=>{ const a=alloc.byKey[t.key]; if(!a)return; tickersOf(t.key).forEach(s=>{ target[s]=a.alloc*newTotal/perTheme(t); }); });
+  /* a.alloc is the theme's share of the book; w[s] is the name's share of THAT theme. Both come
+     from the same scoring and the same bounds - see computeAllocation. */
+  themes().forEach(t=>{ const a=alloc.byKey[t.key]; if(!a)return;
+    const w=(alloc.within&&alloc.within[t.key])||{}; const tk=tickersOf(t.key);
+    tk.forEach(s=>{ const share=isNum(w[s])?w[s]:(tk.length?1/tk.length:0);
+      target[s]=a.alloc*newTotal*share; }); });
   if(mode==="cash"){
     const sf={}; let tot=0;
     U.forEach(s=>{ const v=Math.max(0,(target[s]||0)-(cv[s]||0)); sf[s]=v; tot+=v; });
@@ -4204,13 +4282,23 @@ function renderCalc(){
   else { $("#calcUninit").innerHTML=""; renderCalcMain(); }
 }
 
+/* "$X ea" was honest only while the names inside a theme were equal-weighted. They are not any
+   more, so show the SPREAD the model is actually asking for rather than an average that no name
+   receives. */
+function perNameRange(A, row, book){
+  const w=(A.within&&A.within[row.theme.key])||{};
+  const vals=tickersOf(row.theme.key).map(s=>row.alloc*book*(isNum(w[s])?w[s]:0));
+  if(!vals.length) return "—";
+  const lo=Math.min(...vals), hi=Math.max(...vals);
+  return (hi-lo < 1) ? money(hi,0) : money(lo,0)+" – "+money(hi,0);
+}
 function renderCalcInit(){
   const A=computeAllocation();
   const preview=A.rows.map(r=>`<tr>
       <td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${esc(r.theme.name)}</td>
       <td class="num">${pct(r.alloc)}</td>
       <td class="num">${money(r.alloc*80000,0)}</td>
-      <td class="num muted">${money(r.alloc*80000/perTheme(r.theme),0)} ea</td></tr>`).join("");
+      <td class="num muted">${perNameRange(A, r, 80000)}</td></tr>`).join("");
   if(!themes().length){                        // nothing to allocate between yet
     $("#calcUninit").innerHTML=`<div class="empty-note">
       <h3>Build your themes first</h3>

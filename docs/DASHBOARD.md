@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 77 |
+| Done | 78 |
 
 ---
 
@@ -148,7 +148,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - STILL OPEN, so THE GATE REMAINS CLOSED: (1) custom SMTP - measured this session, mailer_autoconfirm is false and disable_signup is false, so a stranger can start signing up and can never finish. RESOLVED SAME DAY: (2) the Auth redirect allowlist - the owner set it and it is verified, our prod URL now round-trips AND a nested path /reset/x survives, which is what the double asterisk buys, while a non-allowlisted URL falls back to the prod Site URL instead of localhost; (3) pb-proxy deleted with the owner's go-ahead - it now 404s while prod /api still returns live quotes, and worker/wrangler.toml is annotated and set workers_dev=false so an accidental deploy cannot hand out a public URL again. ACCEPTED, not fixed: (4) no size cap on a stored portfolio, since E10.1 bounds history at 10 versions.
   - MOBILE WEB (2026-08-27), found while hardening the demo path: tools/phone/ only ever verified the CAPACITOR build - it stubs window.Capacitor so NATIVE is true. The owner's actual demo is the web app in Mobile Safari, where NATIVE is false, and nothing was watching it. Two defects sat on the first screen a new user sees: nav.tabs still carried the pre-E5 labels (Fundamentals & Allocation, Calculator / Rebalance) so 419px of text in a 390px viewport pushed History off screen and panned the whole page, breaking the owner's own standing rule; and the gate's email and password fields were 14px, which makes iOS Safari zoom the page on the first tap. Same root cause both times - a fact taught to one reader of it: the rail and the native tab bar were renamed and nav.tabs was not, and the 16px rule was written '.native input...' so the browser that actually zooms was never covered. tests/mobileweb.spec.js guards both plus label parity between the strip and the rail; all five fail against the pre-fix code. Header also trimmed 253px to 183px on a 390px screen.
 
-## Done  (77)
+## Done  (78)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -165,7 +165,7 @@ _Integrated into the product (on main)._
 - **C10** — Cross-platform: web + iOS
 
 </details>
-<details><summary><b>E1 · User-Defined Themes</b> — 9 done</summary>
+<details><summary><b>E1 · User-Defined Themes</b> — 10 done</summary>
 
 - **E1.1** — Data-driven theme list (foundation) · [spec](features/E1.1_data-driven-themes.md)
 - **E1.2** — Add / remove a ticker in a theme · [spec](features/E1.2_add-remove-ticker.md)
@@ -176,6 +176,7 @@ _Integrated into the product (on main)._
 - **E1.7** — Similar-stock recommendations (peers of picks)
 - **E1.8** — Seed recommendations from a new theme's name
 - **E1.9** — Flat Screener: pooled recommendations + actions · [spec](features/E1.9_flat-screener-recommendations.md)
+- **E1.10** — Two-level allocation: rank tickers inside a theme, not just themes · [spec](features/E1.1_data-driven-themes.md)
 
 </details>
 <details><summary><b>E2 · User-Defined Metrics</b> — 5 done</summary>

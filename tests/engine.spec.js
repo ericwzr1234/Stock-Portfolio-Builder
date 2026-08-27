@@ -105,32 +105,35 @@ test("all-zero weights fall back to an equal blend, never a zero-sum model", asy
   expect(r.min).toBeGreaterThan(0);
 });
 
-test("applyThemeCap: total preserved, cap respected, and equalised when the cap is too low", async ({ page }) => {
+test("boundedWeights: total preserved, both bounds respected, manual cap still honoured", async ({ page }) => {
+  /* Replaces the applyThemeCap test. That function only had a CEILING; the owner's model adds a
+     FLOOR of 1/(2n), so the same skewed input now lifts the weakest item instead of leaving it. */
   const r = await page.evaluate(() => {
-    const mk = (a) => a.map((v, i) => ({ theme: { key: "t" + i }, alloc: v }));
-    const sum = (rows) => rows.reduce((s, x) => s + x.alloc, 0);
-
-    const skewed = mk([0.6, 0.25, 0.1, 0.05]);
-    applyThemeCap(skewed, 0.35);
-
-    const low = mk([0.6, 0.25, 0.1, 0.05]);
-    applyThemeCap(low, 0.2);                       // 0.2 <= 1/4, so equal weight
-
-    const off = mk([0.6, 0.25, 0.1, 0.05]);
-    applyThemeCap(off, 1);                         // no cap at all
-
+    const raw = [0.6, 0.25, 0.1, 0.05];
+    const sum = (a) => a.reduce((s, x) => s + x, 0);
+    const n = raw.length;                    // 4 -> floor 1/8 = 12.5%, ceiling 1/3 = 33.3%
+    const dflt = boundedWeights(raw);
+    const manual = boundedWeights(raw, 0.30);          // a tighter manual cap must win
+    const tooLow = boundedWeights(raw, 0.05);          // below equal weight: cannot be honoured
     return {
-      cappedSum: sum(skewed), cappedMax: Math.max.apply(null, skewed.map((x) => x.alloc)),
-      lowAllEqual: low.every((x) => Math.abs(x.alloc - 0.25) < 1e-9),
-      offUntouched: off.map((x) => x.alloc).join(","),
-      rawKept: skewed.every((x) => typeof x.allocRaw === "number"),
+      dflt, dfltSum: sum(dflt),
+      manualMax: Math.max.apply(null, manual), manualSum: sum(manual),
+      tooLowAllEqual: tooLow.every((x) => Math.abs(x - 0.25) < 1e-9),
+      bounds: weightBounds(n),
     };
   });
-  expect(r.cappedSum).toBeCloseTo(1, 9);
-  expect(r.cappedMax).toBeLessThanOrEqual(0.35 + 1e-9);
-  expect(r.lowAllEqual).toBe(true);
-  expect(r.offUntouched).toBe("0.6,0.25,0.1,0.05");
-  expect(r.rawKept).toBe(true);
+  expect(r.dfltSum).toBeCloseTo(1, 9);
+  expect(r.bounds.lo).toBeCloseTo(0.125, 9);
+  expect(r.bounds.hi).toBeCloseTo(1 / 3, 9);
+  r.dflt.forEach((w) => {
+    expect(w).toBeGreaterThanOrEqual(r.bounds.lo - 1e-9);   // the floor is the new half of the rule
+    expect(w).toBeLessThanOrEqual(r.bounds.hi + 1e-9);
+  });
+  expect(r.manualSum).toBeCloseTo(1, 9);
+  expect(r.manualMax).toBeLessThanOrEqual(0.30 + 1e-9);
+  // A cap below equal weight is unsatisfiable for every item at once, so it degenerates to equal
+  // weight rather than to a book that does not add up.
+  expect(r.tooLowAllEqual).toBe(true);
 });
 
 /* ---------------------------------------------------------------- trades: conservation */
