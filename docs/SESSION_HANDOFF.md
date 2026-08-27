@@ -64,6 +64,14 @@ reference — it is a mock with no engine, not a code source.
   `www/_headers` (CSP, `X-Frame-Options`, HSTS — the app was framable and had no CSP at all).
   RLS re-verified live: anonymous reads and the delete RPC are both denied at the GRANT level.
   **The invite gate stays CLOSED** — see the ticket for what is still open.
+- **`E11.14`** — **owner-found in the first real registration, and the most serious bug of the day.**
+  Signed in as test-a → idle lock → registered a new account → clicking *that* account's
+  verification email landed on **test-a's portfolio**. Two defects had to line up: `lockOut()`
+  never ended the *session* (every deliberate exit called `sbSignOut()` first; the idle timeout
+  did not, so the one path whose purpose is security left the token in `localStorage`), and
+  **nothing read the URL fragment**, so a verification link never signed anyone in — the app just
+  restored whatever session was cached in that browser. Both fixed at the root; the link path now
+  fails **closed**. `tests/authlink.spec.js`, 3 of 4 fail against the old code.
 - **`E7.4`** — the **empty board an invited user lands on** told them two different first steps at
   once: the context bar said *Model*, the Overview hero said *Rebalance* (a dead end with no
   themes). Both now call one `firstStepHint()`. Empty charts also collapse instead of reserving
