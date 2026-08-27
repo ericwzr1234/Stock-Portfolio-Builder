@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 80 |
+| Done | 81 |
 
 ---
 
@@ -30,11 +30,10 @@ _A half-baked idea; can be pushed further down once fleshed out._
 ## Design  (13)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
-  - OWNER-BLOCKING and not a free-tier issue: Supabase's built-in mailer 'will refuse to deliver messages to addresses that are not part of the project's team', per their docs. Paying for Pro does NOT fix it. Custom SMTP does, and is available on the Free plan.
-  - Gmail app password (no domain, ~500/day) or Resend plus SPF/DKIM/DMARC (needs a domain). Gmail first; the domain is the upgrade.
-  - Gmail/Yahoo moved to PERMANENT 550 rejections for unauthenticated senders in Nov 2025, so a domain sender without SPF/DKIM/DMARC is worse than no domain at all.
-  - Turnstile on signup - free, natively supported by Supabase. An unlisted URL still gets found by bots, and scripted signups burn the email quota and wreck sender reputation via bounces.
+- **E11.4b** · _E11 · Online, for invited users_ — **Turnstile on signup, so bots cannot burn the email quota** _(depends E11.4, web)_ · [spec](features/E11_online-deployment.md)
+  - Split from E11.4 on 2026-08-27 when the SMTP half was proven and closed. Free, and natively supported by Supabase.
+  - Why it still matters even on an unlisted URL: crawlers do find them, and scripted signups burn the Gmail send quota (~500/day) and wreck sender reputation through bounces - which would break the confirmation emails that now work.
+  - OWNER ACTION: Turnstile secret key -> Supabase dashboard; send me only the SITE key, which is public by design.
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
   - NOT STARTED - blocked on an account only the owner can create. Sentry's free Developer tier is 5k errors/month and needs no card.
   - WHY IT MATTERS: there are ~19 console.error calls that vanish into browsers nobody can see. Now that the app is deployed and reachable from a phone, a failure the owner hits away from the laptop leaves no trace at all.
@@ -147,8 +146,10 @@ _Approved; merging dev → main (prod) + updating docs._
   - No SSRF in the proxy: every upstream URL is a hardcoded Yahoo literal and symbols are encodeURIComponent'd, so /api cannot be aimed at another host. It IS an open unauthenticated Yahoo proxy with no rate limit or Origin check - an abuse and quota problem, not a pivot.
   - STILL OPEN, so THE GATE REMAINS CLOSED: (1) custom SMTP - measured this session, mailer_autoconfirm is false and disable_signup is false, so a stranger can start signing up and can never finish. RESOLVED SAME DAY: (2) the Auth redirect allowlist - the owner set it and it is verified, our prod URL now round-trips AND a nested path /reset/x survives, which is what the double asterisk buys, while a non-allowlisted URL falls back to the prod Site URL instead of localhost; (3) pb-proxy deleted with the owner's go-ahead - it now 404s while prod /api still returns live quotes, and worker/wrangler.toml is annotated and set workers_dev=false so an accidental deploy cannot hand out a public URL again. ACCEPTED, not fixed: (4) no size cap on a stored portfolio, since E10.1 bounds history at 10 versions.
   - MOBILE WEB (2026-08-27), found while hardening the demo path: tools/phone/ only ever verified the CAPACITOR build - it stubs window.Capacitor so NATIVE is true. The owner's actual demo is the web app in Mobile Safari, where NATIVE is false, and nothing was watching it. Two defects sat on the first screen a new user sees: nav.tabs still carried the pre-E5 labels (Fundamentals & Allocation, Calculator / Rebalance) so 419px of text in a 390px viewport pushed History off screen and panned the whole page, breaking the owner's own standing rule; and the gate's email and password fields were 14px, which makes iOS Safari zoom the page on the first tap. Same root cause both times - a fact taught to one reader of it: the rail and the native tab bar were renamed and nav.tabs was not, and the 16px rule was written '.native input...' so the browser that actually zooms was never covered. tests/mobileweb.spec.js guards both plus label parity between the strip and the rail; all five fail against the pre-fix code. Header also trimmed 253px to 183px on a 390px screen.
+  - STATUS 2026-08-27, of the three items this ticket listed as outstanding: (2) custom SMTP is DONE and proven by a real non-team registration; (3) 'flip signup to invite-only' is WITHDRAWN - the owner's model is an unlisted URL where anyone holding it signs up normally, so open signup is the design, not a gap. That leaves (1) confirming the account-deletion cascade with a second account.
+  - Round 6 (client surface) fixed a real stored XSS and added the security headers. E11.14 then fixed a cross-account landing the owner found in his own first end-to-end registration. THE GATE IS STILL THE OWNER'S TO DECLARE: the E11.14 fix is verified synthetically in prod but he has not re-run the real sequence that exposed it.
 
-## Done  (80)
+## Done  (81)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -255,7 +256,7 @@ _Integrated into the product (on main)._
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 16 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 17 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -268,6 +269,7 @@ _Integrated into the product (on main)._
 - **E11.12** — Fix: money scaled by sign instead of magnitude · [spec](features/E11_online-deployment.md)
 - **E11.13** — Idle session timeout - sign out after inactivity · [spec](features/E11_online-deployment.md)
 - **E11.3** — Deploy to Cloudflare Pages, same-origin /api/* · [spec](features/E11_online-deployment.md)
+- **E11.4** — Custom SMTP, so anyone but the owner can sign up · [spec](features/E11_online-deployment.md)
 - **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
 - **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
 - **E11.7a** — Feedback channel · [spec](features/E11_online-deployment.md)

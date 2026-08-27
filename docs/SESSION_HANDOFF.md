@@ -64,6 +64,14 @@ reference — it is a mock with no engine, not a code source.
   `www/_headers` (CSP, `X-Frame-Options`, HSTS — the app was framable and had no CSP at all).
   RLS re-verified live: anonymous reads and the delete RPC are both denied at the GRANT level.
   **The invite gate stays CLOSED** — see the ticket for what is still open.
+- **`E1.10`** — **two-level allocation.** Capital inside a portfolio is no longer split equally;
+  names are ranked on their own metrics by the same weights, bounded by the owner's rule
+  (floor `1/(2n)`, ceiling `1/(n-1)`) at **both** levels. The asymmetry in those bounds is
+  deliberate — a symmetric alternative was offered and declined in favour of anti-concentration.
+- **`E1.11`** — adding a ticker no longer throws you onto Rebalance mid-edit. The refresh had been
+  written *as* a navigation.
+- **`E1.12`** — a theme is called a **portfolio** in the UI; the whole book is now **Total**, so the
+  word means exactly one thing. Internals (`state.themes`, the persisted field) untouched.
 - **`E11.14`** — **owner-found in the first real registration, and the most serious bug of the day.**
   Signed in as test-a → idle lock → registered a new account → clicking *that* account's
   verification email landed on **test-a's portfolio**. Two defects had to line up: `lockOut()`
@@ -112,7 +120,7 @@ Your own password reset is broken for the same reason. Two owner actions below f
 |---|---|---|
 | ~~1~~ | ✅ **DONE 2026-08-27, verified.** ~~Supabase Auth → URL Configuration: Site URL **and** Redirect URLs → `https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths). Keep the localhost entries. | Email **confirmation** and **password-reset** links still point at localhost. Signing in with an existing account already works. |
 | 2 | **Run `sql/003_feedback.sql`** in the Supabase SQL editor. | The feedback button says the table has not been created — honestly, but it cannot send. |
-| 3 | `E11.4`: a Gmail app password **or** Resend key → paste into Supabase, never into chat. Turnstile secret → Supabase; send only the **site** key. | Nobody but the owner can sign up at all — Supabase's built-in mailer only delivers to project team members. |
+| ~~3~~ | ✅ **SMTP DONE 2026-08-27** — proven end to end: a non-team address received the confirmation email and signed in. What remains is split out as `E11.4b`: **Turnstile** secret → Supabase, send me only the **site** key. | Bots finding the URL would burn the Gmail send quota and wreck sender reputation through bounces, breaking the confirmation emails that now work. |
 | 4 | `E11.7b`: a Sentry account (free tier, no card) → DSN. | ~19 `console.error` calls vanish into browsers nobody can see. |
 
 **Deploying** (do this after ANY change under `www/`, or prod drifts from `main`):
