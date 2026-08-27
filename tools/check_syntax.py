@@ -85,3 +85,22 @@ if depth != 0 or instr or incomment:
 if _undefined:
     sys.stderr.write('BROKEN: CSS variables used but never defined: %s\n' % ', '.join(_undefined))
     sys.exit(1)
+
+# ---- E6.7: the CSP must name the Supabase origin the app actually calls -----------------------
+# connect-src is an allowlist. If SB_URL moves (a restored project gets a new ref) and www/_headers
+# is not moved with it, every sign-in fails as an opaque browser-console block and nothing in the
+# app reports why. Same class as the CSS-variable check above: when you teach the code a new fact,
+# teach every reader of it. Absent _headers is skipped, not failed, so a bare checkout still runs.
+_hdr = os.path.join(BASE, 'www', '_headers')
+_sbm = re.search(r'const SB_URL\s*=\s*"([^"]+)"', s)
+if _sbm and os.path.exists(_hdr):
+    _sb = _sbm.group(1)
+    _csp = [ln for ln in io.open(_hdr, encoding='utf-8').read().splitlines()
+            if 'Content-Security-Policy' in ln]
+    if not _csp:
+        sys.stderr.write('BROKEN: www/_headers has no Content-Security-Policy line\n')
+        sys.exit(1)
+    if _sb not in _csp[0]:
+        sys.stderr.write('BROKEN: CSP connect-src does not allow %s - every sign-in would be blocked\n' % _sb)
+        sys.exit(1)
+    print('csp         : connect-src allows', _sb)

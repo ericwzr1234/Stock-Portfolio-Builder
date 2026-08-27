@@ -57,11 +57,34 @@ reference — it is a mock with no engine, not a code source.
 
 - **`APP2.6`** — Overview on the phone is one segmented chart (`Value / Return % / Return $`) in a
   single card, instead of V2's two. Web proven untouched.
+- **`E6.7` round 6** — first security pass over the **client** surface (rounds 1–5 were the data
+  layer). Found and fixed a **real stored XSS** — no escaping helper existed and 49 interpolations
+  put free text into `innerHTML`; a theme name of `<img src=x onerror=…>` fired seven times per
+  render, and the session token is in `localStorage`. Fixed at the sink with `esc()`, plus
+  `www/_headers` (CSP, `X-Frame-Options`, HSTS — the app was framable and had no CSP at all).
+  RLS re-verified live: anonymous reads and the delete RPC are both denied at the GRANT level.
+  **The invite gate stays CLOSED** — see the ticket for what is still open.
 - **`E7.3`** — **the guide no longer reappears at every sign-in** (owner-found). The flag recorded
   *finishing* a tour, not *being shown* one, so every exit but "click Done through all seven steps"
   wrote nothing. Now credited when the bubble goes up. The `?` button reads **Help**. Note for the
   owner: each tab's guide will appear **once more** on the next sign-in — that showing is the one
   that finally gets recorded — and then never again unless Help is clicked.
+
+## Can you send someone the URL yet? No — measured 2026-08-27
+
+Not opinion; probed against the live project.
+
+| Measured | Result |
+|---|---|
+| `disable_signup` | `false` — the signup form is open to anyone with the URL |
+| `mailer_autoconfirm` | `false` — a confirmation email is **required** to finish |
+| Confirmation link target | Asked for `https://portfolio-builder-esb.pages.dev/`, got `http://localhost:3000/` — **identical to what a deliberately bogus control URL returns**, so our prod URL is not in the allowlist |
+| `public.feedback` | `PGRST205` — still does not exist |
+| Project health | `auth/v1/health` 200 — awake |
+
+So a stranger can **start** registering and can never **finish**: the email never arrives (built-in
+mailer only delivers to project team members), and if it did, the link points at *their* localhost.
+Your own password reset is broken for the same reason. Two owner actions below fix both.
 
 ## ⚠ Owner actions — nothing else moves without these
 

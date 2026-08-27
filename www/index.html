@@ -1131,6 +1131,25 @@ let timer=null;
    ====================================================================== */
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+/* E6.7 - every string that reaches innerHTML and is not a number goes through this.
+   Theme names, preset names and metric labels are typed by the user; company names and symbols
+   come from Yahoo and from the weekly ticker-directory refresh, which does no validation of its
+   own. None of them is trusted markup, and a theme name of <img src=x onerror=...> was PROVEN to
+   execute - seven times per render - reading the Supabase session token out of localStorage.
+   Escaping happens at the SINK, not on input: input-escaping would corrupt the stored value and
+   double-escape on every re-save. */
+/* No regex literal on purpose: check_syntax.py counts braces without understanding regex
+   literals, so a quote inside a character class reads to it as an unclosed string and the gate
+   fails on correct code. A split/join chain needs none. & goes FIRST - otherwise the ampersands
+   introduced by the later replacements would themselves be escaped. */
+function esc(v){
+  return String(v==null?"":v)
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;")
+    .split('"').join("&quot;")
+    .split("'").join("&#39;");
+}
 const isNum=v=>typeof v==="number"&&isFinite(v);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function money(v,dp=0){ if(!isNum(v))return "—";
@@ -2361,8 +2380,8 @@ function metricSourceOf(sym, m){
 async function openStockDetail(sym){
   sym=(sym||'').toUpperCase(); if(!sym) return;
   const nm=(state.quotes[sym]&&state.quotes[sym].name)||(state.fundamentals[sym]&&state.fundamentals[sym].name)||sym;
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="sdModal" data-sd-sym="${sym}"><div class="modal-card card pad" style="max-width:860px;max-height:90vh;overflow:auto">
-      <div class="section-title"><h2 style="font-size:17px">${sym} <span class="muted" style="font-weight:400">· ${nm}</span></h2>
+  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="sdModal" data-sd-sym="${esc(sym)}"><div class="modal-card card pad" style="max-width:860px;max-height:90vh;overflow:auto">
+      <div class="section-title"><h2 style="font-size:17px">${esc(sym)} <span class="muted" style="font-weight:400">· ${nm}</span></h2>
         <button class="btn sm" id="sdClose">Close</button></div>
       <div id="sdBody"><p class="small muted" style="margin-top:10px">Loading statements…</p></div>
     </div></div>`;
@@ -2392,7 +2411,7 @@ function renderStockDetail(sym){
              : s==='pulled'?'<span class="tag pulled" title="pulled from Yahoo (market / forward-looking, or a statement input was missing)">pulled</span>':'';
   const metricCells=METRIC_CATALOG.map(m=>{ const v=m.getter(sym), s=metricSourceOf(sym,m);
     return `<div class="it" style="display:flex;justify-content:space-between;gap:8px;min-width:180px">
-      <span class="muted">${m.label}</span><span><b>${isNum(v)?fmtVal(m,v):'—'}</b> ${tag(s)}</span></div>`; }).join("");
+      <span class="muted">${esc(m.label)}</span><span><b>${isNum(v)?fmtVal(m,v):'—'}</b> ${tag(s)}</span></div>`; }).join("");
   const metricPanel=`<h3 style="font-size:14px;margin:6px 0">Metrics <span class="muted xs">(calc = from statements · pulled = Yahoo)</span></h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 16px">${metricCells}</div>`;
   // statement tables (last 4 quarters + TTM for flows)
@@ -2410,13 +2429,13 @@ function renderStockDetail(sym){
           const vals=qs.map(q=>q[field]), ok=!noSum&&vals.length===4&&vals.every(isNum);
           ttmCell=`<td class="num"><b>${ok?fmtStmtCell(field, vals.reduce((a,b)=>a+b,0)):'—'}</b></td>`;
         }
-        return `<tr><td>${label}</td>${cells}${ttmCell}</tr>`;
+        return `<tr><td>${esc(label)}</td>${cells}${ttmCell}</tr>`;
       }).join("");
-      stmtHtml+=`<h3 style="font-size:14px;margin:14px 0 4px">${title}${kind==='point'?' <span class="muted xs">(point-in-time)</span>':''}</h3>
+      stmtHtml+=`<h3 style="font-size:14px;margin:14px 0 4px">${esc(title)}${kind==='point'?' <span class="muted xs">(point-in-time)</span>':''}</h3>
         <table class="mono" style="font-size:12px"><thead><tr><th>Line item</th>${heads}</tr></thead><tbody>${body2}</tbody></table>`;
     });
   } else {
-    stmtHtml=`<p class="small muted" style="margin-top:12px">No statement data available for ${sym} (metrics fall back to Yahoo's pulled figures).</p>`;
+    stmtHtml=`<p class="small muted" style="margin-top:12px">No statement data available for ${esc(sym)} (metrics fall back to Yahoo's pulled figures).</p>`;
   }
   body.innerHTML=head+metricPanel+stmtHtml;
 }
@@ -2432,7 +2451,7 @@ function openSourceCompare(){
       const delta=(isNum(pv)&&pv!==0)?(cv-pv)/Math.abs(pv)*100:null, big=isNum(delta)&&Math.abs(delta)>10;
       return `<td class="num${big?' down':''}" title="computed ${num(cv,3)} · pulled ${isNum(pv)?num(pv,3):'—'}${src[k]?' · '+src[k]:''}">${num(cv,2)}${isNum(delta)?` <span class="muted xs">${signed(delta,0)}%</span>`:''}</td>`;
     }).join("");
-    return `<tr><td class="sym">${sym}</td>${cells}</tr>`;
+    return `<tr><td class="sym">${esc(sym)}</td>${cells}</tr>`;
   }).join("");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="scModal"><div class="modal-card card pad" style="max-width:920px;max-height:88vh;overflow:auto">
       <div class="section-title"><h2 style="font-size:16px">Computed vs pulled</h2><button class="btn sm" id="scClose">Close</button></div>
@@ -3491,7 +3510,7 @@ function renderOverview(){
     i=Math.max(0,Math.min(H.length-1,i)); const p=H[i];
     const vsEw=(isNum(p.value)&&isNum(p.ew))?p.value-p.ew:null;
     setHero(isNum(p.value)?money(p.value,0):"—",
-      `<b>${p.label}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
+      `<b>${esc(p.label)}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
       (isNum(p.value)&&isNum(p.invested)?` · <span class="${p.value-p.invested>=0?'up':'down'}">${sgn(p.value-p.invested)}</span>`:"")+
       (vsEw!=null?` · equal-weight ${money(p.ew,0)} <span class="${vsEw>=0?'up':'down'}">(${vsEw>=0?'ahead by ':'behind by '}${money(Math.abs(vsEw),0)})</span>`:""));
   };
@@ -3610,14 +3629,14 @@ function renderOverviewDonut(){
       `L${(cx+r0*Math.cos(a1)).toFixed(2)},${(cy+r0*Math.sin(a1)).toFixed(2)} `+
       `A${r0},${r0} 0 ${big} 0 ${(cx+r0*Math.cos(a0)).toFixed(2)},${(cy+r0*Math.sin(a0)).toFixed(2)} Z`;
     a0=a1;
-    return `<path class="ov-seg" d="${d}" fill="${s.color}"><title>${s.name} ${pct(parts[i]/sum)}</title></path>`;
+    return `<path class="ov-seg" d="${d}" fill="${s.color}"><title>${esc(s.name)} ${pct(parts[i]/sum)}</title></path>`;
   }).join("")+
    `<text x="100" y="96" text-anchor="middle" style="font-size:9.5px;fill:var(--muted);letter-spacing:.06em">${useCur?"CURRENT":"TARGET"}</text>`+
    `<text x="100" y="114" text-anchor="middle" class="num" style="font-size:15px;font-weight:650;fill:var(--ink)">${themes().length} themes</text>`;
   leg.innerHTML=seg.map(s=>{
     const drift=(s.current!=null)?(s.current-s.target):null;
     return `<div class="r"><span class="sw" style="background:${s.color}"></span>
-      <span class="nm">${s.name}</span>
+      <span class="nm">${esc(s.name)}</span>
       <b class="num">${pct(useCur?(s.current||0):s.target)}</b>
       <span class="dv num">${drift!=null?`(tgt ${pct(s.target)}, ${signed(drift*100,1)}pp)`:`target`}</span></div>`;
   }).join("");
@@ -3658,14 +3677,14 @@ function renderPrices(){
     const cost=syms.reduce((a,s)=>{ const h=holdings()[s]; return a+((h&&isNum(h.costBasis))?h.costBasis:0); },0);
     const pl=val-cost, plPct=cost>0?(pl/cost*100):null;
     const cl=n=>n>=0?"up":"down";
-    const stat=(label,value)=>`<span><i>${label}</i><b>${value}</b></span>`;
+    const stat=(label,value)=>`<span><i>${esc(label)}</i><b>${value}</b></span>`;
     const open=OPEN_THEMES.has(t.key);
     grid.insertAdjacentHTML("beforeend",`
       <div class="thm ${open?"open":""}" data-thmkey="${t.key}">
         <button class="thm-head" data-thmtoggle="${t.key}" aria-expanded="${open}">
           <span class="chev">▶</span>
           <span class="sw" style="background:${t.color}"></span>
-          <span class="nm">${t.name}</span>
+          <span class="nm">${esc(t.name)}</span>
           <span class="muted xs">${syms.length} name${syms.length===1?"":"s"}</span>
         </button>
         <div class="thm-stats">
@@ -3741,10 +3760,10 @@ function metricCfgRowHTML(m){
   const showPen = effBadData(m)==='penalize' && m.direction==='lower';   // an editable artificial value only makes sense lower-better; higher-better bad values are treated as worst (0)
   const penVal = isNum(effPenalty(m))?effPenalty(m):'';
   const penCtl = showPen
-    ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading"><input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px" aria-label="${m.label} penalty value"></label>`
+    ? `<label class="muted xs" title="Artificial value substituted for a negative or missing reading"><input type="number" data-mpen="${m.key}" value="${penVal}" min="0" style="width:64px" aria-label="${esc(m.label)} penalty value"></label>`
     : '';
   return `<div class="cfg-row" data-mrow="${m.key}">
-    <span class="cfg-name" title="${dirTip}"><span class="muted xs">${arrow}</span> ${m.label}</span>
+    <span class="cfg-name" title="${dirTip}"><span class="muted xs">${arrow}</span> ${esc(m.label)}</span>
     <select data-mpolicy="${m.key}">${policyOptions(m)}</select>
     <span class="cfg-val">${penCtl}</span></div>`;
 }
@@ -3755,7 +3774,7 @@ function renderFundamentals(){
   const wIn=$("#wInputs");
   if(wIn){ const sig=MM.map(m=>m.key).join(',');
     if(wIn.dataset.sig!==sig){
-      wIn.innerHTML=MM.map(m=>`<span class="wm-name" data-mkey="${m.key}" title="${m.formulaHint?m.label+' — '+m.formulaHint:m.label}">${m.label}</span><span class="wm-in"><input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5"> %</span>`).join("");
+      wIn.innerHTML=MM.map(m=>`<span class="wm-name" data-mkey="${m.key}" title="${m.formulaHint?m.label+' — '+m.formulaHint:m.label}">${esc(m.label)}</span><span class="wm-in"><input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5"> %</span>`).join("");
       wIn.dataset.sig=sig;
     } else MM.forEach(m=>{ const inp=wIn.querySelector('input[data-wkey="'+m.key+'"]'); if(inp&&document.activeElement!==inp)inp.value=wVal(m); });
   }
@@ -3780,7 +3799,7 @@ function renderFundamentals(){
     sp.style.width=(r.alloc*100)+"%"; sp.style.background=r.theme.color; sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
-    ${r.theme.name} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
+    ${esc(r.theme.name)} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
@@ -3788,7 +3807,7 @@ function renderFundamentals(){
     const cw=total>0?cvt[r.theme.key]/total:null;
     const d=isNum(cw)?(cw-r.alloc):null;
     const dcls=isNum(d)?(Math.abs(d)<0.01?"muted":(d>0?"down":"up")):"muted";
-    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${r.theme.name}</td>
+    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${esc(r.theme.name)}</td>
       <td class="num">${pct(r.alloc)}</td><td class="num">${isNum(cw)?pct(cw):"—"}</td>
       <td class="num ${dcls}"><span class="drift">${isNum(d)?signed(d*100,1)+"pp":"—"}</span></td></tr>`;}).join("");
 
@@ -3861,7 +3880,7 @@ function renderFundamentals(){
     if(m.key==='pe'){ const v=effPe(s), tag=isNum(o.pe)?OVR:(!(isNum(v)&&v>0)?pen(`No/negative earnings → ${effPenalty(m)}×`):(f.peCalc?calc('P/E computed from TTM statements: market cap ÷ net income'):''));
       return `<td class="num"><span class="editable" data-edit="pe" data-sym="${s}" title="Click to type your own P/E">${num(v,1)}</span>${tag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>`; }
     if(m.key==='mom'){ const v=momOf(s), cls=isNum(v)?(v>=0?'up':'down'):''; return `<td class="num ${cls}">${isNum(v)?signed(v*100,1)+'%':'—'}</td>`; }
-    const v=m.getter(s), edit=m.overridable?`<span class="editable" data-edit="${m.overrideKey}" data-sym="${s}" title="Click to type your own ${m.label}">${isNum(v)?fmtVal(m,v):'—'}</span>`:(isNum(v)?fmtVal(m,v):'—');   // generic catalog cell
+    const v=m.getter(s), edit=m.overridable?`<span class="editable" data-edit="${m.overrideKey}" data-sym="${s}" title="Click to type your own ${esc(m.label)}">${isNum(v)?fmtVal(m,v):'—'}</span>`:(isNum(v)?fmtVal(m,v):'—');   // generic catalog cell
     return `<td class="num">${edit}${m.overridable?rst(m.overrideKey,''):''}</td>`;
   };
   const footCell=(m,r)=>{
@@ -3889,12 +3908,12 @@ function renderFundamentals(){
     grid.insertAdjacentHTML("beforeend",`
       <div class="thm ${fopen?"open":""}" data-fthmkey="${t.key}">
         <div class="thm-head" data-fthmtoggle="${t.key}" role="button" tabindex="0"
-             aria-expanded="${fopen}" title="Show / hide ${t.name}'s metric table">
+             aria-expanded="${fopen}" title="Show / hide ${esc(t.name)}'s metric table">
           <span class="chev">▶</span><span class="sw" style="background:${t.color}"></span>
-          <span class="nm">${t.name}</span>${srcTag}
-          <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" data-lbl="Add ticker" title="Add a ticker to ${t.name}">＋<span class="lbl"> ticker</span></button>
-          <button class="addname-btn" data-editth="${t.key}" data-lbl="Edit name" title="Rename / recolour ${t.name}">✎</button>
-          <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${t.name}">✕</button></span>
+          <span class="nm">${esc(t.name)}</span>${srcTag}
+          <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" data-lbl="Add ticker" title="Add a ticker to ${esc(t.name)}">＋<span class="lbl"> ticker</span></button>
+          <button class="addname-btn" data-editth="${t.key}" data-lbl="Edit name" title="Rename / recolour ${esc(t.name)}">✎</button>
+          <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${esc(t.name)}">✕</button></span>
           <span class="pill" style="background:color-mix(in srgb,${t.color} 18%,var(--paper));color:color-mix(in srgb,${t.color} 50%,var(--ink))">target ${pct(r.alloc)}</span></div>
         <div class="thm-body" ${fopen?"":"hidden"}>
           <table><thead>${thead}</thead>
@@ -4035,7 +4054,7 @@ function openMetricPicker(){
       const hint=m.formulaHint?' · '+m.formulaHint:'';
       return `<label class="row small" style="gap:8px;align-items:center;margin:2px 0">
         <input type="checkbox" data-mpick="${m.key}"${activeKeys.has(m.key)?' checked':''}>
-        <span style="min-width:150px">${m.label}</span>
+        <span style="min-width:150px">${esc(m.label)}</span>
         <span class="muted xs">${m.direction==='higher'?'↑':'↓'}${hint}</span> ${badge}</label>`;
     }).join("");
     return `<div style="margin:12px 0 2px"><b class="small">${METRIC_GROUP_LABELS[g]||g}</b></div>${rows}`;
@@ -4089,7 +4108,7 @@ function renderCalc(){
 function renderCalcInit(){
   const A=computeAllocation();
   const preview=A.rows.map(r=>`<tr>
-      <td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${r.theme.name}</td>
+      <td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${esc(r.theme.name)}</td>
       <td class="num">${pct(r.alloc)}</td>
       <td class="num">${money(r.alloc*80000,0)}</td>
       <td class="num muted">${money(r.alloc*80000/perTheme(r.theme),0)} ea</td></tr>`).join("");
@@ -4213,10 +4232,10 @@ function holdingsTable(){
     const inner=tickersOf(t.key).map(s=>{
       const sh=h[s]?h[s].shares:0, p=price(s), v=cv[s], cb=h[s]?h[s].costBasis:0;
       const gl=v-cb;
-      return `<tr><td class="sym">${s} <button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${t.name}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
+      return `<tr><td class="sym">${s} <button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${esc(t.name)}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
         <td class="num">${money(v,0)}</td><td class="num">${total>0?pct(v/total):"—"}</td>
         <td class="num ${gl>=0?'up':'down'}">${signed(gl,0).replace(/^([+-])/,'$1$')}</td></tr>`;}).join("");
-    return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${t.name}</b></td>
+    return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${esc(t.name)}</b></td>
       <td class="num"><b>${money(tv,0)}</b></td><td class="num"><b>${total>0?pct(tv/total):"—"}</b></td><td></td></tr>${inner}`;
   }).join("");
   return `<div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Holding</th><th>Shares</th><th>Price</th><th>Value</th><th>Weight</th><th>Gain</th></tr></thead>
@@ -4246,7 +4265,7 @@ function renderRebalanceOutput(plan){
     const after=tickersOf(t.key).reduce((a,s)=>a+(plan.target[s]||0),0);
     const r=plan.alloc.byKey[t.key]; if(!r) return "";
     const wB=plan.cur0>0?before/plan.cur0:0, wA=after/plan.newTotal;
-    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${t.color}"></span> ${t.name}</td>
+    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${t.color}"></span> ${esc(t.name)}</td>
       <td class="num">${pct(r.alloc)}</td>
       <td class="num">${money(before,0)} <span class="muted xs">(${pct(wB,0)})</span></td>
       <td class="num">${money(after,0)} <span class="muted xs">(${pct(wA,0)})</span></td>
@@ -4261,7 +4280,7 @@ function renderRebalanceOutput(plan){
       : '<span class="badge-action badge-hold">—</span>';
     const cls= act==="BUY"?"trade-buy":act==="SELL"?"trade-sell":"trade-hold";
     return `<tr>
-      <td class="sym">${s}<span class="co">${themeOfSym(s).name}</span></td>
+      <td class="sym">${s}<span class="co">${esc(themeOfSym(s).name)}</span></td>
       <td class="center">${badge}</td>
       <td class="num ${cls}">${act==="HOLD"?"—":(amt>0?"+":"")+money(amt,0).replace(/^\$/,"$").replace(/^-\$/,"-$")}</td>
       <td class="num ${cls}">${act==="HOLD"||!isNum(sh)?"—":signed(sh,3)}</td>
@@ -4354,7 +4373,7 @@ function renderHistory(){
     // dataset round-trips the id as a String, so compare as one (Set membership is SameValueZero)
     const tx=vs[i], isCur=(i===h), isFut=(i>h), open=OPEN_VERSIONS.has(String(tx.id));
     const trades=(tx.trades||[]).map(tr=>{ const act=tr.amount>0?"BUY":"SELL", cls=tr.amount>0?"trade-buy":"trade-sell";
-      return `<tr><td class="sym">${tr.sym}</td><td class="${cls}">${act}</td>
+      return `<tr><td class="sym">${esc(tr.sym)}</td><td class="${cls}">${act}</td>
         <td class="num ${cls}">${(tr.amount>0?"+":"")+money(tr.amount,0)}</td>
         <td class="num ${cls}">${signed(tr.shares,3)}</td><td class="num">${money(tr.price,2)}</td></tr>`;}).join("");
     const tag = isCur?'<span class="tag live">● current</span>':(isFut?'<span class="tag fut">redoable</span>':'');
@@ -4374,7 +4393,7 @@ function renderHistory(){
       </div>
       <div class="thm-body" ${open?"":"hidden"}>
         <div class="kvs" style="margin:8px 0">
-          ${themes().map(t=>`<span class="kk">${t.name}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
+          ${themes().map(t=>`<span class="kk">${esc(t.name)}</span><span>${tx.alloc&&isNum(tx.alloc[t.key])?pct(tx.alloc[t.key]):"—"}</span>`).join("")}
         </div>
         <div class="tscroll"><table><thead><tr><th>Stock</th><th>Action</th><th>Amount</th><th>Shares</th><th>Price</th></tr></thead>
           <tbody>${trades||`<tr><td colspan="5" class="muted xs" style="padding:9px">No trades recorded.</td></tr>`}</tbody></table></div>
@@ -4496,8 +4515,8 @@ function wireResearchSearch(){
       let list=[]; try{ list=await dsSearch(term); }catch(e){}
       if(q.value.trim()!==term) return;                       // a newer keystroke superseded this one
       if(!list.length){ paint(`<div class="muted xs" style="padding:6px">No matches — try another symbol or name.</div>`); return; }
-      paint(list.slice(0,8).map(r=>`<button type="button" class="rs-row" data-rssym="${r.symbol}">
-        <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
+      paint(list.slice(0,8).map(r=>`<button type="button" class="rs-row" data-rssym="${esc(r.symbol)}">
+        <span class="sym">${esc(r.symbol)}</span><span class="muted small ts-nm">${esc(r.name)}</span>
         <span class="muted xs ts-ex">${(r.type&&r.type!=="EQUITY")?r.type:(r.exchange||"")}</span></button>`).join(""));
     },250);
   };
@@ -4514,11 +4533,11 @@ function wireResearchSearch(){
 function openStockActions(sym, themeKey){
   const heldT=themeOf[sym];                                  // theme object if it's currently in a theme
   const sel=(heldT&&heldT.key) || themeKey || (themes()[0]&&themes()[0].key);
-  const opts=themes().map(t=>`<option value="${t.key}"${t.key===sel?" selected":""}>${t.name}</option>`).join("");
-  const removeRow=heldT?`<button class="btn" id="saRemove" style="width:100%;margin:2px 0 10px">✕ Remove ${sym} from ${heldT.name}</button>
+  const opts=themes().map(t=>`<option value="${t.key}"${t.key===sel?" selected":""}>${esc(t.name)}</option>`).join("");
+  const removeRow=heldT?`<button class="btn" id="saRemove" style="width:100%;margin:2px 0 10px">✕ Remove ${esc(sym)} from ${esc(heldT.name)}</button>
       <div class="small muted" style="text-align:center;margin:0 0 8px">— or move / swap it —</div>`:"";
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="saModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">${sym} <span class="muted small">${nameOf(sym)}</span></h2>
+      <h2 style="font-size:16px">${esc(sym)} <span class="muted small">${esc(nameOf(sym))}</span></h2>
       <p class="small muted">${heldT?("In <b>"+heldT.name+"</b> now."):"Not in your portfolio yet."} Add it to a theme (the book rebalances to the model), swap it for a holding, or just watchlist it.</p>
       ${removeRow}
       <label class="small" style="display:block;margin:2px 0 4px">Theme</label>
@@ -4554,8 +4573,8 @@ function openSwap(newSym, themeKey){
       <span class="sym">${s}</span><span class="muted small">${nameOf(s)}</span>
       <span class="spacer"></span><span class="num small">${money(cv[s]||0,0)}</span></label>`).join("");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="swapModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">Add ${newSym} to ${t.name}</h2>
-      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) to <b>${t.name}</b> — as a new name
+      <h2 style="font-size:16px">Add ${newSym} to ${esc(t.name)}</h2>
+      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) to <b>${esc(t.name)}</b> — as a new name
         (the theme grows to ${current.length+1}), or by replacing one current holding. Either way the book
         rebalances to the model; review the plan, then Apply.</p>
       <button class="btn primary" id="swapAdd" style="width:100%;margin:2px 0 12px">➕ Add as a new name</button>
@@ -4688,8 +4707,8 @@ function coachRender(){
   const last=_coach.i>=n-1;
   _coach.bubble.innerHTML=
     `<div class="coach-arrow"></div>
-     <div class="c-step">${_coach.title} &middot; step ${_coach.i+1} of ${n}</div>
-     <div class="c-title">${st.title}</div>
+     <div class="c-step">${esc(_coach.title)} &middot; step ${_coach.i+1} of ${n}</div>
+     <div class="c-title">${esc(st.title)}</div>
      <div class="c-body">${st.body}</div>
      <div class="c-row"><span class="c-dots">${dots}</span>
        ${_coach.i>0?'<button class="linkish" data-c="back">Back</button>':'<button class="linkish" data-c="skip">Skip</button>'}
@@ -4995,7 +5014,7 @@ function openTickerSearch(themeKey, direct){
   const tName=(themeByKey(themeKey)||{name:""}).name;
   const title= direct ? ("Add a ticker to "+tName) : (scoped?("Find a name for "+tName):"Search & watchlist a ticker");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="tsModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">${title}</h2>
+      <h2 style="font-size:16px">${esc(title)}</h2>
       <p class="small muted">${direct
         ? "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to <b>add it to "+tName+"</b> — the book then rebalances to the model."
         : "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to add it to your <b>watchlist</b> — it <b>won't touch your portfolio</b> until you add it to a theme from there."}</p>
@@ -5016,8 +5035,8 @@ function openTickerSearch(themeKey, direct){
       let list=[]; try{ list=await dsSearch(term); }catch(e){}
       if(q.value.trim()!==term) return;   // a newer keystroke superseded this one
       if(!list.length){ res.innerHTML=`<div class="muted xs" style="padding:7px">No matches — try a different symbol or name.</div>`; return; }
-      res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${r.symbol}">
-        <span class="sym">${r.symbol}</span><span class="muted small ts-nm">${r.name}</span>
+      res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${esc(r.symbol)}">
+        <span class="sym">${esc(r.symbol)}</span><span class="muted small ts-nm">${esc(r.name)}</span>
         <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join("");
       $$(".ts-row").forEach(b=>b.addEventListener("click",()=> direct ? addTicker(themeKey, b.dataset.sym) : addToWatchlist(b.dataset.sym, themeKey||null)));
     },250);
@@ -5055,7 +5074,7 @@ function renderWatchlist(){
   let list=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);   // drop any that are now in a theme
   state.watchlist=list;                                                  // self-heal
   if(!list.length){ el.innerHTML=""; return; }
-  const opt=tk=>themes().map(t=>`<option value="${t.key}"${t.key===tk?" selected":""}>${t.name}</option>`).join("");
+  const opt=tk=>themes().map(t=>`<option value="${t.key}"${t.key===tk?" selected":""}>${esc(t.name)}</option>`).join("");
   el.innerHTML=`<div class="card pad" style="margin-bottom:14px">
     <h3 style="font-size:14px;margin:0 0 4px">⭐ Watchlist (${list.length})</h3>
     <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Swipe the table sideways for the full quote; pick a theme to add one (you'll review the rebalance first).</p>
@@ -5104,7 +5123,7 @@ function syncCardHTML(){
   return `<div class="card pad" style="margin-bottom:14px">
     <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
       <div><div class="small" style="font-weight:650">Data sync</div>
-        <div class="small muted" style="margin-top:2px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:6px;vertical-align:middle"></span>${label}${connected?(" · "+serverBase().replace(/^https?:\/\//,"")):""}</div></div>
+        <div class="small muted" style="margin-top:2px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:6px;vertical-align:middle"></span>${esc(label)}${connected?(" · "+serverBase().replace(/^https?:\/\//,"")):""}</div></div>
       <button class="btn sm" data-vaction="sync">${connected?"Change":"Set up sync"}</button>
     </div></div>`;
 }
