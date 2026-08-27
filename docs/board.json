@@ -757,6 +757,24 @@
       "62 spans renamed, restricted to HTML text nodes, title/aria-label/placeholder, and quoted PROSE (a string with no space cannot be prose, which excludes identifiers). Guarded against every colour-theme and identifier pattern. INTERNALS DELIBERATELY UNTOUCHED: state.themes is a persisted JSON field and renaming it would break every saved document for zero user benefit; themeTickers, themeOf, CSS classes and data attributes likewise. Verified after: state.themes 11 occurrences before and after, colour-theme markers intact, and no user-visible 'theme' left on screen.",
       "Found while renaming - two strings still described the OLD model: the stat tile read 'equal-weight within theme' and the empty state said the model 'equal-weights the names inside each one'. Both were made false by E1.10 and I had missed them when shipping it. Now 'ranked within each portfolio' and 'then ranks the names inside each one on the same metrics'. Also fixed 'Pick a portfolio on a name to add it to your portfolio', which the rename had made circular." ] },
 
+    { "id": "E5.8", "epic": "E5", "stage": "done", "platform": "web + ios", "depends": "E5.2", "spec": "docs/features/E5_web-ui-overhaul.md",
+      "title": "Every table sorts by its headers", "notes": [
+      "OWNER REQUEST 2026-08-27. Click a header to sort, click again to reverse; aria-sort drives the caret so it is announced as well as shown.",
+      "Two failure modes worth more than the sorting itself. (1) Tables are rebuilt by innerHTML on every render and the price auto-refresh re-renders every 60 seconds, so a sort held only in the DOM would silently vanish while the user watched it. The chosen column is remembered against a key built from the table's own header text - stable across rebuilds, needs no ids added to markup - and re-applied at the end of renderAll. (2) Cells are FORMATTED: sorted as text, $9 beats $10,000.",
+      "The formatting parser matters more than it looks: this UI prints a real minus sign (U+2212), not a hyphen, and expresses the day move as a coloured triangle - so the RED TRIANGLE IS THE MINUS SIGN. Verified on the owner's own data: sorting Day ascending gives -1.49, -0.89, +4.36, +4.49, +8.74.",
+      "An em dash means NO VALUE, so it sorts last in BOTH directions rather than pretending to be zero - a missing row jumping to the top on the first click reads as a bug.",
+      "The grouped holdings table is skipped: it puts a portfolio header row above its own names and reordering would tear each holding away from its portfolio. Detected by looking for such a row, not by a hard-coded list, so it stays correct if another grouped table is added.",
+      "tests/sorting.spec.js - numeric-not-lexical order, survival across a re-render, the formatted-value parser, and that grouped tables stay unsorted." ] },
+
+    { "id": "E2.7", "epic": "E2", "stage": "done", "platform": "web + ios", "depends": "E2.1", "spec": "docs/features/E2_user-defined-metrics.md",
+      "title": "Day P/L counted a whole day's move on shares bought minutes ago", "notes": [
+      "USER-FOUND 2026-08-27. The owner built a book around the close and was shown +$2,337 for the day while its ALL-TIME gain was +$112. Impossible on its face, and that impossibility is the sharpest available test: nothing bought today can have gained more TODAY than it has gained in TOTAL.",
+      "Cause: dayPL was Sum(shares x today's change), where change is measured from the PREVIOUS CLOSE. For a position opened during the session that credits you with a rise you were not there for.",
+      "Fix is the standard intraday formula: value now, minus what the position was worth at the START of the day (only the shares already held, marked at the previous close), minus the net cash put in today. With no trades today the middle term is the whole position and it reduces exactly to shares x (price - prevClose), so untouched positions behave as before.",
+      "Only checkpoints up to HEAD are counted - an undone checkpoint is not a trade you made.",
+      "The calculation was DUPLICATED in two render functions, both wrong identically. It is now one function, which is the same lesson this codebase keeps relearning.",
+      "tests/daypl.spec.js - all five fail against the pre-fix code, including the owner's exact symptom: for a book bought entirely today, day P/L must EQUAL the all-time gain." ] },
+
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
       "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",

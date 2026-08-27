@@ -693,6 +693,12 @@
      a taller height at equal specificity, and this must win regardless of source order. */
   .ov-chart.is-empty,.hist-chart.is-empty{height:0!important;margin:0!important}
   .ov-donutwrap.is-empty{height:0!important;margin:0!important;overflow:hidden}
+  /* Sortable table headers (owner request 2026-08-27) */
+  th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  th.sortable:hover{color:var(--ink)}
+  th[aria-sort]{color:var(--teal)}
+  th[aria-sort="ascending"]::after{content:" B2";font-size:8.5px;vertical-align:1px}
+  th[aria-sort="descending"]::after{content:" BC";font-size:8.5px;vertical-align:1px}
   .retsw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);flex:none}
   .retsw button{border:0;background:none;padding:3px 11px;font-size:12px;color:var(--muted);cursor:pointer;
     font-family:inherit;font-variant-numeric:tabular-nums;transition:background-color .15s ease,color .15s ease}
@@ -1537,6 +1543,36 @@ function curValueBySym(){ const h=holdings(),o={}; tradeUniverse().forEach(s=>{ 
 function curTotal(){ const cv=curValueBySym(); return tradeUniverse().reduce((a,s)=>a+(cv[s]||0),0); }
 function curValueByTheme(){ const cv=curValueBySym(),o={}; themes().forEach(t=>o[t.key]=tickersOf(t.key).reduce((a,s)=>a+(cv[s]||0),0)); return o; }
 function totalContributed(){ return state.portfolio&&isNum(state.portfolio.totalContributed)?state.portfolio.totalContributed:0; }
+/* USER-FOUND 2026-08-27. Day P/L must measure the move over the period you actually OWNED the
+   shares. It was Sum(shares x today's change), which credits you with the WHOLE day's move even on
+   a position you bought minutes ago. A book built at the close reported +$2,337 for the day while
+   its ALL-TIME gain was +$112 - impossible, and the giveaway: nothing bought today can have gained
+   more today than it has gained in total.
+
+   The standard intraday formula: value now, minus what the position was worth at the START of the
+   day (only the shares you already held, marked at the previous close), minus the net cash you put
+   in today. With no trades today the middle term is the whole position and it reduces exactly to
+   shares x (price - prevClose) - the previous behaviour, which was right for untouched positions.
+
+   Only checkpoints up to HEAD count: an undone checkpoint is not a trade you made. */
+function dayPL(){
+  const h=holdings(), today=todayISO(), net={}, cash={};
+  versions().slice(0, head()+1).forEach(v=>{
+    if(v.date!==today) return;
+    (v.trades||[]).forEach(t=>{ if(!t||!t.sym) return;
+      net[t.sym]  = (net[t.sym]||0)  + (isNum(t.shares)?t.shares:0);
+      cash[t.sym] = (cash[t.sym]||0) + (isNum(t.amount)?t.amount:0); });
+  });
+  return tradeUniverse().reduce((a,s)=>{
+    const px=price(s); if(!isNum(px)) return a;
+    const q=state.quotes[s];
+    const sh=(h[s]&&isNum(h[s].shares))?h[s].shares:0;
+    let pc=(q&&isNum(q.prevClose))?q.prevClose:((q&&isNum(q.change))?px-q.change:null);
+    if(!isNum(pc)) return a;                       // no reference price - contribute nothing, do not guess
+    const shOpen=sh-(net[s]||0);                   // what you actually held when the day began
+    return a + (sh*px - (shOpen*pc + (cash[s]||0)));
+  },0);
+}
 function totalCostBasis(){ const h=holdings(); return Object.keys(h).reduce((a,s)=>a+((h[s]&&isNum(h[s].costBasis))?h[s].costBasis:0),0); }
 
 /* Stamped at commit time by tools/stamp_version.py, which CI runs. "Which build are you on?" is
@@ -3600,13 +3636,12 @@ function renderOverview(){
   if(accountUnreachable()){ unreachablePanel("view-prices"); return; }
   const init=isInit(), total=curTotal();
   // ---- hero numbers (all live/real) ----
-  const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s], q=state.quotes[s];
-    return a+((h&&q&&isNum(q.change))?h.shares*q.change:0); },0);
+  const dpl=dayPL();
   const inv=totalContributed(), gain=total-inv;
   const setHero=(v,sub)=>{ $("#ovValue").textContent=v; $("#ovSub").innerHTML=sub; };
   const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n),0);        // money() keeps thousands separators; signed() does not
   const heroDefault=()=>setHero(init?money(total,0):"—",
-    init?`<span class="${dayPL>=0?'up':'down'}">${sgn(dayPL)} today</span> · `+
+    init?`<span class="${dpl>=0?'up':'down'}">${sgn(dpl)} today</span> · `+
          `<span class="${gain>=0?'up':'down'}">${sgn(gain)} (${inv>0?signed(gain/inv*100,1):"0.0"}%) all time</span>`
         :`Nothing tracked yet — `+firstStepHint()+`.`);
   heroDefault();
@@ -3824,12 +3859,11 @@ function renderPrices(){
   try{ renderOverview(); }catch(e){ console.error("overview",e); }   // E5.1 hero: never block the price tables
   // summary band
   const band=$("#priceBand");
-  const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s]; const q=state.quotes[s];
-    return a+((h&&q&&isNum(q.change))?h.shares*q.change:0); },0);
+  const dpl=dayPL();
   band.innerHTML=`
     <div class="card stat"><div class="k">Total value</div><div class="v num">${init?money(total,0):"—"}</div>
       <div class="d muted">${init?("cost "+money(totalCostBasis(),0)):"not initialized"}</div></div>
-    <div class="card stat"><div class="k">Day P/L</div><div class="v num ${dayPL>=0?'up':'down'}">${init?signed(dayPL,0).replace(/^([+-])/,'$1$'):"—"}</div>
+    <div class="card stat"><div class="k">Day P/L</div><div class="v num ${dpl>=0?'up':'down'}">${init?signed(dpl,0).replace(/^([+-])/,'$1$'):"—"}</div>
       <div class="d muted">unrealized today</div></div>
     <div class="card stat"><div class="k">Total invested</div><div class="v num">${init?money(totalContributed(),0):"—"}</div>
       <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
@@ -5373,6 +5407,77 @@ async function syncDisconnect(){
 /* ======================================================================
    Orchestration
    ====================================================================== */
+/* ===== Sortable tables (owner request 2026-08-27) ============================================
+   Click any header to sort by it; click again to reverse. Two things make this less trivial than
+   it looks, and both would have shown up as "the sort randomly undoes itself":
+
+   1. Tables are rebuilt by innerHTML on every render, and the price auto-refresh re-renders every
+      60 seconds. A sort applied to the DOM alone would silently vanish while the user watched. So
+      the chosen column is remembered against a key derived from the table's own header text -
+      which survives the rebuild, needs no ids added to markup, and is stable per table - and
+      re-applied after each render.
+   2. Cells are FORMATTED: "$14,838", "▼ 0.89%", "−$3,000", "—". Sorted as text, $9 beats $10,000.
+      Numbers are parsed out, ▼ read as negative, − (the real minus sign this app prints) read as a
+      minus, and an em dash treated as ABSENT rather than zero - so "no data" sorts last in BOTH
+      directions instead of masquerading as the smallest value.
+
+   Grouped tables are skipped: the holdings table puts a portfolio header row above its own names,
+   and reordering rows would tear each holding away from the portfolio it belongs to. Detected by
+   looking for such a row rather than by a hard-coded list, so it stays true if another is added. */
+const SORT_STATE={};
+function sortKeyOf(t){ return [...t.querySelectorAll("thead th")].map(h=>h.textContent.trim()).join("|"); }
+function sortNum(txt){
+  if(txt==null) return null;
+  const raw=String(txt).trim();
+  if(!raw || /^[—–-]$/.test(raw)) return null;            // em dash etc = no value
+  let v=raw.replace(/−/g,"-").replace(/▼/g,"-").replace(/▲/g,"");
+  v=v.replace(/[^0-9.+-]/g,"");
+  const m=v.match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+function sortableTables(){
+  return [...document.querySelectorAll("table")].filter(t =>
+    t.tHead && t.tBodies.length && t.tBodies[0].rows.length>1 && !t.querySelector("tr.theme-row"));
+}
+function applySort(t){
+  const key=sortKeyOf(t), st=SORT_STATE[key];
+  const ths=[...t.querySelectorAll("thead th")];
+  ths.forEach((h,i)=>{ h.classList.add("sortable");
+    if(st && st.i===i) h.setAttribute("aria-sort", st.dir>0?"ascending":"descending");
+    else h.removeAttribute("aria-sort"); });
+  if(!st) return;
+  const body=t.tBodies[0], rows=[...body.rows];
+  const cell=r=>{ const c=r.cells[st.i]; return c?c.textContent.trim():""; };
+  const parsed=rows.map(r=>sortNum(cell(r)));
+  const numeric=parsed.filter(n=>n!==null).length >= Math.ceil(rows.length/2);
+  rows.forEach((r,i)=>{ r._ord=i; });                              // keep equal rows in their original order
+  rows.sort((a,b)=>{
+    if(numeric){
+      const x=sortNum(cell(a)), y=sortNum(cell(b));
+      /* Blanks last in BOTH directions - these returns skip the dir multiply on purpose. A row
+         with no data is not "the smallest", it is missing, and flipping it to the top on the
+         first click reads as a bug. */
+      if(x===null && y===null) return a._ord-b._ord;
+      if(x===null) return 1;
+      if(y===null) return -1;
+      return (x-y)*st.dir || a._ord-b._ord;
+    }
+    return cell(a).localeCompare(cell(b), undefined, {numeric:true, sensitivity:"base"})*st.dir
+           || a._ord-b._ord;
+  });
+  rows.forEach(r=>body.appendChild(r));
+}
+function resortAll(){ try{ sortableTables().forEach(applySort); }catch(e){ console.error("sort",e); } }
+function wireSorting(){
+  document.addEventListener("click", e=>{
+    const th=e.target.closest && e.target.closest("thead th"); if(!th) return;
+    const t=th.closest("table"); if(!t || !sortableTables().includes(t)) return;
+    const i=[...th.parentNode.children].indexOf(th);
+    const key=sortKeyOf(t), st=SORT_STATE[key];
+    SORT_STATE[key] = (st && st.i===i) ? {i, dir:-st.dir} : {i, dir:1};
+    applySort(t);
+  });
+}
 function renderAll(){
   if(!accountUnreachable()) clearUnreachablePanels();   // recovery must be total, and automatic
   /* renderScreener belongs here: renderAll is the repaint-everything entry point, and leaving the
@@ -5381,6 +5486,7 @@ function renderAll(){
      It writes only #watchlist, #screenerBody and #resStats, never the search box or its results,
      so repainting cannot disturb typing. */
   renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); renderScreener();
+  resortAll();          // the tables were just rebuilt - put the user's chosen sort back
 }
 
 function switchView(v){
@@ -5740,6 +5846,7 @@ async function init(){
     }).catch(()=>{});
   });
   wireGate();                                             // E6.8
+  wireSorting();                                          // delegated, so it survives every re-render
   // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
   // only sets `gated` (mouse), so keyboard focus could reach the app during dsLoadUniverse().
   if(!signedIn()){ appLocked=true; showGate(true); }

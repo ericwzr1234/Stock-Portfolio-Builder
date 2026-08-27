@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 81 |
+| Done | 83 |
 
 ---
 
@@ -149,7 +149,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - STATUS 2026-08-27, of the three items this ticket listed as outstanding: (2) custom SMTP is DONE and proven by a real non-team registration; (3) 'flip signup to invite-only' is WITHDRAWN - the owner's model is an unlisted URL where anyone holding it signs up normally, so open signup is the design, not a gap. That leaves (1) confirming the account-deletion cascade with a second account.
   - Round 6 (client surface) fixed a real stored XSS and added the security headers. E11.14 then fixed a cross-account landing the owner found in his own first end-to-end registration. THE GATE IS STILL THE OWNER'S TO DECLARE: the E11.14 fix is verified synthetically in prod but he has not re-run the real sequence that exposed it.
 
-## Done  (81)
+## Done  (83)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -182,13 +182,14 @@ _Integrated into the product (on main)._
 - **E1.12** — UI vocabulary: a theme is called a portfolio · [spec](features/E1.1_data-driven-themes.md)
 
 </details>
-<details><summary><b>E2 · User-Defined Metrics</b> — 5 done</summary>
+<details><summary><b>E2 · User-Defined Metrics</b> — 6 done</summary>
 
 - **E2.1** — Data-driven metric list (foundation) · [spec](features/E2.1_data-driven-metrics.md)
 - **E2.2** — Metric catalog + compute layer · [spec](features/E2.2_metric-catalog.md)
 - **E2.3** — Choose your metrics (picker UI) · [spec](features/E2.3_metric-picker.md)
 - **E2.4** — Per-metric direction & bad-data handling · [spec](features/E2.4_metric-direction-baddata.md)
 - **E2.5** — Metric presets / reset to default 6 · [spec](features/E2.5_presets-reset.md)
+- **E2.7** — Day P/L counted a whole day's move on shares bought minutes ago · [spec](features/E2_user-defined-metrics.md)
 
 </details>
 <details><summary><b>E3 · Statement-Driven Data</b> — 5 done</summary>
@@ -234,7 +235,7 @@ _Integrated into the product (on main)._
 - **APP2.11** — Touch pass · [spec](features/APP2_ios-v2-rebuild.md)
 
 </details>
-<details><summary><b>E5 · Web UI overhaul</b> — 7 done</summary>
+<details><summary><b>E5 · Web UI overhaul</b> — 8 done</summary>
 
 - **E5.0** — App shell — rail, context bar, theme tokens · [spec](features/E5_web-ui-overhaul.md)
 - **E5.1** — Overview tab (replaces Prices)
@@ -243,6 +244,7 @@ _Integrated into the product (on main)._
 - **E5.4** — Research tab (replaces Screener)
 - **E5.5** — History tab
 - **E5.6** — Equal-weight benchmark + return chart
+- **E5.8** — Every table sorts by its headers · [spec](features/E5_web-ui-overhaul.md)
 
 </details>
 <details><summary><b>E6 · Multi-user platform</b> — 7 done</summary>
