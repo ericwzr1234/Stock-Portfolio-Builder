@@ -22,6 +22,7 @@ instead of the desktop layout squeezed onto a phone. Spec:
 | `APP2.2b` | **In-tab paging.** Overview 2221px → 874px, exactly one screen. Split on *reading* seams so no action spans two pages. |
 | `APP2.2c` | Tour / theme switch / auto-refresh **moved into the Account sheet**. Header 310px → 92px. |
 | `APP2.11` | **Charts scrub by touch.** Previously mouse-only, so every checkpoint but the last was unreachable on a phone. |
+| `APP2.6` | **Overview: one segmented chart.** `Value / Return % / Return $` in a single card instead of V2's two, per §3. The other four §3 bullets were already built. Web provably untouched: still 3 cards, return chart still in card 2, `.ovseg` `display:none`, chart still 104px. |
 
 **Next: `APP2.3` — Supabase auth on device** (GoTrue over CapacitorHttp, gate fails closed, token
 refresh is *not* an identity change, idle timeout **15 min** on the phone per D7). Then `APP2.4`
@@ -34,6 +35,10 @@ idle timeout **15 min**; **free** signing until the production/testing stage.
 
 **Standing rule the owner set, after finding the bug on device:** *a user must never scroll the whole
 screen sideways. Only a data table may scroll horizontally, and only inside its own card or sheet.*
+
+`shots.js` now also measures **every segment of a segmented chart** (one measurement of a control
+that swaps content proves nothing about the states it hides) and takes an optional `WxH` sixth
+argument, so a change can be checked against the smallest phone as well as the largest.
 
 **Verify phone work with [`../tools/phone/`](../tools/phone/README.md) — and read that README first.**
 It gave me three false passes in one session: it ran signed **out** (the overflow only exists once

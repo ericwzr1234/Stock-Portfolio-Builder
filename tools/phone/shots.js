@@ -15,6 +15,7 @@ const BASE = process.argv[2] || "http://127.0.0.1:8768";
 const OUT  = process.argv[3] || ".";
 const TAG  = process.argv[4] || "shot";
 const THEME= process.argv[5] || "dark";
+const VP   = process.argv[6] || "402x874";
 
 /* the owner's real theme/ticker structure, with plausible prices so every number reads true */
 const THEMES = [
@@ -29,7 +30,8 @@ const VIEWS = (process.env.ONLY||"prices,fundamentals,calc,screener,history").sp
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({
-    viewport: { width: 402, height: 874 },   // iPhone 17 logical points
+    // The fleet is not one phone. Default iPhone 17; pass WxH to check the smallest still supported.
+    viewport: { width: +(VP.split("x")[0]) || 402, height: +(VP.split("x")[1]) || 874 },
     deviceScaleFactor: 2,
     isMobile: true, hasTouch: true,
     colorScheme: THEME === "dark" ? "dark" : "light",
@@ -149,11 +151,23 @@ const VIEWS = (process.env.ONLY||"prices,fundamentals,calc,screener,history").sp
       if (pages[i] !== null) { await page.evaluate(k => document.querySelector(".view.active > .pgbar")
           .querySelectorAll("button")[k].click(), i);
         await page.waitForTimeout(260); }
-      const m = await measure();                      // EVERY page, not just the first
-      const label = pages[i] === null ? v : `${v}:${pages[i]}`;
-      results.push({ page: label, ...m });
-      await page.screenshot({ path: path.join(OUT,
-        `${TAG}-${THEME}-${v}${pages[i] === null ? "" : (i + 1)}.png`) });
+      /* APP2.6: a page may carry a segmented chart, and each segment shows DIFFERENT content -
+         so one measurement of it proves nothing about the other two. Same lesson as pages:
+         measure the state the user is actually in, every state they can reach. */
+      const segs = await page.evaluate(() => {
+        const av = document.querySelector(".view.active");
+        const sg = av && av.querySelector(".ovseg");
+        if (!sg || !sg.offsetParent) return [null];     // absent, or on a page that is not showing
+        return [...sg.querySelectorAll("button[data-ovseg]")].map(b => b.dataset.ovseg); });
+      const base = pages[i] === null ? v : `${v}:${pages[i]}`;
+      for (const sg of segs) {
+        if (sg !== null) { await page.evaluate(k => ovSegSet(k), sg); await page.waitForTimeout(220); }
+        const m = await measure();                    // EVERY page, not just the first
+        results.push({ page: sg === null ? base : `${base}/${sg}`, ...m });
+        await page.screenshot({ path: path.join(OUT,
+          `${TAG}-${THEME}-${v}${pages[i] === null ? "" : (i + 1)}${sg === null ? "" : "-" + sg}.png`) });
+      }
+      if (segs[0] !== null) await page.evaluate(() => ovSegSet("value"));   // leave the tab as found
     }
   }
   console.log(JSON.stringify({ theme: THEME, results, errors: errors.slice(0, 8) }, null, 1));

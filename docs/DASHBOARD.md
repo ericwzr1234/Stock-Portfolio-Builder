@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 14 |
+| Design | 13 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 73 |
+| Done | 74 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (14)
+## Design  (13)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.4** · _E11 · Online, for invited users_ — **Custom SMTP, so anyone but the owner can sign up** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -69,12 +69,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - OWNER CAVEAT, answered: does calling Yahoo directly risk a lockout? The evidence says direct is the SAFER side. E11.0 existed to test the OTHER direction and recorded that Yahoo deployed TLS fingerprinting in Apr 2025 and a WORKER cannot control its TLS fingerprint - a datacenter IP with an uncontrollable fingerprint, versus a real iPhone on a residential/carrier IP presenting a stock iOS fingerprint. A proxy also CONCENTRATES all users onto a few shared Cloudflare IPs, so one throttle breaks everyone; a device distributes the load and looks like a person browsing Yahoo. Measured 2026-08-24 from a residential IP through server.py, the same call pattern the phone uses: 100 Yahoo calls in about 4 seconds (forced 25-name fundamentals x3 plus 25-name statements) returned 25/25 live every run with ZERO throttle signals. Y_CONCURRENCY is capped at 4, so the phone never bursts harder. V1 already ran this path on a physical iPhone with live data.
   - FALLBACK if Yahoo ever does lock out direct device calls: this is not a one-way bet. The Worker keeps existing for the web app and the ds* layer already branches, so pointing the phone at the deployed /api/* is a small localised change. APP2.14 must watch for throttling during on-device verification. Degradation is already graceful - the f4eb179 hardening rejects an error body as a crumb, forces a crumb refresh, and falls back to seed rather than crashing.
   - Scope: confirm nativeQuotes/nativeFundamentals/nativeStatements/nativeSearch still match field-for-field on device; keep EVERY CapacitorHttp param stringified (numbers cast-crash NSCFNumber to NSString - the V1 crash); keep search on the local ticker directory www/data/tickers.json, which is client-side and needs no proxy on either platform; and confirm quoteType still arrives so the ETF never-a-theme-member guard holds.
-- **APP2.6** · _APP · iOS app_ — **Overview view** _(depends APP2.2, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
-  - Hero value, today move, all-time gain vs invested.
-  - Value chart across every checkpoint from each version RECORDED valueAfter (never re-derived), with the Invested reference and the dashed equal-weight counterfactual. valueHistory() must respect the version HEAD: restoreVersion moves head but never truncates versions, so plotting the whole array charts undone checkpoints.
-  - V2 two chart cards (value, and the $ / % return chart) collapse into ONE segmented chart - Value / Return % / Return $ - which keeps every feature and suits a phone. Legend and the honest note line are kept.
-  - Allocation donut with a per-theme legend showing current %, target and drift pp. NEVER renormalise to the themed subtotal: value held outside a theme is an explicit Exiting / unthemed segment.
-  - Four stat tiles, then holdings-by-theme collapsed by default, each showing % of book / Market value / Cost basis / Profit / loss / Return SPELLED OUT (the owner rejected abbreviations), expanding to per-ticker price, day change and value.
 - **APP2.7** · _APP · iOS app_ — **Model view** _(depends APP2.2, ios)_ · [spec](features/APP2_ios-v2-rebuild.md)
   - Drift table (theme / target / current / drift pp) and the stacked allocation bar with its cap annotations.
   - The model: 1 metrics and weights, 2 exception handling per metric (penalize / carry-over / ignore plus penalty value), 3 maximum weight per theme. Compute-from-statements toggle (default on), Compare sources, and the coverage note. Presets: save / load / delete / reset-to-default-6.
@@ -144,7 +138,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (73)
+## Done  (74)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -213,13 +207,14 @@ _Integrated into the product (on main)._
 - **E10.2** — Undo must not silently discard theme/membership/watchlist edits · [spec](features/E10_history-retention.md)
 
 </details>
-<details><summary><b>APP · iOS app</b> — 6 done</summary>
+<details><summary><b>APP · iOS app</b> — 7 done</summary>
 
 - **APP1** — Bring the iOS app to parity with web (E1–E4.5) · [spec](APP_MIGRATION.md)
 - **APP2.1** — Strip the dead V1 native skin · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2** — Native shell: tab bar, context bar, tokens, sheets · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2b** — In-tab paging for the long tabs · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.2c** — Header chrome moves into the Account sheet · [spec](features/APP2_ios-v2-rebuild.md)
+- **APP2.6** — Overview view · [spec](features/APP2_ios-v2-rebuild.md)
 - **APP2.11** — Touch pass · [spec](features/APP2_ios-v2-rebuild.md)
 
 </details>

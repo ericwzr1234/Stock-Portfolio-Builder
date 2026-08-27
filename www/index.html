@@ -644,6 +644,29 @@
   /* ===== E5.6 return chart ===== */
   .ov-chart-sm{height:96px}
   @media(min-width:1500px){ .ov-chart-sm{height:120px} }
+  /* APP2.6 - the segmented chart. Phone only: hidden outright on web, which keeps its two cards. */
+  .ovseg{display:none}
+  .native .ovseg{display:flex;gap:2px;background:var(--chip);border-radius:999px;padding:3px}
+  .native .ovseg button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:13px;
+    font-weight:600;padding:0 10px;min-height:44px;border-radius:999px;cursor:pointer}   /* 44pt tap target */
+  .native .ovseg button.on{background:var(--paper);color:var(--ink)}
+  /* Stack the head so DOM order is reading order: hero, then the switch, then the chart's own legend. */
+  .native .ov-left>.card>.ov-head{flex-direction:column;align-items:stretch;gap:8px}
+  /* ovSegMount moves the return chart INTO card 1, so the segments and the chart they control sit in
+     one card, as the spec asks. Card 2 is then empty; it keeps its slot rather than being removed,
+     because the paging manifest selects Allocation as .card:nth-of-type(3). */
+  .native .ov-left>.card:nth-of-type(2){display:none}
+  /* One chart on the page now, so it gets the room. Sized by viewport HEIGHT, not vh: WKWebView's vh
+     is the large viewport and ignores the fixed tab bar, so vh would overflow the very screen it fits. */
+  .native .ov-chart,.native .ov-chart-sm{height:220px}
+  @media (min-height:800px){ .native .ov-chart,.native .ov-chart-sm{height:380px} }
+  /* Which series is showing. The classes sit on <html>, beside .native. */
+  .native.ovseg-value #ovRetHead,
+  .native.ovseg-value #ovRetChart,
+  .native.ovseg-value #ovRetLegend{display:none}
+  .native.ovseg-ret #ovChart,
+  .native.ovseg-ret #ovChartNote,
+  .native.ovseg-ret #ovChartLegend{display:none}
   .retsw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);flex:none}
   .retsw button{border:0;background:none;padding:3px 11px;font-size:12px;color:var(--muted);cursor:pointer;
     font-family:inherit;font-variant-numeric:tabular-nums;transition:background-color .15s ease,color .15s ease}
@@ -797,6 +820,14 @@
               <div class="ov-k">Portfolio value</div>
               <div class="ov-big num" id="ovValue">—</div>
               <div id="ovSub" class="small muted">—</div>
+            </div>
+            <!-- APP2.6 - phone only. The spec puts Value / Return % / Return $ behind one segmented
+                 chart "rather than V2's two cards": on a phone two stacked charts means scrolling
+                 past one to reach the other. The web keeps both cards; this is display:none there. -->
+            <div class="ovseg" role="tablist" aria-label="Chart series">
+              <button type="button" role="tab" data-ovseg="value" class="on" aria-selected="true">Value</button>
+              <button type="button" role="tab" data-ovseg="pct" aria-selected="false">Return %</button>
+              <button type="button" role="tab" data-ovseg="dol" aria-selected="false">Return $</button>
             </div>
             <div class="ov-legend" id="ovChartLegend"></div>
           </div>
@@ -2845,6 +2876,36 @@ function valueHistory(){
       ew: (Object.keys(ewShares).length&&ewPriced)?ewNow:null, live:true });
   }
   return out;
+}
+/* APP2.6 - one chart, three series, on the phone. Purely a visibility switch over the two charts
+   that already exist: rendering is untouched, so every feature of both - the invested reference,
+   the dashed equal-weight counterfactual, touch scrubbing from APP2.11 - is kept rather than
+   reimplemented. The web is unaffected; .ovseg is display:none there. */
+let _ovSeg='value';
+function ovSegMount(){
+  /* Move the return chart's three nodes into card 1, once, before the first paint. CSS alone cannot
+     do this: two sibling cards are two boxes, and stripping one's border only made the chart appear
+     to escape its card. Card 2 itself stays put - .card:nth-of-type(3) must still be Allocation. */
+  const c1=document.querySelector('.ov-left>.card:nth-of-type(1)');
+  if(!c1) return;
+  ['ovRetHead','ovRetChart','ovRetLegend'].forEach(id=>{ const e=$('#'+id); if(e) c1.appendChild(e); });
+}
+function ovSegApply(){
+  if(typeof NATIVE==='undefined' || !NATIVE) return;
+  const root=document.documentElement;
+  root.classList.toggle('ovseg-value', _ovSeg==='value');
+  root.classList.toggle('ovseg-ret',   _ovSeg!=='value');
+  $$('.ovseg button[data-ovseg]').forEach(b=>{
+    const on=b.dataset.ovseg===_ovSeg;
+    b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on));
+  });
+}
+function ovSegSet(v){
+  if(v!=='value'&&v!=='pct'&&v!=='dol') return;
+  _ovSeg=v; ovSegApply();
+  /* setReturnUnit redraws the return chart AND keeps the hidden %/$ switch in step, so the two
+     controls can never disagree about which unit is showing. */
+  if(v!=='value') setReturnUnit(v==='dol'?'dol':'pct');
 }
 function setReturnUnit(u){
   RET_UNIT=(u==="dol")?"dol":"pct";
@@ -5330,6 +5391,7 @@ function setupEvents(){
   if($("#tourBtn")) $("#tourBtn").addEventListener("click",()=>coachStart(curView,true));   // replay, any time
   if($("#retPct")) $("#retPct").addEventListener("click",()=>setReturnUnit("pct"));
   if($("#retDol")) $("#retDol").addEventListener("click",()=>setReturnUnit("dol"));
+  $$('.ovseg button[data-ovseg]').forEach(b=>b.addEventListener("click",()=>ovSegSet(b.dataset.ovseg)));  // APP2.6
   if($("#tLight")) $("#tLight").addEventListener("click",()=>setTheme("light",true));
   if($("#tDark"))  $("#tDark").addEventListener("click",()=>setTheme("dark",true));
   document.addEventListener("keydown",e=>{
@@ -5435,6 +5497,7 @@ function setupEvents(){
 
 async function init(){
   if(NATIVE){ try{ document.documentElement.classList.add('native'); }catch(e){} try{ state.serverUrl=localStorage.getItem(SRV_KEY)||""; }catch(e){} }
+  if(NATIVE){ ovSegMount(); ovSegApply(); }               // APP2.6: one chart card, series chosen, before first paint
   initTheme();                                            // E5.0: before first paint, so there's no flash
   purgeLegacyLocalCopies();                               // E9: remove any portfolio copies an earlier version left here
   sbLoadSession();                                        // E6.4: restore a signed-in session before any load
@@ -5491,7 +5554,7 @@ async function init(){
    ====================================================================== */
 const PG_MANIFEST = {
   prices:[
-    ["Value",      [".ov-left > .card:nth-of-type(1)", ".ov-left > .card:nth-of-type(2)"]],
+    ["Value",      [".ov-left > .card:nth-of-type(1)"]],   // APP2.6 emptied card 2 into card 1
     ["Allocation", [".ov-left > .card:nth-of-type(3)", "#priceBand"]],
     ["Holdings",   [".ov-right"]]],
   fundamentals:[

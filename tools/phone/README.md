@@ -9,10 +9,12 @@ as the engine tests do, drop the gate with the app's own `showGate(false)`, and 
 ```bash
 PB_DB=portfolio.test.json PB_PORT=8768 PB_NO_BROWSER=1 python3 server.py &
 NODE_PATH=$PWD/node_modules node tools/phone/shots.js http://127.0.0.1:8768 /tmp/shots run dark
+NODE_PATH=$PWD/node_modules node tools/phone/shots.js http://127.0.0.1:8768 /tmp/shots se dark 375x667
 NODE_PATH=$PWD/node_modules node tools/phone/scrub-test.js      # touch-scrub functional check
 ```
 
-`shots.js` screenshots **every page of every tab** at 402x874 and reports, per page:
+`shots.js` screenshots **every page of every tab, in every segment of a segmented chart** at
+402x874 (or the `WxH` given as the sixth argument) and reports, per page:
 `tooWide` (elements wider than the screen), `canPan`, `scrollH`, and `tiny` (zoom-risk fields).
 
 ## Three ways this harness lied to me on 2026-08-24, all now fixed
@@ -32,6 +34,12 @@ found on the device:
 
 **It is mutation-tested.** With the `.ctrls` fix stashed, it flags `div.ctrls w=467` on 11 of 11
 pages. A gate that cannot fail is worth nothing — the same lesson `check_syntax.py` taught.
+
+**A fourth way it could have passed falsely (APP2.6):** a page whose height is exactly the viewport
+reads as a clean "fits one screen" whether the chart is drawn or missing entirely, and a segmented
+control that swaps content was measured in only one of its three states. Geometry is necessary and
+not sufficient — **look at the screenshots**. `shots.js` now walks every segment; it still cannot
+tell you the chart is drawn, so the eye is still part of the gate.
 
 ## Fidelity limits, so you know what it does NOT prove
 

@@ -512,7 +512,7 @@
       "FALLBACK if Yahoo ever does lock out direct device calls: this is not a one-way bet. The Worker keeps existing for the web app and the ds* layer already branches, so pointing the phone at the deployed /api/* is a small localised change. APP2.14 must watch for throttling during on-device verification. Degradation is already graceful - the f4eb179 hardening rejects an error body as a crumb, forces a crumb refresh, and falls back to seed rather than crashing.",
       "Scope: confirm nativeQuotes/nativeFundamentals/nativeStatements/nativeSearch still match field-for-field on device; keep EVERY CapacitorHttp param stringified (numbers cast-crash NSCFNumber to NSString - the V1 crash); keep search on the local ticker directory www/data/tickers.json, which is client-side and needs no proxy on either platform; and confirm quoteType still arrives so the ETF never-a-theme-member guard holds." ] },
 
-    { "id": "APP2.6", "epic": "APP", "stage": "design", "platform": "ios", "depends": "APP2.2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
+    { "id": "APP2.6", "epic": "APP", "stage": "done", "platform": "ios", "depends": "APP2.2", "spec": "docs/features/APP2_ios-v2-rebuild.md",
       "title": "Overview view", "notes": [
       "Hero value, today move, all-time gain vs invested.",
       "Value chart across every checkpoint from each version RECORDED valueAfter (never re-derived), with the Invested reference and the dashed equal-weight counterfactual. valueHistory() must respect the version HEAD: restoreVersion moves head but never truncates versions, so plotting the whole array charts undone checkpoints.",

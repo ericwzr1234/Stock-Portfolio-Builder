@@ -154,6 +154,13 @@ the page body never scrolls sideways.
 
 Each is sized to be started, tested and merged inside one session, per the 4-hour working agreement.
 
+**What APP2.6 cost, and why:** the first attempt built the segmented chart in CSS alone — leaving both
+cards in place and stripping card 2's border so the pair would *read* as one. It did not: two sibling
+cards are two boxes, and the chart visibly escaped the card it was supposed to be inside. **CSS can
+restyle a structure; it cannot merge one.** The fix moves the return chart's three nodes into card 1
+at boot. Card 2 itself stays in the DOM, emptied and hidden, because the paging manifest selects
+Allocation as `.card:nth-of-type(3)` — removing the card would silently renumber it.
+
 | Ticket | Scope | Depends |
 |---|---|---|
 | **APP2.1** | ✅ done — Strip the dead V1 native skin — delete all 91 `.native` rules and the V1-only native chrome; tokenise header/tab bar so dark mode is correct. Baseline for everything after. | — |
@@ -161,7 +168,7 @@ Each is sized to be started, tested and merged inside one session, per the 4-hou
 | **APP2.3** | Account on device: Supabase GoTrue over CapacitorHttp, login gate that fails closed, session persistence and token refresh (**a token refresh is not an identity change**), idle timeout at **15 minutes** on the phone. | 2.2 |
 | **APP2.4** | Storage: cloud adapter only on native; retire `STORAGE_ADAPTERS.native` and LAN sync; honour C1–C5; unreachable account reported, never cached. | 2.3 |
 | **APP2.5** | Verify the on-device Yahoo client still mirrors the Worker field-for-field (D6 keeps it); keep every CapacitorHttp param stringified; keep the local ticker directory for search. | 2.2 |
-| **APP2.6** | Overview view. | 2.2 |
+| **APP2.6** | ✅ done — Overview view. Four of the five §3 bullets were already in place (hero, scrubbable value chart with the dashed equal-weight counterfactual, donut + drift legend, spelled-out holdings stats). The missing one was the **segmented chart**: `Value / Return % / Return $` in one card instead of V2's two. | 2.2 |
 | **APP2.7** | Model view, incl. per-theme metric tables with a frozen ticker column, inline overrides, and the metric-picker sheet. | 2.2 |
 | **APP2.8** | Rebalance view, incl. first-run build and the docked Apply & save. | 2.2 |
 | **APP2.9** | Research view: local search, watchlist table, add/swap flow. | 2.2, 2.5 |
