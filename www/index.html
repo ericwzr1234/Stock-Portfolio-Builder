@@ -121,7 +121,6 @@
   .navlink .ic{width:17px;height:17px;flex:none}
   .navlink .kbd{margin-left:auto;font-size:10px;color:var(--muted);
     font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
-  .railfoot{padding:12px 10px 0;margin-top:10px;border-top:1px solid var(--line2);font-size:11.5px;color:var(--muted)}
   nav.tabs{display:none}                       /* the rail replaces it on web */
 
   /* context bar: portfolio numbers stay on screen on EVERY view */
@@ -208,7 +207,6 @@
        Trim what a phone does not need: the tagline (the wordmark beside it already says what the
        app is) and the last-updated clock (the Refresh button next to it is the actionable part).
        Nothing is removed, only hidden below 900px, and the desktop header is untouched. */
-    .brand .sub{display:none}
     #updated{display:none}
     .top-in{padding-top:10px;padding-bottom:6px}
     /* iOS Safari zooms the page when a focused field is under 16px, throwing the layout off on
@@ -778,7 +776,7 @@
 <aside class="rail" id="rail">
   <div class="rbrand">
     <span class="rmark">◧</span>
-    <span><b>Portfolio Builder</b><span>themed allocator</span></span>
+    <span><b>Portfolio Builder</b></span>
   </div>
   <button class="navlink active" data-view="prices">
     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 9h8V3h-8z"/></svg>
@@ -795,14 +793,12 @@
   <button class="navlink" data-view="history">
     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
     History <span class="kbd">5</span></button>
-  <div class="railfoot" id="railFoot">—</div>
 </aside>
 <div class="appmain">
 <header class="top">
   <div class="top-in">
     <div class="brand">
       <span class="mark">◧ Portfolio Builder</span>
-      <span class="sub">themed PEG / EV·EBITDA allocator</span>
     </div>
     <div class="status"><span id="mktDot" class="dot"></span><span id="mktLabel">—</span></div>
     <!-- E5.0: portfolio context — visible on every view, not just Overview -->
@@ -1746,6 +1742,47 @@ let sbSession=null;                                   // {access_token, refresh_
    cause was a malformed session, the user was blamed on the network, and Try again could never
    work. Validating at the boundary is the fix; classifying the throw better is not. */
 function sbValidSession(d){ return !!(d && d.access_token && d.refresh_token && d.user && d.user.id); }
+/* USER-FOUND 2026-08-27. Supabase puts the new session in the URL FRAGMENT of a confirmation,
+   magic-link or recovery link: #access_token=...&refresh_token=...&type=signup. NOTHING here read
+   it. So clicking your own verification link never signed you in - it just opened the app, which
+   restored whatever session happened to be cached in that browser. A brand-new user confirming
+   their account on a browser where somebody else had been signed in landed in THAT person's
+   portfolio. Both halves of the owner's report meet here.
+
+   Order matters: strip the fragment first so the tokens cannot be replayed from history, then end
+   whatever session is already here - the person who clicked this link is by definition not the
+   person who was signed in - and only then adopt the link's own session. */
+/* Set by sbConsumeAuthLink, shown by init once the gate is up. Setting it inline does not work:
+   the gate is rendered again later in boot and that render clears the message area, so an accurate
+   reason like "Email link is invalid or has expired" was being wiped before anyone saw it. The
+   owner's standing rule is that an error must say what actually went wrong. */
+let _authLinkError=null;
+async function sbConsumeAuthLink(){
+  let raw=""; try{ raw=(location.hash||"").replace(/^#/,""); }catch(e){}
+  if(!raw) return false;
+  const q=new URLSearchParams(raw);
+  const err=q.get("error_description")||q.get("error");
+  const tok=q.get("access_token"), ref=q.get("refresh_token");
+  if(!err && !tok) return false;                       // an ordinary fragment, not an auth callback
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  try{ sbSignOut(); }catch(e){}                        // never inherit the previous account
+  if(err){ appLocked=true; _authLinkError=err; showGate(true); return true; }
+  /* The fragment carries tokens but no user, and sbValidSession requires a user id - so ask who
+     this token belongs to. Failing closed here is the point: an unverifiable link must land on
+     the gate, never on somebody's portfolio. */
+  let user=null;
+  try{
+    const r=await fetch(SB_URL+"/auth/v1/user",{ headers:{ "apikey":SB_KEY, "Authorization":"Bearer "+tok } });
+    if(r.ok){ const u=await r.json(); if(u&&u.id) user=u; }
+  }catch(e){}
+  if(!user || !ref){
+    appLocked=true; _authLinkError="That link could not be verified. Please sign in.";
+    showGate(true); return true;
+  }
+  sbStoreSession({ access_token:tok, refresh_token:ref, user });
+  appLocked=false;
+  return true;
+}
 function sbLoadSession(){
   let d=null;
   try{ const raw=localStorage.getItem(SB_SESSION_KEY); d=raw?JSON.parse(raw):null; }catch(e){ d=null; }
@@ -1886,6 +1923,15 @@ let booting=true;
    account's portfolio over the shared server file, or over the device's only local book. */
 function lockOut(msg){
   appLocked=true;
+  /* USER-FOUND 2026-08-27. Every DELIBERATE exit - the Sign out button, Delete account - called
+     sbSignOut() before lockOut(). The IDLE TIMEOUT called lockOut() alone, so the one path whose
+     entire purpose is security left the token sitting in localStorage: the gate went up, the
+     message said "Signed out after 5 minutes of inactivity", and the very next page load restored
+     that session and walked straight back in. A lock that depends on each caller remembering to
+     sign out separately is not a lock, so the session now ends HERE. sbSignOut's local teardown is
+     synchronous and its remote revoke is fire-and-forget, so this does not delay the gate; calling
+     it twice is harmless because the second call finds no token. */
+  try{ sbSignOut(); }catch(e){}
   /* E6 FIX - a modal open at lock-out used to SURVIVE behind the gate (z-index 400 vs 80) with
      live handlers closing over the previous account's data, and be revealed again by the next
      showGate(false). The import modal's "Start fresh" would then overwrite the NEXT user's row.
@@ -5326,10 +5372,8 @@ function renderContext(){
   if(accountUnreachable()){
     const why=state.syncFailure||describeCloudFailure(null);
     box.innerHTML='<span class="small pen-ink">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
-    if($("#railFoot")) $("#railFoot").textContent="not connected";
     return; }
   if(!isInit()){ box.innerHTML='<span class="small muted">No portfolio yet — '+firstStepHint()+'.'+'</span>';
-    if($("#railFoot")) $("#railFoot").textContent=themes().length+" themes";
     return; }
   const total=curTotal();                                  // reuse the app's own value helpers
   const invested=(state.portfolio&&isNum(state.portfolio.totalContributed))?state.portfolio.totalContributed:0;
@@ -5352,8 +5396,6 @@ function renderContext(){
     kpi("Invested",money(invested))+
     kpi("Gain",`<span class="${pl>=0?'up':'down'}">${sgn(pl)} · ${pl>=0?'+':'−'}${Math.abs(plPct).toFixed(1)}%</span>`)+
     (drift!=null?kpi("Max drift",drift.toFixed(1)+"pp"):"");
-  if($("#railFoot")) $("#railFoot").innerHTML=
-    Object.keys(h).length+" holdings · "+themes().length+" themes";
 }
 function kpi(k,v){ return `<span class="kpi"><span class="k">${k}</span><span class="v num">${v}</span></span>`; }
 /* E6 FIX - a failed cloud save used to be a toast that vanished. The state has to stay visible,
@@ -5588,11 +5630,27 @@ async function init(){
   if(NATIVE){ ovSegMount(); ovSegApply(); }               // APP2.6: one chart card, series chosen, before first paint
   initTheme();                                            // E5.0: before first paint, so there's no flash
   purgeLegacyLocalCopies();                               // E9: remove any portfolio copies an earlier version left here
-  sbLoadSession();                                        // E6.4: restore a signed-in session before any load
+  /* A link's session WINS over the cached one, and suppresses it entirely - see sbConsumeAuthLink. */
+  if(!await sbConsumeAuthLink()) sbLoadSession();          // E6.4: restore a signed-in session before any load
+  /* Pasting the link into a tab that is ALREADY on this page changes only the fragment, which is a
+     same-document navigation - init() does not run again. Clicking the link from an email is a full
+     load and does, but the paste case is plausible during a demo, so catch it too. Adoption strips
+     the fragment, so the reload cannot re-enter this. */
+  window.addEventListener("hashchange",()=>{
+    sbConsumeAuthLink().then(ok=>{
+      if(!ok) return;
+      /* Only reload when a session was actually ADOPTED - a reload is how the app boots cleanly as
+         that user. Reloading on the failure path would throw away the reason we just worked out
+         and leave a bare gate with no explanation. */
+      if(_authLinkError){ try{ gateMsg("err",_authLinkError); }catch(e){} _authLinkError=null; return; }
+      location.reload();
+    }).catch(()=>{});
+  });
   wireGate();                                             // E6.8
   // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
   // only sets `gated` (mouse), so keyboard focus could reach the app during dsLoadUniverse().
   if(!signedIn()){ appLocked=true; showGate(true); }
+  if(_authLinkError){ try{ gateMsg("err",_authLinkError); }catch(e){} _authLinkError=null; }
   setupEvents();
   try{ state.universe = await dsLoadUniverse(); }catch(e){ console.error("universe load failed", e); }
   // E6.8: no session -> stop here and show the landing page. A stored session continues, even if
