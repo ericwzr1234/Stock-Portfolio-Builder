@@ -5056,12 +5056,17 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
   const _saved=await savePortfolio();
   if(!_saved) doneMsg += " (NOT saved - see the sync badge)";
   if(isInit()){
-    switchView("calc"); renderCalc(); renderContext();   // membership changed: refresh Max drift + rail footer
+    /* USER-FOUND 2026-08-27: adding a name to a portfolio threw you out of the tab you were adding
+       it on. The refresh was implemented AS a navigation - switchView("calc") - and then scrolled
+       you to the plan and told you to review it, three separate yanks in the middle of an edit you
+       had not finished. Keeping Rebalance CURRENT is the real goal and needs no navigation:
+       renderAll() repaints every view including the hidden ones, so the plan is ready and correct
+       whenever the user chooses to go and look at it. */
+    renderAll();
     const plan=planTrades(0,"full"); lastPlan=plan;
     if($("#addCash")) $("#addCash").value="0";
     renderRebalanceOutput(plan);
-    const rebOut=$("#rebOut"); if(rebOut) rebOut.scrollIntoView({behavior:"smooth",block:"nearest"});
-    toast(doneMsg+" · review the plan, then Apply");
+    toast(doneMsg+" · Rebalance updated");
   } else { renderAll(); toast(doneMsg+" · will apply on your next Build"); }
 }
 
