@@ -80,3 +80,44 @@ test("a populated account still draws its charts — the collapse must not overr
   expect(r.donutDrawn).toBe(true);            // themes exist, so the ring has something to show
   expect(r.donutCollapsed).toBe(false);
 });
+
+/* The Danger zone offers to clear "every holding and the whole checkpoint timeline". On a
+   brand-new account that is both the most alarming thing on the screen and a no-op — there is
+   nothing to clear. It should appear once there is something to lose, and not before.
+   isInit() reads state.portfolio.holdings, NOT state.holdings — a fixture that sets the latter
+   looks populated and is not, which is how I nearly recorded a false pass here. */
+async function withDoc(page, portfolio) {
+  await page.goto("/");
+  await page.waitForFunction(() => typeof window.renderAll === "function");
+  return page.evaluate((doc) => {
+    localStorage.setItem(SB_SESSION_KEY, JSON.stringify(
+      { access_token: "T", refresh_token: "r", user: { id: "u1", email: "x@y.z" } }));
+    sbLoadSession(); appLocked = false; showGate(false);
+    state.portfolio = doc;
+    renderAll(); switchView("history");
+    return { danger: !!document.getElementById("dangerZone").offsetParent,
+             isInit: isInit(), versions: versions().length,
+             histChartH: Math.round(document.getElementById("histChart").getBoundingClientRect().height) };
+  }, portfolio);
+}
+
+test("a brand-new account is not offered a reset that would do nothing", async ({ page }) => {
+  const r = await withDoc(page, { holdings: {}, versions: [], head: -1 });
+  expect(r.isInit).toBe(false);
+  expect(r.danger).toBe(false);
+  expect(r.histChartH).toBe(0);          // and the empty chart does not reserve height
+});
+
+test("the reset appears as soon as there are holdings to clear", async ({ page }) => {
+  const r = await withDoc(page, { holdings: { AAA: { shares: 100 } }, versions: [], head: -1 });
+  expect(r.isInit).toBe(true);
+  expect(r.danger).toBe(true);
+});
+
+test("with a checkpoint, the reset shows and the history chart draws", async ({ page }) => {
+  const r = await withDoc(page, { holdings: { AAA: { shares: 100 } }, head: 0,
+    versions: [{ id: 1, at: "2026-01-02T00:00:00Z", label: "build", valueAfter: 1200,
+                 holdings: { AAA: { shares: 100 } } }] });
+  expect(r.danger).toBe(true);
+  expect(r.histChartH).toBeGreaterThan(0);
+});

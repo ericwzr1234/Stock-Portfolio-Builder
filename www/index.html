@@ -693,7 +693,7 @@
      on roughly 900px of blank cards. Collapse the drawing area when there is nothing to draw; the
      card keeps its heading and its one line of guidance. !important because .native .ov-chart sets
      a taller height at equal specificity, and this must win regardless of source order. */
-  .ov-chart.is-empty{height:0!important;margin:0!important}
+  .ov-chart.is-empty,.hist-chart.is-empty{height:0!important;margin:0!important}
   .ov-donutwrap.is-empty{height:0!important;margin:0!important;overflow:hidden}
   .retsw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);flex:none}
   .retsw button{border:0;background:none;padding:3px 11px;font-size:12px;color:var(--muted);cursor:pointer;
@@ -977,7 +977,7 @@
           <div id="histChartNote" class="xs muted"></div>
         </div>
         <div id="histControls"></div>
-        <div class="card pad">
+        <div class="card pad" id="dangerZone">
           <div class="ov-k" style="margin-bottom:6px">Danger zone</div>
           <p class="xs muted" style="margin:0 0 9px">Clears every holding and the whole checkpoint
             timeline. Your metric model, weights and overrides are kept. This cannot be undone.</p>
@@ -4468,11 +4468,18 @@ function toggleVersion(id){
 function renderHistChart(){
   const svg=$("#histChart"), note=$("#histChartNote"); if(!svg) return;
   const vs=versions(), h=head();
-  if(vs.length<1){ svg.innerHTML=""; if(note)note.textContent=""; return; }
+  /* E7.4 - "Clears every holding and the whole checkpoint timeline" is the most alarming thing on
+     the screen, and on a brand-new account it is also a no-op: there is no holding and no
+     checkpoint to clear. Show it once there is something to lose. */
+  const dz=$("#dangerZone");
+  if(dz) dz.style.display=(vs.length||isInit())?"":"none";
+  if(vs.length<1){ svg.innerHTML=""; svg.classList.add("is-empty"); if(note)note.textContent=""; return; }
   const W=Math.max(240,Math.round(svg.clientWidth||300)), H=150, PB=20, PT=8;
   svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
   const vals=vs.map(v=>isNum(v.valueAfter)?v.valueAfter:null).filter(isNum);
-  if(!vals.length){ svg.innerHTML=""; if(note)note.textContent="No recorded values yet."; return; }
+  if(!vals.length){ svg.innerHTML=""; svg.classList.add("is-empty");
+    if(note)note.textContent="No recorded values yet."; return; }
+  svg.classList.remove("is-empty");
   let lo=Math.min(...vals), hi=Math.max(...vals);
   if(hi<=lo){ lo=lo*0.98; hi=hi*1.02+1; }
   const bw=Math.max(6,Math.min(46,(W-8)/vs.length-6));
