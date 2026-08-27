@@ -64,6 +64,10 @@ reference — it is a mock with no engine, not a code source.
   `www/_headers` (CSP, `X-Frame-Options`, HSTS — the app was framable and had no CSP at all).
   RLS re-verified live: anonymous reads and the delete RPC are both denied at the GRANT level.
   **The invite gate stays CLOSED** — see the ticket for what is still open.
+- **`E7.4`** — the **empty board an invited user lands on** told them two different first steps at
+  once: the context bar said *Model*, the Overview hero said *Rebalance* (a dead end with no
+  themes). Both now call one `firstStepHint()`. Empty charts also collapse instead of reserving
+  full height — desktop Overview 1100px → 383px.
 - **Mobile web** — the demo path (the web app in a phone *browser*, where `NATIVE` is false and
   none of the APP2 shell applies) had two defects on the **first screen anyone sees**: the tab strip
   still carried pre-E5 labels, so 419px of text in a 390px viewport pushed *History* off screen and

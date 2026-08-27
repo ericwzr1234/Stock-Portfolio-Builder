@@ -689,6 +689,12 @@
   .native.ovseg-ret #ovChart,
   .native.ovseg-ret #ovChartNote,
   .native.ovseg-ret #ovChartLegend{display:none}
+  /* E6.7 first run - an empty chart still reserved its full height, so a brand-new account opened
+     on roughly 900px of blank cards. Collapse the drawing area when there is nothing to draw; the
+     card keeps its heading and its one line of guidance. !important because .native .ov-chart sets
+     a taller height at equal specificity, and this must win regardless of source order. */
+  .ov-chart.is-empty{height:0!important;margin:0!important}
+  .ov-donutwrap.is-empty{height:0!important;margin:0!important;overflow:hidden}
   .retsw{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);flex:none}
   .retsw button{border:0;background:none;padding:3px 11px;font-size:12px;color:var(--muted);cursor:pointer;
     font-family:inherit;font-variant-numeric:tabular-nums;transition:background-color .15s ease,color .15s ease}
@@ -1169,6 +1175,14 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
    literals, so a quote inside a character class reads to it as an unclosed string and the gate
    fails on correct code. A split/join chain needs none. & goes FIRST - otherwise the ampersands
    introduced by the later replacements would themselves be escaped. */
+/* E6.7 - ONE answer to "what do I do first?". The context bar and the Overview hero both answer
+   it and they DISAGREED: the hero said Rebalance unconditionally, while the context bar correctly
+   said Model until a theme exists. A brand-new account was told two different first steps on the
+   same screen. Both now call this. */
+function firstStepHint(){
+  return themes().length ? "size it on <b>Rebalance</b>"
+                         : "create your first theme on <b>Model</b>";
+}
 function esc(v){
   return String(v==null?"":v)
     .split("&").join("&amp;")
@@ -3470,7 +3484,7 @@ function renderOverview(){
   const heroDefault=()=>setHero(init?money(total,0):"—",
     init?`<span class="${dayPL>=0?'up':'down'}">${sgn(dayPL)} today</span> · `+
          `<span class="${gain>=0?'up':'down'}">${sgn(gain)} (${inv>0?signed(gain/inv*100,1):"0.0"}%) all time</span>`
-        :`Build a portfolio on the <b>Rebalance</b> tab to start tracking value.`);
+        :`Nothing tracked yet — `+firstStepHint()+`.`);
   heroDefault();
 
   // ---- value chart ----
@@ -3478,10 +3492,16 @@ function renderOverview(){
   const legend=$("#ovChartLegend"), note=$("#ovChartNote");
   if(H.length<2){
     svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);   // else stale handlers keep reporting the OLD portfolio's dollars
+    svg.classList.add("is-empty");
     if(legend)legend.innerHTML="";
     if(note)note.textContent=init?"One checkpoint so far — the curve appears once you have a second.":"";
+    /* Render the return chart HERE too. This early return used to skip it entirely, so on a
+       brand-new account it kept its full CSS height with nothing drawn in it - a tall empty card
+       on the first screen anyone sees. Its own empty branch collapses it. */
+    try{ renderReturnChart(H); }catch(e){ console.error("return chart",e); }
     renderOverviewDonut(); return;
   }
+  svg.classList.remove("is-empty");
   // viewBox must match the CSS box's aspect, or the default preserveAspectRatio letterboxes the
   // drawing (it rendered in the middle ~61% of the card) AND the scrub maths goes out of register.
   const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=Math.max(80,Math.round(svg.clientHeight||170)),
@@ -3579,7 +3599,9 @@ function renderReturnChart(H){
   const val=(p,k)=>{ const v=p[k]; if(!isNum(v)) return null;
     return RET_UNIT==="pct" ? (v-p.invested)/p.invested*100 : (v-p.invested); };
   if(pts.length<2){ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);
+    svg.classList.add("is-empty");
     if(leg)leg.innerHTML=""; if(head)head.textContent="Needs at least two checkpoints."; return; }
+  svg.classList.remove("is-empty");
   const W=Math.max(240,Math.round(svg.clientWidth||520)), Ht=Math.max(70,Math.round(svg.clientHeight||96));
   const PB=Math.max(8,Math.round(Ht*0.12)), PT=Math.max(5,Math.round(Ht*0.08));
   svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
@@ -3632,7 +3654,11 @@ function renderReturnChart(H){
 function renderOverviewDonut(){
   const svg=$("#ovDonut"), leg=$("#ovDonutLegend"); if(!svg||!leg) return;
   let A=null; try{ A=computeAllocation(); }catch(e){}
-  if(!A||!A.rows||!A.rows.length){ svg.innerHTML=""; leg.innerHTML='<span class="small muted">No themes yet.</span>'; return; }
+  const wrap=svg.parentElement;
+  if(!A||!A.rows||!A.rows.length){ svg.innerHTML="";
+    if(wrap)wrap.classList.add("is-empty");
+    leg.innerHTML='<span class="small muted">No themes yet — '+firstStepHint()+'.</span>'; return; }
+  if(wrap)wrap.classList.remove("is-empty");
   const cvt=curValueByTheme(), total=curTotal(), init=isInit();
   // the ring shows where the money IS today when there's a portfolio, else the model target
   const seg=A.rows.map(r=>({ name:r.theme.name, color:r.theme.color, target:r.alloc,
@@ -5295,9 +5321,7 @@ function renderContext(){
     box.innerHTML='<span class="small pen-ink">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
     if($("#railFoot")) $("#railFoot").textContent="not connected";
     return; }
-  if(!isInit()){ box.innerHTML='<span class="small muted">'+(themes().length
-      ? 'No portfolio yet \u2014 size it on Rebalance.'
-      : 'No portfolio yet \u2014 start by creating a theme on Model.')+'</span>';
+  if(!isInit()){ box.innerHTML='<span class="small muted">No portfolio yet — '+firstStepHint()+'.'+'</span>';
     if($("#railFoot")) $("#railFoot").textContent=themes().length+" themes";
     return; }
   const total=curTotal();                                  // reuse the app's own value helpers

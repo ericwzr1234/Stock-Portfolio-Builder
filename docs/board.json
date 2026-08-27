@@ -698,6 +698,15 @@
       "The ? button now reads Help (header on web; the Guided tour row of the Account sheet on native).",
       "E7.2 recorded 'Verified: seen tours do not reappear'. That verification only ever walked the Done path, which was the one path that worked. The seven tests added here each leave by a path that used to write nothing, and three of them fail against the old code."] },
 
+    { "id": "E7.4", "epic": "E7", "stage": "done", "platform": "web", "depends": "E7.3", "spec": "docs/features/E7_first-run-onboarding.md",
+      "title": "The empty board an invited user actually lands on", "notes": [
+      "Now that people can be invited, the empty board is the FIRST thing they meet - so it was worth looking at as a stranger would. It told them two different things at once.",
+      "The context bar correctly said 'create a theme on Model' until a theme existed. The Overview hero said 'build a portfolio on the Rebalance tab' UNCONDITIONALLY - and Rebalance, with no themes, only answers 'build your themes first'. Two answers to one question, on one screen, pointing at different tabs, one of them a dead end.",
+      "Root cause is the same shape as E7.3 and the mobile-web labels: one fact with two readers, and only one was taught. Fixed by extracting firstStepHint() so both callers ask the same function - not by editing the wrong string to match the right one.",
+      "Also: an empty chart still reserved its full CSS height, so a brand-new account opened on roughly 900px of blank cards - value chart, return chart and donut all tall and empty. They now collapse when there is nothing to draw and the card keeps its heading and its one line of guidance. Desktop Overview 1100px -> 383px.",
+      "Found while fixing that: renderOverview's empty-value-chart branch returned EARLY, before rendering the return chart at all - so on a new account the return chart kept whatever height it had with nothing in it, and its own empty branch never ran. It is now rendered on both paths.",
+      "tests/firstrun.spec.js. The interesting assertion is not the wording but that the hero and the context bar AGREE, plus a guard that a POPULATED account still draws its charts - the risk of collapsing empty ones is collapsing a full one. Three of the five fail against the pre-fix code. Verified separately that the real fixture still draws a full value chart with the equal-weight line, and that touch scrubbing still has geometry to scrub." ] },
+
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
       "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",
