@@ -846,7 +846,7 @@
         <div class="card pad">
           <div class="ov-head">
             <div>
-              <div class="ov-k">Portfolio value</div>
+              <div class="ov-k">Total value</div>
               <div class="ov-big num" id="ovValue">—</div>
               <div id="ovSub" class="small muted">—</div>
             </div>
@@ -861,7 +861,7 @@
             <div class="ov-legend" id="ovChartLegend"></div>
           </div>
           <svg id="ovChart" class="ov-chart"
-               role="img" aria-label="Portfolio value and invested capital at each checkpoint"></svg>
+               role="img" aria-label="Total value and invested capital at each checkpoint"></svg>
           <div id="ovChartNote" class="xs muted"></div>
         </div>
         <div class="card pad">
@@ -882,15 +882,15 @@
         <div class="card pad">
           <div class="ov-k" style="margin-bottom:4px">Allocation</div>
           <div class="ov-donutwrap">
-            <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by theme"></svg>
+            <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by portfolio"></svg>
           </div>
           <div class="ov-dlegend" id="ovDonutLegend"></div>
         </div>
         <div class="band" id="priceBand"></div>
       </div>
       <div class="ov-right card pad">
-        <div class="ov-k" style="margin-bottom:8px">Holdings by theme
-          <span class="xs muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a theme to expand</span></div>
+        <div class="ov-k" style="margin-bottom:8px">Holdings by portfolio
+          <span class="xs muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a portfolio to expand</span></div>
         <div id="priceGrid"></div>
         <p class="note" style="margin-top:12px">Prices via Yahoo Finance (free, delayed up to ~15 min for some
           tickers). Nothing here costs money and no key is used.</p>
@@ -904,16 +904,16 @@
       <div class="card pad">
         <h2 style="font-size:16px">Target vs current weight</h2>
         <p class="small muted" style="margin-top:2px">Where your money is vs where the model wants it.</p>
-        <table id="driftTable"><thead><tr><th>Theme</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
+        <table id="driftTable"><thead><tr><th>Portfolio</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
           <tbody></tbody></table>
         <p class="note">Current weights need an initialized portfolio (Calculator tab).</p>
         <div class="allocbar" id="allocBar" style="margin-top:18px"></div>
         <div class="legend" id="allocLegend"></div>
         <div class="row" style="margin-top:12px;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" id="newThemeBtn">➕ New theme</button>
+          <button class="btn sm" id="newThemeBtn">➕ New portfolio</button>
         </div>
         <div class="row small" id="presetRow" style="margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 — theme cap is left unchanged">↺ Reset to default 6</button>
+          <button class="btn sm" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 — portfolio cap is left unchanged">↺ Reset to default 6</button>
           <button class="btn sm" id="savePresetBtn" title="Save the current metric model as a reusable preset">💾 Save preset</button>
           <label class="muted xs">Preset&nbsp;<select id="presetSelect" style="max-width:170px"><option value="">—</option></select></label>
           <button class="btn sm" id="delPresetBtn" title="Delete the selected preset">✕</button>
@@ -926,7 +926,7 @@
         </div>
       </div>
       <div class="card pad">
-        <div class="section-title"><h2>Theme allocation model</h2>
+        <div class="section-title"><h2>Portfolio allocation model</h2>
           <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
         <div id="wGroup" class="metric-block small">
           <div class="mb-head"><span class="muted"><b>① Metrics</b> — assign weights</span>
@@ -939,7 +939,7 @@
           <div id="metricCfgRows" class="cfg-grid"></div>
         </div>
         <div class="row small metric-block" style="gap:12px;align-items:center;flex-wrap:wrap">
-          <span class="muted"><b>③ Maximum weight per theme</b> →</span>
+          <span class="muted"><b>③ Maximum weight per portfolio</b> →</span>
           <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
         </div>
         <details class="exp" style="margin-top:14px"><summary>How the math works &amp; data-quality notes</summary>
@@ -948,8 +948,8 @@
       </div>
     </div>
     <div class="fund-gridhead">
-      <span class="ov-k">Per-theme metrics</span>
-      <span class="xs muted">— click a theme to see its names, or edit any value inline</span>
+      <span class="ov-k">Per-portfolio metrics</span>
+      <span class="xs muted">— click a portfolio to see its names, or edit any value inline</span>
       <button class="btn sm ghost" id="fundExpandAll" data-mode="expand" style="margin-left:auto">⌄ Expand all</button>
     </div>
     <div id="fundGrid"></div>
@@ -969,7 +969,7 @@
         <div class="card pad">
           <div class="ov-k">Value at each checkpoint</div>
           <svg id="histChart" class="hist-chart" role="img"
-               aria-label="Portfolio value recorded at each saved checkpoint"></svg>
+               aria-label="Total value recorded at each saved checkpoint"></svg>
           <div id="histChartNote" class="xs muted"></div>
         </div>
         <div id="histControls"></div>
@@ -977,7 +977,7 @@
           <div class="ov-k" style="margin-bottom:6px">Danger zone</div>
           <p class="xs muted" style="margin:0 0 9px">Clears every holding and the whole checkpoint
             timeline. Your metric model, weights and overrides are kept. This cannot be undone.</p>
-          <button id="resetBtn" class="btn sm danger ghost" style="width:100%">Reset portfolio…</button>
+          <button id="resetBtn" class="btn sm danger ghost" style="width:100%">Reset everything…</button>
         </div>
       </div>
       <div class="hist-list">
@@ -1003,7 +1003,7 @@
         </div>
         <div id="resResults"></div>
         <p class="xs muted" style="margin:10px 0 0">Anything you pick lands on the <b>watchlist</b> —
-          it <b>doesn't touch your portfolio</b>. You choose a theme for it later, and review the
+          it <b>doesn't touch your portfolio</b>. You choose a portfolio for it later, and review the
           rebalance before anything is saved.</p>
         <div id="resStats" class="res-stats"></div>
         <button id="screenerSearch" class="btn sm ghost" style="margin-top:10px;width:100%">🔍 Open search dialog</button>
@@ -1063,7 +1063,7 @@ function migrateThemes(p){
   if(isNum(p.schemaVersion) && p.schemaVersion>=2) return false;    // already E8
   /* THREE inputs, not two. Pre-E8 also persisted `noDefaults`, and when it was true BOTH other
      sentinels inverted: `themes:null` meant "nothing", and empty membership meant "empty", not
-     "that theme's five". A start-fresh account that undid past its initial build has exactly that
+     "that portfolio's five". A start-fresh account that undid past its initial build has exactly that
      shape - and materialising the built-ins into it would hand somebody a 25-name model they never
      chose, then offer to buy it. Honour the flag and migrate only the shape. */
   if(p.noDefaults===true){
@@ -1095,7 +1095,7 @@ function migrateThemes(p){
     snap.themeTickers = fillMembership(snap.themes, snap.themeTickers);
   });
   p.schemaVersion = 2;
-  console.info("migrated a pre-E8 document: "+p.themes.length+" themes, "+
+  console.info("migrated a pre-E8 document: "+p.themes.length+" portfolios, "+
                Object.keys(p.themeTickers).length+" membership lists, "+
                ((p.versions||[]).length)+" checkpoints");
   return true;
@@ -1176,7 +1176,7 @@ const $$=(s,r=document)=>[...r.querySelectorAll(s)];
    same screen. Both now call this. */
 function firstStepHint(){
   return themes().length ? "size it on <b>Rebalance</b>"
-                         : "create your first theme on <b>Model</b>";
+                         : "create your first portfolio on <b>Model</b>";
 }
 function esc(v){
   return String(v==null?"":v)
@@ -3418,7 +3418,7 @@ function openLegal(){
     <h3 style="font-size:13px;margin:16px 0 4px">What is stored, and where</h3>
     <ul class="small muted" style="margin:0;padding-left:18px">
       <li>Your <b>email address</b> and a password you choose, handled by the authentication service.</li>
-      <li>Your <b>portfolio</b> — holdings, checkpoints, themes, watchlist and settings — as a single
+      <li>Your <b>portfolio</b> — holdings, checkpoints, portfolios, watchlist and settings — as a single
           record in a hosted Postgres database, one row per account.</li>
       <li><b>Only you can read it.</b> Access is enforced by the database itself, per row, not by
           this page.</li>
@@ -3453,13 +3453,13 @@ function openAccount(){
       <p class="xs muted" style="margin:2px 0 0">Build ${APP_VERSION}</p>
       ${NATIVE?`<div class="acct-settings" id="acctSettings">
         <div class="ov-k" style="margin-bottom:8px">Settings</div>
-        <div class="acct-srow"><span>Theme</span><span id="slotTheme"></span></div>
+        <div class="acct-srow"><span>Portfolio</span><span id="slotTheme"></span></div>
         <div class="acct-srow"><span>Auto-refresh prices</span><span id="slotRefresh"></span></div>
         <div class="acct-srow"><span>Guided tour</span><span id="slotTour"></span></div>
       </div>`:""}
       <p class="synced" style="margin-top:10px"><span class="dot2"></span>This portfolio lives only in your account &mdash; this app stores nothing about it on your device.</p>
       <button class="btn" id="acctExport" style="width:100%;margin-top:12px">\u2b07 Download my data</button>
-      <p class="xs muted" style="margin:6px 0 0">Everything the account holds, as JSON &mdash; holdings, checkpoints, themes, watchlist and settings.</p>
+      <p class="xs muted" style="margin:6px 0 0">Everything the account holds, as JSON &mdash; holdings, checkpoints, portfolios, watchlist and settings.</p>
       <div class="row" style="justify-content:space-between;margin-top:16px">
         <button class="btn" id="acctSignOut">Sign out</button>
         <button class="btn" id="acctClose">Close</button>
@@ -3781,7 +3781,7 @@ function renderOverviewDonut(){
   const wrap=svg.parentElement;
   if(!A||!A.rows||!A.rows.length){ svg.innerHTML="";
     if(wrap)wrap.classList.add("is-empty");
-    leg.innerHTML='<span class="small muted">No themes yet — '+firstStepHint()+'.</span>'; return; }
+    leg.innerHTML='<span class="small muted">No portfolios yet — '+firstStepHint()+'.</span>'; return; }
   if(wrap)wrap.classList.remove("is-empty");
   const cvt=curValueByTheme(), total=curTotal(), init=isInit();
   // the ring shows where the money IS today when there's a portfolio, else the model target
@@ -3809,7 +3809,7 @@ function renderOverviewDonut(){
     return `<path class="ov-seg" d="${d}" fill="${s.color}"><title>${esc(s.name)} ${pct(parts[i]/sum)}</title></path>`;
   }).join("")+
    `<text x="100" y="96" text-anchor="middle" style="font-size:9.5px;fill:var(--muted);letter-spacing:.06em">${useCur?"CURRENT":"TARGET"}</text>`+
-   `<text x="100" y="114" text-anchor="middle" class="num" style="font-size:15px;font-weight:650;fill:var(--ink)">${themes().length} themes</text>`;
+   `<text x="100" y="114" text-anchor="middle" class="num" style="font-size:15px;font-weight:650;fill:var(--ink)">${themes().length} portfolio${themes().length===1?"":"s"}</text>`;
   leg.innerHTML=seg.map(s=>{
     const drift=(s.current!=null)?(s.current-s.target):null;
     return `<div class="r"><span class="sw" style="background:${s.color}"></span>
@@ -3827,14 +3827,14 @@ function renderPrices(){
   const dayPL=tradeUniverse().reduce((a,s)=>{ const h=holdings()[s]; const q=state.quotes[s];
     return a+((h&&q&&isNum(q.change))?h.shares*q.change:0); },0);
   band.innerHTML=`
-    <div class="card stat"><div class="k">Portfolio value</div><div class="v num">${init?money(total,0):"—"}</div>
+    <div class="card stat"><div class="k">Total value</div><div class="v num">${init?money(total,0):"—"}</div>
       <div class="d muted">${init?("cost "+money(totalCostBasis(),0)):"not initialized"}</div></div>
     <div class="card stat"><div class="k">Day P/L</div><div class="v num ${dayPL>=0?'up':'down'}">${init?signed(dayPL,0).replace(/^([+-])/,'$1$'):"—"}</div>
       <div class="d muted">unrealized today</div></div>
     <div class="card stat"><div class="k">Total invested</div><div class="v num">${init?money(totalContributed(),0):"—"}</div>
       <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
-    <div class="card stat"><div class="k">Themes / tickers</div><div class="v num">${themes().length} / ${membership().length}</div>
-      <div class="d muted">equal-weight within theme</div></div>`;
+    <div class="card stat"><div class="k">Portfolios / tickers</div><div class="v num">${themes().length} / ${membership().length}</div>
+      <div class="d muted">ranked within each portfolio</div></div>`;
   // ===== E5.1: collapsible theme accordion (open state survives the auto-refresh re-render) =====
   const grid=$("#priceGrid"); grid.innerHTML="";
   themes().forEach(t=>{
@@ -4004,17 +4004,17 @@ function renderFundamentals(){
   const carryNote=carried.length?("<b>Quality carry-over:</b> "+carried.map(s=>{const c=A.carry[s],p=[];if(isNum(c.ev))p.push("EV/EBITDA≈"+num(c.ev,1));if(isNum(c.dfcf))p.push("Debt/FCF≈"+num(c.dfcf,2));return "<b>"+s+"</b> "+p.join(", ");}).join("; ")+" — imputed from each name's standing on the factors it does report (banks don't publish these)."):"";
   const dirWord=m=>effDirection(m)==='higher'?'higher ⇒ better':'cheaper / lower ⇒ better';
   $("#allocNotes").innerHTML=`
-    <p>For each theme we take a <b>market-cap-weighted</b> value of every active metric across the theme's names. On a
+    <p>For each portfolio we take a <b>market-cap-weighted</b> value of every active metric across the portfolio's names. On a
     <i>penalize</i> metric a name with a <b>reported negative</b> value is replaced by a <b>penalty multiple</b> so it drags
-    the theme the wrong way; a value that's <b>not applicable</b> (e.g. a bank reports no EV/EBITDA or FCF) is either filled
+    the portfolio the wrong way; a value that's <b>not applicable</b> (e.g. a bank reports no EV/EBITDA or FCF) is either filled
     by <b>quality carry-over</b> — inheriting the name's standing on the factors it <i>does</i> report — or <b>excluded</b>.
     A Debt/FCF of <b>0</b> = debt-free = best.</p>
-    <p>Each theme gets <b>${metrics().length}</b> scores, each normalized so the themes sum to 100%:
+    <p>Each portfolio gets <b>${metrics().length}</b> scores, each normalized so the themes sum to 100%:
     ${metrics().map(m=>"<b>"+m.label+"</b> ("+dirWord(m)+")").join(", ")}. Blended by your weights
     (${metrics().map(m=>m.label+" "+Math.round((A.wByKey[m.key]||0)*100)).join(" / ")}%).</p>
-    <p>Finally, <b>no theme may exceed ${Math.round((state.cap!=null?state.cap:defaultCap())*100)}%</b> — excess from a
-    leading theme is spread across the others in proportion to their weights, repeated until every theme fits.${capNote}</p>
-    <p><b>Per-theme tables (below):</b> each theme's names with their metrics. <b>Click any editable value</b>
+    <p>Finally, <b>no portfolio may exceed ${Math.round((state.cap!=null?state.cap:defaultCap())*100)}%</b> — excess from a
+    leading portfolio is spread across the others in proportion to their weights, repeated until every portfolio fits.${capNote}</p>
+    <p><b>Per-portfolio tables (below):</b> each portfolio's names with their metrics. <b>Click any editable value</b>
     (blue dashed underline) to type your own number — saved, flagged <span class="tag ovr">ovr</span>, and used
     everywhere; click <b>↺</b> to revert. Use <b>✎ Choose metrics</b> to add or remove metrics from the model.</p>
     ${carryNote?("<p>"+carryNote+"</p>"):""}
@@ -4025,12 +4025,12 @@ function renderFundamentals(){
   if(accountUnreachable()){ unreachablePanel("view-fundamentals"); return; }   // never invite a rebuild of a portfolio they already have
   if(!themes().length){                        // a genuinely empty board - not five themes with nothing in them
     grid.innerHTML=`<div class="empty-note">
-      <h3>No themes yet</h3>
-      <p>A theme is a basket you invest behind &mdash; &ldquo;Robotics&rdquo;, &ldquo;Payments&rdquo;, whatever your thesis is.
-         The model allocates <b>between</b> themes and equal-weights the names inside each one, so this is where a
-         portfolio starts.</p>
+      <h3>No portfolios yet</h3>
+      <p>A portfolio is a basket you invest behind &mdash; &ldquo;Robotics&rdquo;, &ldquo;Payments&rdquo;, whatever your thesis is.
+         The model allocates <b>between</b> portfolios and then ranks the names <b>inside</b> each one on the same
+         metrics, so this is where a portfolio starts.</p>
       <div class="row" style="justify-content:center;gap:8px">
-        <button class="btn primary" id="emptyNewTheme">\u2795 Create your first theme</button>
+        <button class="btn primary" id="emptyNewTheme">\u2795 Create your first portfolio</button>
         <button class="linkish" id="emptyGuide">Show me how</button>
       </div></div>`;
     const nt=$("#emptyNewTheme"), gd=$("#emptyGuide");
@@ -4077,9 +4077,9 @@ function renderFundamentals(){
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
     const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
-    const tfoot=`<tr><td>Theme</td>${mcapOn?`<td class="num" title="theme average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
+    const tfoot=`<tr><td>Portfolio</td>${mcapOn?`<td class="num" title="portfolio average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
     // E5.2: same collapsible pattern as Overview — the old equal-height grid left dead space
-    // under shorter themes. The header is a DIV, not a <button>, because it contains the
+    // under shorter portfolios. The header is a DIV, not a <button>, because it contains the
     // add/rename/delete buttons and nested buttons are invalid HTML.
     const fopen=OPEN_FTHEMES.has(t.key);
     grid.insertAdjacentHTML("beforeend",`
@@ -4269,10 +4269,10 @@ function renderCalc(){
     const held=holdingSyms().length;
     $("#calcMain").innerHTML="";
     $("#calcUninit").innerHTML=`<div class="empty-note">
-      <h3>${held?"No themes to rebalance towards":"Build your themes first"}</h3>
+      <h3>${held?"No portfolios to rebalance towards":"Build your portfolios first"}</h3>
       <p>${held
-        ? "You still hold <b>"+held+"</b> position"+(held===1?"":"s")+", but every theme has been deleted — so there are no target weights to aim at, and rebalancing now would simply sell everything. Recreate a theme on <b>Model</b> and put those names back in it."
-        : "Rebalance turns target weights into share counts, and those targets come from your themes. Create a theme on <b>Model</b>, add some names, and come back."}</p>
+        ? "You still hold <b>"+held+"</b> position"+(held===1?"":"s")+", but every portfolio has been deleted — so there are no target weights to aim at, and rebalancing now would simply sell everything. Recreate a portfolio on <b>Model</b> and put those names back in it."
+        : "Rebalance turns target weights into share counts, and those targets come from your portfolios. Create a portfolio on <b>Model</b>, add some names, and come back."}</p>
       <button class="btn primary" id="emptyGoModel">Go to Model</button></div>`;
     const g=$("#emptyGoModel");
     if(g) g.addEventListener("click",()=>{ switchView("fundamentals"); coachStart("fundamentals",true); });
@@ -4301,9 +4301,9 @@ function renderCalcInit(){
       <td class="num muted">${perNameRange(A, r, 80000)}</td></tr>`).join("");
   if(!themes().length){                        // nothing to allocate between yet
     $("#calcUninit").innerHTML=`<div class="empty-note">
-      <h3>Build your themes first</h3>
-      <p>Rebalance turns target weights into share counts, and those targets come from your themes.
-         Create a theme or two on <b>Model</b>, add some names, and come back.</p>
+      <h3>Build your portfolios first</h3>
+      <p>Rebalance turns target weights into share counts, and those targets come from your portfolios.
+         Create a portfolio or two on <b>Model</b>, add some names, and come back.</p>
       <button class="btn primary" id="emptyGoModel">Go to Model</button></div>`;
     const g=$("#emptyGoModel");
     if(g) g.addEventListener("click",()=>{ switchView("fundamentals"); coachStart("fundamentals",true); });
@@ -4315,7 +4315,7 @@ function renderCalcInit(){
       <div class="row" style="gap:8px">${undoRedoButtons()}</div></div>`:''}
     <div class="grid2">
       <div class="card pad">
-        <h2 style="font-size:16px">Start your portfolio</h2>
+        <h2 style="font-size:16px">Get started</h2>
         <p class="small muted">Enter your starting capital. We'll split it across your
           ${themes().length} theme${themes().length===1?"":"s"} by the model weights, then equal-weight the names
           inside each theme, and convert to share counts at live prices.</p>
@@ -4329,7 +4329,7 @@ function renderCalcInit(){
       </div>
       <div class="card pad">
         <h3 style="font-size:14px">Preview @ $80,000</h3>
-        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Theme</th><th>Weight</th><th>Capital</th><th>Per name</th></tr></thead>
+        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Portfolio</th><th>Weight</th><th>Capital</th><th>Per name</th></tr></thead>
           <tbody>${preview}</tbody></table></div>
       </div>
     </div>`;
@@ -4478,7 +4478,7 @@ function renderRebalanceOutput(plan){
   const M=membership();   // E1.6: warn before liquidating names that are no longer in any theme
   const exiting=plan.universe.filter(s=> !M.includes(s) && (plan.cv[s]||0)>0.5 && (plan.target[s]||0)<0.5);
   const exitWarn = exiting.length ? `<div class="hint" style="margin:14px 0;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) var(--tint),var(--paper));color:var(--gold);padding:8px 12px">
-      ⚠ <b>${exiting.length} name${exiting.length>1?"s":""} will be sold to $0</b> — no longer in any theme (deleted theme, removed, or swapped out): <b>${exiting.join(", ")}</b>. Apply to liquidate.</div>` : "";
+      ⚠ <b>${exiting.length} name${exiting.length>1?"s":""} will be sold to $0</b> — no longer in any portfolio (deleted portfolio, removed, or swapped out): <b>${exiting.join(", ")}</b>. Apply to liquidate.</div>` : "";
   out.innerHTML=`
     ${exitWarn}
     <div class="hint" style="margin:14px 0">
@@ -4490,8 +4490,8 @@ function renderRebalanceOutput(plan){
     </div>
     <div class="grid2">
       <div>
-        <h3 style="font-size:13px;margin-bottom:6px">By theme</h3>
-        <div class="tscroll"><table><thead><tr><th>Theme</th><th>Target</th><th>Before</th><th>After</th><th>Δ$</th></tr></thead>
+        <h3 style="font-size:13px;margin-bottom:6px">By portfolio</h3>
+        <div class="tscroll"><table><thead><tr><th>Portfolio</th><th>Target</th><th>Before</th><th>After</th><th>Δ$</th></tr></thead>
           <tbody>${themeRows}</tbody></table></div>
       </div>
       <div>
@@ -4675,20 +4675,20 @@ function renderScreener(){
   const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
   const body=$("#screenerBody");
   if(body) body.innerHTML = wl.length
-    ? `<p class="note">Pick a theme on a name to add it to your portfolio — you'll confirm whether to add it
+    ? `<p class="note">Pick a portfolio on a name to add it to your holdings — you'll confirm whether to add it
        as a new name or swap it for a holding, then review the rebalance before anything is saved.</p>`
     : `<div class="card pad" style="text-align:center;padding:34px 18px">
          <div style="font-size:26px;opacity:.5;line-height:1">☆</div>
          <div style="font-weight:620;margin-top:6px">Your watchlist is empty</div>
          <p class="small muted" style="max-width:420px;margin:6px auto 0">Search on the left for any listed
-           name — including ones outside your themes. Picking a result parks it here so you can weigh it up
+           name — including ones outside your portfolios. Picking a result parks it here so you can weigh it up
            before it ever touches your portfolio.</p>
        </div>`;
   // E5.4: left-hand context
   const st=$("#resStats");
   if(st){ const h=Object.keys(holdings()).length;
     st.innerHTML=`<span><b>${wl.length}</b> on the watchlist</span>
-      <span><b>${h}</b> holdings across <b>${themes().length}</b> themes</span>
+      <span><b>${h}</b> holdings across <b>${themes().length}</b> portfolios</span>
       <span><b>${membership().length}</b> names in the model</span>`; }
 }
 
@@ -4732,12 +4732,12 @@ function openStockActions(sym, themeKey){
       <div class="small muted" style="text-align:center;margin:0 0 8px">— or move / swap it —</div>`:"";
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="saModal"><div class="modal-card card pad">
       <h2 style="font-size:16px">${esc(sym)} <span class="muted small">${esc(nameOf(sym))}</span></h2>
-      <p class="small muted">${heldT?("In <b>"+heldT.name+"</b> now."):"Not in your portfolio yet."} Add it to a theme (the book rebalances to the model), swap it for a holding, or just watchlist it.</p>
+      <p class="small muted">${heldT?("In <b>"+heldT.name+"</b> now."):"Not in your portfolio yet."} Add it to a portfolio (the book rebalances to the model), swap it for a holding, or just watchlist it.</p>
       ${removeRow}
-      <label class="small" style="display:block;margin:2px 0 4px">Theme</label>
+      <label class="small" style="display:block;margin:2px 0 4px">Portfolio</label>
       <select id="saTheme" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px">${opts}</select>
       <div class="row" style="gap:8px;margin-top:12px">
-        <button class="btn primary" id="saAdd" style="flex:1">➕ Add to theme</button>
+        <button class="btn primary" id="saAdd" style="flex:1">➕ Add to portfolio</button>
         <button class="btn" id="saSwap" style="flex:1">⇄ Swap in…</button>
       </div>
       <div class="row" style="justify-content:space-between;margin-top:12px">
@@ -4769,7 +4769,7 @@ function openSwap(newSym, themeKey){
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="swapModal"><div class="modal-card card pad">
       <h2 style="font-size:16px">Add ${newSym} to ${esc(t.name)}</h2>
       <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) to <b>${esc(t.name)}</b> — as a new name
-        (the theme grows to ${current.length+1}), or by replacing one current holding. Either way the book
+        (the portfolio grows to ${current.length+1}), or by replacing one current holding. Either way the book
         rebalances to the model; review the plan, then Apply.</p>
       <button class="btn primary" id="swapAdd" style="width:100%;margin:2px 0 12px">➕ Add as a new name</button>
       <div class="small muted" style="text-align:center;margin:0 0 8px">— or replace one —</div>
@@ -4965,7 +4965,7 @@ function coachStart(view, force){
   _coachStarting=null;
   window.addEventListener("resize",coachPlace); window.addEventListener("scroll",coachPlace,true);
   /* The bubble sits above every modal (301 vs 80) and takes pointer events, so a step that says
-     "click New theme" would have its own bubble covering the dialog that opens. Rather than fight
+     "click New portfolio" would have its own bubble covering the dialog that opens. Rather than fight
      the stacking order, stand down as soon as any modal appears. */
   try{
     const mr=$("#modalRoot");
@@ -5120,8 +5120,8 @@ async function createTheme(name, color){
 function openCreateTheme(){
   const swatches=THEME_PALETTE.map((c,i)=>`<button type="button" class="ct-sw${i===0?' sel':''}" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="ctModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">New theme</h2>
-      <p class="small muted">Create a theme, then fill it from the Screener (tap a stock → Add). It starts
+      <h2 style="font-size:16px">New portfolio</h2>
+      <p class="small muted">Create a portfolio, then fill it from the Screener (tap a stock → Add). It starts
         empty — 0% of the book until it has names.</p>
       <label class="small" style="display:block;margin:10px 0 4px">Name</label>
       <input type="text" id="ctName" placeholder="e.g. Semiconductors" autocomplete="off"
@@ -5130,7 +5130,7 @@ function openCreateTheme(){
       <div class="ct-swatches">${swatches}</div>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px">
         <button class="btn" id="ctCancel">Cancel</button>
-        <button class="btn primary" id="ctCreate">Create theme</button>
+        <button class="btn primary" id="ctCreate">Create portfolio</button>
       </div></div></div>`;
   let color=THEME_PALETTE[0];
   $$(".ct-sw").forEach(b=>b.addEventListener("click",()=>{ color=b.dataset.color;
@@ -5161,8 +5161,8 @@ function openEditTheme(key){
   const cur=(th.color||"").toLowerCase();
   const swatches=THEME_PALETTE.map(c=>`<button type="button" class="ct-sw${c.toLowerCase()===cur?' sel':''}" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("");
   $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="etModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">Edit theme</h2>
-      <p class="small muted">Rename or recolour this theme — it updates everywhere. Its stocks and history are unaffected.</p>
+      <h2 style="font-size:16px">Edit portfolio</h2>
+      <p class="small muted">Rename or recolour this portfolio — it updates everywhere. Its stocks and history are unaffected.</p>
       <label class="small" style="display:block;margin:10px 0 4px">Name</label>
       <input type="text" id="etName" autocomplete="off"
         style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px">
@@ -5216,7 +5216,7 @@ function openTickerSearch(themeKey, direct){
       <h2 style="font-size:16px">${esc(title)}</h2>
       <p class="small muted">${direct
         ? "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to <b>add it to "+tName+"</b> — the book then rebalances to the model."
-        : "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to add it to your <b>watchlist</b> — it <b>won't touch your portfolio</b> until you add it to a theme from there."}</p>
+        : "Search any symbol or company (incl. off-Screener names like AMD, TSM). Pick one to add it to your <b>watchlist</b> — it <b>won't touch your portfolio</b> until you add it to a portfolio from there."}</p>
       <label class="small" style="display:block;margin:10px 0 4px">Search</label>
       <input type="text" id="tsQuery" placeholder="e.g. AMD or Advanced Micro" autocomplete="off"
         style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px">
@@ -5276,7 +5276,7 @@ function renderWatchlist(){
   const opt=tk=>themes().map(t=>`<option value="${t.key}"${t.key===tk?" selected":""}>${esc(t.name)}</option>`).join("");
   el.innerHTML=`<div class="card pad" style="margin-bottom:14px">
     <h3 style="font-size:14px;margin:0 0 4px">⭐ Watchlist (${list.length})</h3>
-    <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Swipe the table sideways for the full quote; pick a theme to add one (you'll review the rebalance first).</p>
+    <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Swipe the table sideways for the full quote; pick a portfolio to add one (you'll review the rebalance first).</p>
     <div class="tscroll wl-scroll"><table class="wl-table" style="width:100%">
       <thead><tr>
         <th style="text-align:left">Ticker</th>
@@ -5287,7 +5287,7 @@ function renderWatchlist(){
         <th class="num">52W&nbsp;Low</th>
         <th class="num">Volume</th>
         <th class="num">Avg&nbsp;Vol</th>
-        <th class="num">Add&nbsp;to&nbsp;theme</th>
+        <th class="num">Add&nbsp;to&nbsp;portfolio</th>
         <th class="num"></th>
       </tr></thead>
       <tbody>
@@ -5302,7 +5302,7 @@ function renderWatchlist(){
         <td class="num">${money(q.low52,2)}</td>
         <td class="num">${volFmt(q.vol)}</td>
         <td class="num">${volFmt(q.avgVol)}</td>
-        <td class="num"><select class="wl-add" data-sym="${s}"><option value="">＋ Add to theme…</option>${opt(w.theme)}</select></td>
+        <td class="num"><select class="wl-add" data-sym="${s}"><option value="">＋ Add to portfolio…</option>${opt(w.portfolio)}</select></td>
         <td class="num"><button class="rmv-tkr wl-del" data-wlsym="${s}" title="Remove ${s} from watchlist">✕</button></td>
       </tr>`;}).join("")}
       </tbody>
@@ -5466,7 +5466,7 @@ function renderContext(){
     const why=state.syncFailure||describeCloudFailure(null);
     box.innerHTML='<span class="small pen-ink">Portfolio not loaded \u2014 '+why.detail+' '+why.act+'</span>';
     return; }
-  if(!isInit()){ box.innerHTML='<span class="small muted">No portfolio yet — '+firstStepHint()+'.'+'</span>';
+  if(!isInit()){ box.innerHTML='<span class="small muted">Nothing built yet — '+firstStepHint()+'.'+'</span>';
     return; }
   const total=curTotal();                                  // reuse the app's own value helpers
   const invested=(state.portfolio&&isNum(state.portfolio.totalContributed))?state.portfolio.totalContributed:0;
