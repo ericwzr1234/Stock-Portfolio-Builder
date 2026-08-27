@@ -194,6 +194,28 @@
     .app{grid-template-columns:1fr}
     .rail{display:none}
     nav.tabs{display:flex}
+    /* E6.7 - the owner demos the WEB app in a phone browser, where NATIVE is false and none of
+       the APP2 phone shell applies. At 390px the five tabs needed 442px, so History hung off the
+       right and dragged the whole page sideways - the one thing the standing rule forbids. They
+       have to FIT: only a data table may scroll horizontally. */
+    nav.tabs{padding:0 10px;gap:2px}
+    /* min-width:0 matters: a flex item defaults to min-width:auto and so refuses to shrink below
+       its text, which is why long labels could push the page sideways at all. With this, even a
+       future long label truncates instead of panning the screen. */
+    nav.tabs button{margin-right:0;flex:1 1 0;min-width:0;padding:12px 2px;font-size:13px;
+      text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* The header took 253px of an 844px phone screen - 30% of the demo gone before any content.
+       Trim what a phone does not need: the tagline (the wordmark beside it already says what the
+       app is) and the last-updated clock (the Refresh button next to it is the actionable part).
+       Nothing is removed, only hidden below 900px, and the desktop header is untouched. */
+    .brand .sub{display:none}
+    #updated{display:none}
+    .top-in{padding-top:10px;padding-bottom:6px}
+    /* iOS Safari zooms the page when a focused field is under 16px, throwing the layout off on
+       the very first tap of a demo. The rule for this existed but was written `.native ...`, so
+       it only ever covered the Capacitor build - the browser that actually zooms was never told.
+       Auto-zoom is a property of the BROWSER, not of Capacitor. */
+    input:not([type=checkbox]):not([type=radio]), select, textarea{ font-size:16px !important; }
   }
 
   /* E5.2b: fill the window. The old 1180px cap left ~520px of dead margin on a 1920 screen.
@@ -800,10 +822,15 @@
     </div>
   </div>
   <nav class="tabs" id="tabs">
-    <button data-view="prices" class="active">Prices</button>
-    <button data-view="fundamentals">Fundamentals &amp; Allocation</button>
-    <button data-view="calc">Calculator / Rebalance</button>
-    <button data-view="screener">Screener</button>
+    <!-- E6.7 - the SAME names the rail uses. E5.0 renamed the views in the rail and APP2.2 taught
+         the native bar via ::after, but this strip - the one a phone BROWSER gets - kept the
+         pre-E5 labels. So a phone demo showed different names for the same views than the laptop
+         did, and "Fundamentals & Allocation" plus "Calculator / Rebalance" needed 419px of text
+         in a 390px viewport, which pushed History off screen and panned the whole page. -->
+    <button data-view="prices" class="active">Overview</button>
+    <button data-view="fundamentals">Model</button>
+    <button data-view="calc">Rebalance</button>
+    <button data-view="screener">Research</button>
     <button data-view="history">History</button>
   </nav>
 </header>

@@ -64,6 +64,14 @@ reference — it is a mock with no engine, not a code source.
   `www/_headers` (CSP, `X-Frame-Options`, HSTS — the app was framable and had no CSP at all).
   RLS re-verified live: anonymous reads and the delete RPC are both denied at the GRANT level.
   **The invite gate stays CLOSED** — see the ticket for what is still open.
+- **Mobile web** — the demo path (the web app in a phone *browser*, where `NATIVE` is false and
+  none of the APP2 shell applies) had two defects on the **first screen anyone sees**: the tab strip
+  still carried pre-E5 labels, so 419px of text in a 390px viewport pushed *History* off screen and
+  panned the whole page; and the gate's fields were 14px, which makes **iOS Safari zoom on the very
+  first tap**. Both were the same failure — a fact taught to one reader: the rail and the native bar
+  were renamed but `nav.tabs` was not, and the 16px rule was written `.native …` so the browser that
+  actually zooms was never told. `tests/mobileweb.spec.js` now guards it (all 5 fail against the old
+  code). Header also trimmed 253px → 183px on a phone.
 - **`E7.3`** — **the guide no longer reappears at every sign-in** (owner-found). The flag recorded
   *finishing* a tour, not *being shown* one, so every exit but "click Done through all seven steps"
   wrote nothing. Now credited when the bubble goes up. The `?` button reads **Help**. Note for the
