@@ -98,7 +98,7 @@ Your own password reset is broken for the same reason. Two owner actions below f
 
 | | Action | What is broken until then |
 |---|---|---|
-| 1 | **Supabase Auth → URL Configuration**: Site URL **and** Redirect URLs → `https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths). Keep the localhost entries. | Email **confirmation** and **password-reset** links still point at localhost. Signing in with an existing account already works. |
+| ~~1~~ | ✅ **DONE 2026-08-27, verified.** ~~Supabase Auth → URL Configuration: Site URL **and** Redirect URLs → `https://portfolio-builder-esb.pages.dev/**` (DOUBLE asterisk; `/*` does not match nested paths). Keep the localhost entries. | Email **confirmation** and **password-reset** links still point at localhost. Signing in with an existing account already works. |
 | 2 | **Run `sql/003_feedback.sql`** in the Supabase SQL editor. | The feedback button says the table has not been created — honestly, but it cannot send. |
 | 3 | `E11.4`: a Gmail app password **or** Resend key → paste into Supabase, never into chat. Turnstile secret → Supabase; send only the **site** key. | Nobody but the owner can sign up at all — Supabase's built-in mailer only delivers to project team members. |
 | 4 | `E11.7b`: a Sentry account (free tier, no card) → DSN. | ~19 `console.error` calls vanish into browsers nobody can see. |
@@ -166,8 +166,11 @@ on invented inputs, and the output would look reasonable.
 byte-identical. Verify deployments by comparing **content**, not status codes. The Function's own
 404 for an unknown `/api` route is not shadowed by this.
 
-`pb-proxy` (standalone Worker) is now redundant — Pages serves the same code — and is a second
-unauthenticated public Yahoo proxy. Kept for now as an independent test target; it should go.
+`pb-proxy` (standalone Worker) was **deleted on 2026-08-27** with the owner's go-ahead: Pages
+serves the same code on the app's own origin, so a second unauthenticated public Yahoo proxy bought
+nothing and doubled the abuse surface. `worker/src/index.js` is untouched and still the code behind
+`/api/*`; only the standalone deployment is gone. Verified: `pb-proxy…workers.dev` now 404s while
+prod `/api` still returns live quotes.
 
 <details><summary>Original E11.3 plan, for reference</summary>
 
@@ -225,4 +228,6 @@ The real `portfolio.json` has never left the machine — md5 `39FB8991E3BCDEACE4
 unchanged since 2026-07-13, re-verified after every step.
 
 Dev server port **8766** (`PB_DB=portfolio.dev.json`); tests use **8767** and `portfolio.test.json`
-so a run can never collide with it. Worker: `pb-proxy.portfoliobuilder.workers.dev`.
+so a run can never collide with it. The proxy in prod is the Pages Function at
+`/api/*`, which imports `worker/src/index.js`; the standalone `pb-proxy` Worker was deleted
+2026-08-27 and there is no second public proxy any more.

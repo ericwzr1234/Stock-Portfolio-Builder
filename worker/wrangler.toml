@@ -1,4 +1,15 @@
+# DELETED FROM CLOUDFLARE ON 2026-08-27 (E6.7). DO NOT `wrangler deploy` THIS.
+#
+# src/index.js is still very much in use - functions/api/[[path]].js IMPORTS it, so it is the code
+# behind /api/* on the live site. What is gone is the STANDALONE deployment at
+# pb-proxy.portfoliobuilder.workers.dev, which was a SECOND unauthenticated public Yahoo proxy that
+# nothing called any more. Pages serves the same code on the app's own origin, so the standalone
+# copy bought nothing and doubled both the abuse surface and the Yahoo ToS exposure.
+#
+# This file is kept only so `wrangler dev --config worker/wrangler.toml` still works for local
+# testing of the proxy in isolation. workers_dev is now false so that even an accidental deploy
+# does not hand out a public URL again.
 name = "pb-proxy"
 main = "src/index.js"
 compatibility_date = "2025-06-01"
-workers_dev = true
+workers_dev = false
