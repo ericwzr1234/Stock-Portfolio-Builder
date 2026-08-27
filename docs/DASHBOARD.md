@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 1 |
-| Done | 74 |
+| Done | 75 |
 
 ---
 
@@ -138,7 +138,7 @@ _Approved; merging dev → main (prod) + updating docs._
   - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
   - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
 
-## Done  (74)
+## Done  (75)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -195,10 +195,11 @@ _Integrated into the product (on main)._
 - **E4.5** — Allocation-model panel layout · [spec](features/E4.5_allocation-panel-layout.md)
 
 </details>
-<details><summary><b>E7 · First-run onboarding</b> — 2 done</summary>
+<details><summary><b>E7 · First-run onboarding</b> — 3 done</summary>
 
 - **E7.1** — Start fresh means a genuinely empty board · [spec](features/E7_first-run-onboarding.md)
 - **E7.2** — Guided tour - one per view · [spec](features/E7_first-run-onboarding.md)
+- **E7.3** — The guide is shown once, and the button says Help · [spec](features/E7_first-run-onboarding.md)
 
 </details>
 <details><summary><b>E10 · History retention</b> — 2 done</summary>

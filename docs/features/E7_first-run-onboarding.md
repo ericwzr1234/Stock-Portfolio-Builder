@@ -69,10 +69,19 @@ Floating bubbles anchored to real controls. One short tour per view:
   simply does not open.
 - **Seen-state is per account AND per view** (`pb_tour_<uid>_<view>`). A second person signing in on
   the same browser gets their own walkthrough rather than inheriting "already seen" — the same
-  reasoning as the per-user offline mirror in E6.
+  reasoning as the per-user offline mirror in E6. **No uid means no memory, and no memory means the
+  guide is not shown** — writing it under a shared `anon` key would record it against nobody and
+  show it again to the real account. Fail closed: never nag.
+- **The flag means SHOWN, not FINISHED** (`E7.3`, owner-found 2026-08-27). It is written the moment
+  the bubble goes up. It used to be written only by reaching the last step, so switching tab, a
+  modal opening, the gate going up at sign-out, or stepping back off step one all wrote nothing —
+  and the guide came back at every sign-in, on every tab, forever, for anyone who did not click
+  Done through all seven steps of every tour. Being shown is the thing worth remembering; wanting
+  it again is what the Help button is for.
 - **Switching views ends the tour.** A bubble pointing at a control that is no longer displayed is
   worse than no bubble.
-- **Replayable.** The `?` button in the header re-runs the current view's guide at any time.
+- **Replayable.** The **Help** button re-runs the current view's guide at any time — in the header
+  on web, in the Account sheet's *Guided tour* row on the phone (`APP2.2c` moved it there).
 - Never opens while the login gate is up, or mid-boot.
 
 ## Verified
@@ -83,3 +92,6 @@ Floating bubbles anchored to real controls. One short tour per view:
 - All five tours run end to end; bubbles stay within the viewport, rings anchor to their targets,
   the last step reads "Done", teardown leaves no `.coach`, `.coach-ring` or `.coach-scrim` behind.
 - A seen tour does not auto-reopen; a fresh user's does; switching views ends an open tour.
+- `tests/tour.spec.js` (7 tests) leaves the tour by each path that used to write nothing, rather
+  than by the one path that worked. **Three of them fail against the pre-`E7.3` code.** The original
+  E7.2 line "a seen tour does not auto-reopen" was true and useless: it only ever walked Done.

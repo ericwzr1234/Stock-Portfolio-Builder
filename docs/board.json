@@ -679,6 +679,15 @@
       "Verified: all five run end to end, bubbles stay on screen, rings anchor, full teardown with no leftover DOM, seen tours do not reappear, a fresh user auto-opens.",
       "FIRST REVIEW (2026-08-15) found 10, incl. a CRITICAL of my own making: restoreDefaultThemes() never cleared noDefaults, so on a start-fresh account the always-visible 'Restore default 5' button DELETED the user's themes and restored nothing, while toasting success. themes/noDefaults now move together through useDefaultThemes()/useNoThemes(). Also fixed: a tour could outlive its session and be inherited by the next account (its Done then wrote 'seen' against the WRONG uid); the bubble covered modals (a modal now stands the tour down via MutationObserver); Back could not step past a skipped step; a zero-height anchor could be ringed; the calc tour was a silent dead button on an empty board; and impNo started the tour twice." ] },
 
+    { "id": "E7.3", "epic": "E7", "stage": "done", "platform": "web", "depends": "E7.2", "spec": "docs/features/E7_first-run-onboarding.md",
+      "title": "The guide is shown once, and the button says Help", "notes": [
+      "USER-FOUND (2026-08-27): the guide on every tab reappeared at every sign-in. Owner: users should see it once, then reach it from a Help button when they want it.",
+      "Root cause: the flag recorded FINISHING a tour, not being SHOWN one. markTourSeen ran only from coachEnd(true), so every other exit wrote nothing - switching tab, a modal opening, the gate going up at sign-out, or stepping back off step one. Anyone who did not click Done through all seven steps of every tab was shown all five guides forever.",
+      "Fix: credit at the moment the bubble goes up, in coachStart. coachEnd no longer takes a 'seen' argument at all - the question it answered no longer exists, so the parameter and all nine call sites lost it.",
+      "Also fixed, same cause: tourKey fell back to a shared 'anon' key when there was no uid, so a guide dismissed before a uid existed was recorded against nobody and shown again to the real account. No uid now means no memory, and no memory means do not show it - fail closed, never nag.",
+      "The ? button now reads Help (header on web; the Guided tour row of the Account sheet on native).",
+      "E7.2 recorded 'Verified: seen tours do not reappear'. That verification only ever walked the Done path, which was the one path that worked. The seven tests added here each leave by a path that used to write nothing, and three of them fail against the old code."] },
+
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
       "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",

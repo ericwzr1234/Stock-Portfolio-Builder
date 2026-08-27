@@ -53,6 +53,16 @@ reference — it is a mock with no engine, not a code source.
 
 ---
 
+## Fixed this session (2026-08-27), live in prod
+
+- **`APP2.6`** — Overview on the phone is one segmented chart (`Value / Return % / Return $`) in a
+  single card, instead of V2's two. Web proven untouched.
+- **`E7.3`** — **the guide no longer reappears at every sign-in** (owner-found). The flag recorded
+  *finishing* a tour, not *being shown* one, so every exit but "click Done through all seven steps"
+  wrote nothing. Now credited when the bubble goes up. The `?` button reads **Help**. Note for the
+  owner: each tab's guide will appear **once more** on the next sign-in — that showing is the one
+  that finally gets recorded — and then never again unless Help is clicked.
+
 ## ⚠ Owner actions — nothing else moves without these
 
 | | Action | What is broken until then |
