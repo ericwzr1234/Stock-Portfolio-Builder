@@ -171,11 +171,17 @@
       "NEEDS THE OWNER: run sql/003_feedback.sql in the Supabase SQL editor."
       ] },
 
-    { "id": "E11.4b", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.4", "spec": "docs/features/E11_online-deployment.md",
+    { "id": "E11.4b", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.4", "spec": "docs/features/E11_online-deployment.md",
       "title": "Turnstile on signup, so bots cannot burn the email quota", "notes": [
       "Split from E11.4 on 2026-08-27 when the SMTP half was proven and closed. Free, and natively supported by Supabase.",
       "Why it still matters even on an unlisted URL: crawlers do find them, and scripted signups burn the Gmail send quota (~500/day) and wreck sender reputation through bounces - which would break the confirmation emails that now work.",
-      "OWNER ACTION: Turnstile secret key -> Supabase dashboard; send me only the SITE key, which is public by design." ] },
+      "OWNER ACTION: Turnstile secret key -> Supabase dashboard; send me only the SITE key, which is public by design." ,
+      "SHIPPED 2026-08-30. The owner configured the SECRET in Supabase before the client existed, so enforcement went live with nothing to satisfy it - sign-in, signup and recovery were all returning captcha_failed in production. Measured, not assumed.",
+      "Scope check that mattered: signup, token?grant_type=password and recover require a token; token?grant_type=refresh_token does NOT. So already signed-in users were never affected and the outage was limited to new sign-ins. Getting that wrong in the other direction would have killed every live session hourly.",
+      "The token is attached inside sbAuth keyed off the path, not at the three call sites, so a future auth call cannot forget it. Reset after every attempt because a solved token is single-use - without that, a wrong password on the second try reads as a robot check.",
+      "TWO WRONG GUESSES before I measured. First I asserted the widget was missing because there was no IFRAME - Turnstile does not always create one, and the widget had been rendering all along. Then I blamed a load-order race and shipped a fix for it. The real cause: the interactive challenge talks to a per-region SUBDOMAIN (hagen.challenges.cloudflare.com) and a CSP host does not cover its own subdomains, so connect-src allowed the apex and blocked the one request that solves the challenge. Proven by fetching both hosts from the live page - apex allowed, subdomain BLOCKED with the CSP refusal naming connect-src.",
+      "CSP now lists both the apex and *.challenges.cloudflare.com for script-src, connect-src and frame-src, since neither form covers the other. Refusals on the live page are now zero.",
+      "NOT VERIFIED END TO END BY ME: Turnstile deliberately withholds an auto-pass from headless Chromium and a headed browser cannot launch in this environment, so obtaining a real token needs a human. The widget is confirmed rendering on prod (342x70, inside the card, between password and Sign in). The owner must confirm an actual sign-in. If it fails, captcha protection can be switched off in Supabase in seconds to restore sign-in."] },
 
     { "id": "E11.7b", "epic": "E11", "stage": "design", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Error monitoring (Sentry)", "notes": [

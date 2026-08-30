@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 13 |
+| Design | 12 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 86 |
+| Done | 87 |
 
 ---
 
@@ -27,13 +27,9 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (13)
+## Design  (12)
 _Detailed requirements captured; a spec exists in docs/features/._
 
-- **E11.4b** · _E11 · Online, for invited users_ — **Turnstile on signup, so bots cannot burn the email quota** _(depends E11.4, web)_ · [spec](features/E11_online-deployment.md)
-  - Split from E11.4 on 2026-08-27 when the SMTP half was proven and closed. Free, and natively supported by Supabase.
-  - Why it still matters even on an unlisted URL: crawlers do find them, and scripted signups burn the Gmail send quota (~500/day) and wreck sender reputation through bounces - which would break the confirmation emails that now work.
-  - OWNER ACTION: Turnstile secret key -> Supabase dashboard; send me only the SITE key, which is public by design.
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
   - NOT STARTED - blocked on an account only the owner can create. Sentry's free Developer tier is 5k errors/month and needs no card.
   - WHY IT MATTERS: there are ~19 console.error calls that vanish into browsers nobody can see. Now that the app is deployed and reachable from a phone, a failure the owner hits away from the laptop leaves no trace at all.
@@ -123,7 +119,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (86)
+## Done  (87)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -234,7 +230,7 @@ _Integrated into the product (on main)._
 - **E6.7** — Security review - GATE before inviting anyone · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 18 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 19 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -251,6 +247,7 @@ _Integrated into the product (on main)._
 - **E11.5** — Export and delete: the user's own data, in their hands · [spec](features/E11_online-deployment.md)
 - **E11.6** — Disclaimer and privacy note · [spec](features/E11_online-deployment.md)
 - **E11.7a** — Feedback channel · [spec](features/E11_online-deployment.md)
+- **E11.4b** — Turnstile on signup, so bots cannot burn the email quota · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 - **E11.14** — Idle lock did not sign out; verification links landed in the cached account · [spec](features/E11_online-deployment.md)
 - **E11.15** — Deploy automatically on merge to main · [spec](features/E11_online-deployment.md)
