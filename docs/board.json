@@ -801,6 +801,15 @@
       "It fails soft when CLOUDFLARE_API_TOKEN is absent - a warning on a green run - so it could land before the secret existed. Afterwards it proves the live page carries this commit's stamp, because a 200 from Pages proves nothing: any unknown path returns index.html with HTTP 200.",
       "OWNER ACTION: repo secrets CLOUDFLARE_API_TOKEN (Edit Cloudflare Workers template) and CLOUDFLARE_ACCOUNT_ID." ] },
 
+    { "id": "E11.16", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.4b", "spec": "docs/features/E11_online-deployment.md",
+      "title": "The dev server sends the same headers prod does", "notes": [
+      "The Turnstile outage was a CSP problem, and the CSP lives in www/_headers which ONLY Cloudflare Pages serves. server.py sent none, so the bug was structurally impossible to reproduce locally and went straight to production, where it took two wrong guesses to find. server.py now mirrors those headers onto HTML responses.",
+      "Two are dropped deliberately for localhost. Strict-Transport-Security would pin the browser to https for localhost and break every later plain-http dev session - and removing the header afterwards does NOT undo it, the browser remembers. upgrade-insecure-requests would rewrite our own http subresources to https and fail to load them.",
+      "Applied to HTML only, which mirrors prod exactly: Pages serves _headers for the document while /api comes from the Function and carries none. Verified both.",
+      "The file is re-read when its mtime changes, so editing _headers takes effect without restarting the server - otherwise the mirror would drift from the thing it mirrors.",
+      "OWNER QUESTION, answered by discarding the idea: adding localhost to the Turnstile hostname list was NOT worth it. It buys nothing automated (every test stubs the session), it would not even enable local sign-in because Supabase holds the real secret and will not validate a token issued for another hostname, and its one real motivation - catching CSP bugs locally - is what this ticket solves properly. The cost was weakening hostname binding on the LIVE key.",
+      "Instead the widget is skipped where it cannot work, which also removed a recurring 400 from every harness run. That switch is a pure function captchaAvailableFor(host) with its own tests, because the same line decides whether PRODUCTION has any bot protection: answering wrongly on pages.dev would render no widget, Supabase would reject every sign-in for a missing token, and the app would be locked. Tests cover the live host, genuine local hosts, and lookalikes such as localhost.evil.com which must still require a captcha." ] },
+
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
       "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",

@@ -704,6 +704,64 @@ def write_db(obj):
 
 
 # ---------------------------------------------------------------------------
+# Prod response headers, mirrored locally
+# ---------------------------------------------------------------------------
+# The Turnstile outage on 2026-08-30 was a CSP problem: connect-src allowed
+# challenges.cloudflare.com but not the per-region SUBDOMAIN the challenge
+# actually talks to. The CSP lives in www/_headers, which only Cloudflare Pages
+# serves - this dev server sent none - so the bug could not be reproduced
+# locally and went straight to production. Mirroring the headers here makes
+# that entire class of mistake fail on the developer's machine instead.
+#
+# Two are dropped on purpose for localhost:
+#   Strict-Transport-Security  would pin the browser to https for localhost,
+#     breaking every later plain-http dev session - and removing the header
+#     afterwards does NOT undo it, the browser remembers.
+#   upgrade-insecure-requests  would rewrite our own http subresources to https
+#     and fail to load them.
+# Applied to HTML only, which mirrors prod: Pages serves _headers for the
+# document, while /api responses come from the Function and carry none.
+_HDR_CACHE = {"mtime": None, "headers": []}
+
+
+def _prod_headers():
+    path = os.path.join(BASE_DIR, "www", "_headers")
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return []
+    if _HDR_CACHE["mtime"] == mt:
+        return _HDR_CACHE["headers"]
+    out = []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            in_block = False
+            for raw in fh:
+                line = raw.rstrip()          # no escape sequence here on purpose
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                if not line[:1].isspace():          # a path pattern, not a header
+                    in_block = line.strip() == "/*"
+                    continue
+                if in_block and ":" in line:
+                    key, val = line.split(":", 1)
+                    key, val = key.strip(), val.strip()
+                    low = key.lower()
+                    if low == "strict-transport-security":
+                        continue
+                    if low == "content-security-policy":
+                        val = "; ".join(
+                            part for part in (p.strip() for p in val.split(";"))
+                            if part and part != "upgrade-insecure-requests")
+                    out.append((key, val))
+    except OSError:
+        return []
+    _HDR_CACHE["mtime"] = mt
+    _HDR_CACHE["headers"] = out
+    return out
+
+
+# ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
 class Handler(BaseHTTPRequestHandler):
@@ -718,6 +776,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store")
+        if ctype.startswith("text/html"):
+            for k, v in _prod_headers():
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(data)
 

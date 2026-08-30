@@ -1955,7 +1955,24 @@ let _tsWidget=null, _tsToken="";
 /* Called by the script's own onload AND by showGate, because either can happen first: the script
    is async, and the gate may be raised before or after it lands. Rendering twice is prevented by
    the _tsWidget guard rather than by assuming an order. */
+/* The site key is bound to the deployed hostname, so on a dev server Turnstile can only fail -
+   error 110200, plus a 400 in the console that shows up as noise in every harness run. Adding
+   localhost to the widget's allowed hostnames would weaken the binding on the LIVE key to buy a
+   local sign-in that Supabase would reject anyway: it holds the real secret, which will not
+   validate a token issued for another hostname. So do not render it where it cannot work, and say
+   plainly why sign-in stops here rather than showing a challenge that can never be solved. */
+/* Split out as a pure function of the hostname so it can be tested against many values. This one
+   decides whether production has ANY bot protection: if it wrongly answered "no" on pages.dev the
+   widget would never render, Supabase would reject every sign-in for a missing token, and the app
+   would be locked. Too important to leave resting on an untestable read of location. */
+function captchaAvailableFor(host){
+  const h=String(host||"").toLowerCase();
+  return !(h==="localhost" || h==="127.0.0.1" || h==="::1" || h==="[::1]" || h===""
+           || h.endsWith(".localhost"));
+}
+function captchaAvailable(){ return captchaAvailableFor(location.hostname); }
 function captchaEnsure(){
+  if(!captchaAvailable()) return true;      // nothing to render, and nothing to keep retrying
   if(_tsWidget!==null) return true;
   if(!window.turnstile) return false;
   const el=$("#gateCaptcha"); if(!el) return false;
@@ -2004,9 +2021,11 @@ async function sbAuth(path, body, method){
   if(captchaRequired(path)){
     captchaEnsure();
     if(!_tsToken){
-      throw new Error(window.turnstile
-        ? "Complete the “I am human” check below, then try again."
-        : "The human-verification widget could not load. Check your connection or any content blocker, then reload.");
+      throw new Error(!captchaAvailable()
+        ? "Sign-in only works on the deployed site — the human check is tied to that hostname."
+        : (window.turnstile
+            ? "Complete the “I am human” check below, then try again."
+            : "The human-verification widget could not load. Check your connection or any content blocker, then reload."));
     }
     body=Object.assign({}, body, { gotrue_meta_security:{ captcha_token:_tsToken } });
   }

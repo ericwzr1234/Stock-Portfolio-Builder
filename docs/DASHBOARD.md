@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 87 |
+| Done | 88 |
 
 ---
 
@@ -119,7 +119,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (87)
+## Done  (88)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -230,7 +230,7 @@ _Integrated into the product (on main)._
 - **E6.7** — Security review - GATE before inviting anyone · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 19 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 20 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -251,5 +251,6 @@ _Integrated into the product (on main)._
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 - **E11.14** — Idle lock did not sign out; verification links landed in the cached account · [spec](features/E11_online-deployment.md)
 - **E11.15** — Deploy automatically on merge to main · [spec](features/E11_online-deployment.md)
+- **E11.16** — The dev server sends the same headers prod does · [spec](features/E11_online-deployment.md)
 
 </details>
