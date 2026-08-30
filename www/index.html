@@ -1969,6 +1969,17 @@ function captchaEnsure(){
   }catch(e){ console.error("turnstile render",e); return false; }
   return true;
 }
+/* Neither single trigger is reliable, which cost a deploy to find out. The script is async, so its
+   onload can fire BEFORE captchaEnsure exists; and showGate's call sits behind a "was it hidden"
+   branch that is false on the very first load, because the gate markup carries no hidden attribute.
+   On prod both missed and the widget never appeared - with no error, because nothing had failed.
+   So: try on boot, and keep trying briefly until the script lands. A sign-in box that cannot render
+   its own challenge is not a degraded experience, it is a locked door. */
+function captchaBoot(){
+  let tries=0;
+  const go=()=>{ if(captchaEnsure()) return; if(++tries>50) return; setTimeout(go,200); };  // ~10s
+  go();
+}
 /* A solved token is single-use. Not resetting after an attempt means the SECOND sign-in try fails
    with a confusing captcha error rather than the real reason. */
 function captchaReset(){
@@ -3220,6 +3231,7 @@ function showGate(show){
   }
   // Only reset on the way IN. A second lockOut while the user is typing must not blank the form.
   if(show){ try{ coachEnd(); }catch(e){} }     // never leave a tour running behind the gate
+  if(show){ try{ captchaEnsure(); }catch(e){} }   // cheap and idempotent; the guard inside stops re-renders
   if(show && wasHidden){
     /* E6 FIX - the form is wiped on the way IN. It used to keep the previous user's email address
        on screen after a sign-out (disclosing who was last here on a shared machine), keep a stale
@@ -5931,6 +5943,7 @@ async function init(){
     }).catch(()=>{});
   });
   wireGate();                                             // E6.8
+  captchaBoot();                                          // E11.4b: render the challenge, whenever the script lands
   wireSorting();                                          // delegated, so it survives every re-render
   // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
   // only sets `gated` (mouse), so keyboard focus could reach the app during dsLoadUniverse().
