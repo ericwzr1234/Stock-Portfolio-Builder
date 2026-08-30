@@ -53,7 +53,28 @@ reference — it is a mock with no engine, not a code source.
 
 ---
 
-## Fixed this session (2026-08-27), live in prod
+## 2026-08-30 — the invite path is OPEN
+
+**`E6.7` is closed by the owner.** He registered a real second account, received the confirmation
+email and signed in. Turnstile now guards signup, confirmed by his own sign-in. The URL can be sent
+to people.
+
+- **Deploys are automatic** (`E11.15`). The `publish` job in `ci.yml` runs on every push to `main`
+  *after* the tests pass, skips commits touching nothing under `www/`/`functions/`/`worker/`, stamps
+  in the runner without committing, and verifies the live page carries that commit. Hand-made
+  "Stamp" commits are retired; `workflow_dispatch` gives it a deploy-now button.
+- **`E11.4b` Turnstile.** The secret went into Supabase before the client existed, so enforcement
+  went live with nothing to satisfy it and prod sign-in was broken until the client shipped. The
+  cause of the *second* failure is worth remembering: the interactive challenge talks to a
+  per-region **subdomain**, and a CSP host does not cover its own subdomains.
+- **`E11.16`** — the dev server now sends the same headers Pages does, because that CSP bug was
+  structurally impossible to reproduce locally. HSTS and `upgrade-insecure-requests` are dropped for
+  localhost on purpose; both would break dev, and HSTS is not undone by removing it later.
+- **`E1.13`** — per-name Target weights on the Model tab, so the two-level allocation is visible
+  where the metrics are tuned.
+- **Sentry deferred deliberately** — see `E11.7b`. Do not re-propose without a new reason.
+
+## Fixed on 2026-08-27, live in prod
 
 - **`APP2.6`** — Overview on the phone is one segmented chart (`Value / Return % / Return $`) in a
   single card, instead of V2's two. Web proven untouched.

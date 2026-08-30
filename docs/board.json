@@ -188,7 +188,10 @@
       "NOT STARTED - blocked on an account only the owner can create. Sentry's free Developer tier is 5k errors/month and needs no card.",
       "WHY IT MATTERS: there are ~19 console.error calls that vanish into browsers nobody can see. Now that the app is deployed and reachable from a phone, a failure the owner hits away from the laptop leaves no trace at all.",
       "When the DSN exists this is small: init early, and let it capture what already gets logged. Do not add a second error path."
-      ] },
+      ,
+      "DEFERRED BY THE OWNER 2026-08-30, not abandoned and not forgotten - do NOT re-propose it without a new reason. The scale does not justify it yet: a handful of invited users he can phone, so he hears about breakage directly rather than needing telemetry to discover it.",
+      "The costs weighed and found to outrun the benefit at this size: it puts a third-party script inside the page with full DOM access; it widens connect-src, which exists specifically to stop XSS reaching an attacker; and it moves error data out of Canada, where Supabase keeps everything else, to either the US or the EU since Sentry offers no Canadian region.",
+      "REVISIT WHEN: someone reports a bug that cannot be reproduced. That is the concrete trigger. Until then roughly 19 console.error calls stay invisible, which is an accepted cost, not an oversight."] },
     { "id": "E11.8", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
       "title": "Tests and CI", "notes": [
       "DONE 2026-08-16. 12 Playwright tests against the real page, signed out, so CI carries no secrets. MUTATION-TESTED: reintroducing the E10.1 equal-weight defect fails exactly one test (received 100, the cash, against the expected 800, the real book value) and the other 11 still pass - the suite would have caught the bug that shipped.",
