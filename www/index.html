@@ -635,6 +635,8 @@
   .auth-in{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
     background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit}
   .auth-in:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--teal) 18%,transparent)}
+  .gate-captcha{margin-top:14px;display:flex;justify-content:center;min-height:65px}
+  .gate-captcha:empty{min-height:0;margin-top:0}
   .auth-msg{margin-top:10px;font-size:12.5px;padding:8px 10px;border-radius:8px;display:none}
   .auth-msg.show{display:block}
   .auth-msg.err{background:color-mix(in srgb,var(--neg) var(--tint),var(--paper));color:var(--neg)}
@@ -736,6 +738,11 @@
   }
 </style>
 <script src="data/universe.js"></script>
+<!-- Turnstile. Explicit render so the widget appears where the gate wants it and can be reset
+     between attempts - a solved token is single-use. The onload callback fires whether the script
+     lands before or after the app script, which the app alone cannot arrange. -->
+<script>window.onloadTurnstileCallback=function(){ try{ if(window.captchaEnsure) captchaEnsure(); }catch(e){} };</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer></script>
 <script>try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())document.documentElement.classList.add('native');}catch(e){}</script>
 </head>
 <body>
@@ -750,6 +757,7 @@
     <input class="auth-in" type="email" id="gateEmail" autocomplete="username" placeholder="you@example.com">
     <label class="auth-field" for="gatePass">Password</label>
     <input class="auth-in" type="password" id="gatePass" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <div id="gateCaptcha" class="gate-captcha"></div>
     <div id="gateMsg" class="auth-msg"></div>
     <button class="btn primary" id="gateGo" style="width:100%;margin-top:14px;padding:11px">Sign in</button>
     <div class="auth-alt">
@@ -1933,6 +1941,46 @@ function signedIn(){ return sbValidSession(sbSession); }   // the same test ever
 function sbUserEmail(){ return (sbSession&&sbSession.user&&sbSession.user.email)||""; }
 function sbUserId(){ return (sbSession&&sbSession.user&&sbSession.user.id)||""; }
 
+/* ===== Turnstile =============================================================================
+   The site key is PUBLIC by design - it ships in the page and identifies the widget. The secret
+   lives only in Supabase, which is what actually verifies the solved token.
+
+   Supabase enforces this server-side the moment captcha protection is switched on: signup, sign-in
+   and password recovery are rejected with captcha_failed until a token is supplied. Refresh is NOT
+   covered, which matters - existing sessions keep renewing while this is deployed, so switching it
+   on breaks new sign-ins only, never people already signed in. Verified against the live project
+   rather than assumed. */
+const TURNSTILE_SITE_KEY="0x4AAAAAAEiWIkOddcvroWq7";
+let _tsWidget=null, _tsToken="";
+/* Called by the script's own onload AND by showGate, because either can happen first: the script
+   is async, and the gate may be raised before or after it lands. Rendering twice is prevented by
+   the _tsWidget guard rather than by assuming an order. */
+function captchaEnsure(){
+  if(_tsWidget!==null) return true;
+  if(!window.turnstile) return false;
+  const el=$("#gateCaptcha"); if(!el) return false;
+  try{
+    _tsWidget=window.turnstile.render(el,{
+      sitekey:TURNSTILE_SITE_KEY,
+      callback:t=>{ _tsToken=t||""; },
+      "expired-callback":()=>{ _tsToken=""; },      // tokens expire in ~5 minutes
+      "error-callback":()=>{ _tsToken=""; }
+    });
+  }catch(e){ console.error("turnstile render",e); return false; }
+  return true;
+}
+/* A solved token is single-use. Not resetting after an attempt means the SECOND sign-in try fails
+   with a confusing captcha error rather than the real reason. */
+function captchaReset(){
+  _tsToken="";
+  try{ if(_tsWidget!==null && window.turnstile) window.turnstile.reset(_tsWidget); }catch(e){}
+}
+/* Sign-in, signup and recovery need it. Refresh must NOT be given one: there is no user present to
+   solve a challenge, and Supabase does not ask for it there. */
+function captchaRequired(path){
+  return path==="signup" || path==="recover" || path==="token?grant_type=password"
+      || path.indexOf("magiclink")===0 || path.indexOf("otp")===0;
+}
 async function sbAuth(path, body, method){
   /* The same reason sbApi has one: a black-holed connection would otherwise leave the SIGN-IN
      button disabled and reading "Working..." forever, with the Enter key gated on that same
@@ -1940,6 +1988,17 @@ async function sbAuth(path, body, method){
   let ctl=null, timer=null, timedOut=false;
   try{ if("AbortController" in window){ ctl=new AbortController();
         timer=setTimeout(()=>{ timedOut=true; try{ ctl.abort(); }catch(e){} },CLOUD_TIMEOUT_MS); } }catch(e){}
+  /* Attached HERE, not at the three call sites, so a future auth call cannot forget it - the
+     failure this codebase keeps producing is one fact with several readers and only one taught. */
+  if(captchaRequired(path)){
+    captchaEnsure();
+    if(!_tsToken){
+      throw new Error(window.turnstile
+        ? "Complete the “I am human” check below, then try again."
+        : "The human-verification widget could not load. Check your connection or any content blocker, then reload.");
+    }
+    body=Object.assign({}, body, { gotrue_meta_security:{ captcha_token:_tsToken } });
+  }
   let r;
   try{
     r=await fetch(SB_URL+"/auth/v1/"+path,{ method:method||"POST",
@@ -3169,6 +3228,10 @@ function showGate(show){
     const em=$("#gateEmail"), pw=$("#gatePass"), ms=$("#gateMsg"), b=$("#gateGo");
     if(em) em.value=""; if(pw) pw.value="";
     if(ms){ ms.className="auth-msg"; ms.textContent=""; }
+    /* The widget is rendered here as well as from the script's own onload, because either can
+       happen first - the script is async. A fresh challenge per visit, so a token solved by the
+       PREVIOUS person on a shared browser is never reused. */
+    try{ captchaEnsure(); captchaReset(); }catch(e){}
     if(b){ b.disabled=false; }
     if(gateSetMode) gateSetMode("signin");
     setTimeout(()=>{ if(em) em.focus(); },40);
@@ -3198,6 +3261,7 @@ function wireGate(){
     if(!email){ gateMsg("err","Enter your email address first, then press this again."); return; }
     try{ await sbRecover(email); gateMsg("ok","If that address has an account, a reset link is on its way."); }
     catch(e){ gateMsg("err",e.message||"Could not send the reset email."); }
+    finally{ captchaReset(); }
   });
   const submit=async()=>{
     const email=($("#gateEmail").value||"").trim(), pass=$("#gatePass").value||"";
@@ -3207,7 +3271,7 @@ function wireGate(){
       if(mode==="signup"){
         const r=await sbSignUp(email,pass);
         if(r.needsConfirmation){
-          b.disabled=false; setMode("signin");
+          b.disabled=false; setMode("signin"); captchaReset();
           gateMsg("ok","Account created. Confirm the link in your email, then sign in.");
           return;
         }
@@ -3241,6 +3305,9 @@ function wireGate(){
       await postSignInPrompts();                   // only now can the user actually see a dialog
     }catch(e){
       b.disabled=false; setMode(mode);
+      /* A solved token is single-use. Without this the SECOND attempt fails with a confusing
+         captcha error instead of the real reason - a wrong password would read as a robot check. */
+      captchaReset();
       gateMsg("err", e.message==="Invalid login credentials"
         ? "That email and password did not match an account."
         : (e.message||"Sign-in failed."));
