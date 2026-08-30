@@ -15,16 +15,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Brace and string balance
         run: python3 tools/check_syntax.py
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -37,7 +37,7 @@ jobs:
 
       - name: Keep the report when something fails
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -70,7 +70,7 @@ jobs:
       group: pages-deploy          # two pushes must not race onto the live site
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2           # enough to diff this push against its parent
 
@@ -106,7 +106,7 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN is not set, so nothing was published. Add it under Settings > Secrets and variables > Actions."
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.creds.outputs.ok == 'true'
         with:
           python-version: "3.12"
@@ -115,7 +115,7 @@ jobs:
         if: steps.creds.outputs.ok == 'true'
         run: python3 tools/stamp_version.py
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.creds.outputs.ok == 'true'
         with:
           node-version: "22"
