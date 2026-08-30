@@ -10,6 +10,8 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:        # gives the Actions tab a "Run workflow" button - without this there is
+                            # no way to prove a deploy on demand, and no manual "publish now".
 
 jobs:
   test:
@@ -64,7 +66,10 @@ jobs:
   # ---------------------------------------------------------------------------------------------
   publish:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # A manual run counts too, so this doubles as a "deploy now" button. github.event.before is
+    # empty on workflow_dispatch, which the change check below reads as "publish to be safe" -
+    # correct for a manual run, whose whole purpose is to publish.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     concurrency:
       group: pages-deploy          # two pushes must not race onto the live site
