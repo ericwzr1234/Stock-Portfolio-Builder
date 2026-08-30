@@ -123,7 +123,17 @@ Your own password reset is broken for the same reason. Two owner actions below f
 | ~~3~~ | ✅ **SMTP DONE 2026-08-27** — proven end to end: a non-team address received the confirmation email and signed in. What remains is split out as `E11.4b`: **Turnstile** secret → Supabase, send me only the **site** key. | Bots finding the URL would burn the Gmail send quota and wreck sender reputation through bounces, breaking the confirmation emails that now work. |
 | 4 | `E11.7b`: a Sentry account (free tier, no card) → DSN. | ~19 `console.error` calls vanish into browsers nobody can see. |
 
-**Deploying** (do this after ANY change under `www/`, or prod drifts from `main`):
+**Deploying is AUTOMATIC as of 2026-08-30.** The `publish` job in
+[`ci.yml`](../.github/workflows/ci.yml) runs on every push to `main`, *after* the gates pass, and
+only when something under `www/`, `functions/` or `worker/` actually changed. It stamps in the
+runner without committing, so the deployed bundle names its own commit and no bot pushes back into
+the branch that triggered it — **the hand-made "Stamp" commits are no longer needed.** It then
+proves the live site is serving that commit, because a 200 from Pages proves nothing.
+
+This exists because the weekly ticker bot can commit but cannot deploy, so prod twice served a
+stale `www/` while `main` was correct.
+
+To publish by hand anyway (or from a branch):
 
 ```
 py -3 tools/stamp_version.py

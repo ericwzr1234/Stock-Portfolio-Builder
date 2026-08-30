@@ -13,8 +13,8 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
-| Integration | 1 |
-| Done | 83 |
+| Integration | 0 |
+| Done | 84 |
 
 ---
 
@@ -118,38 +118,12 @@ _Tested but not yet approved; new instructions → back to Implementation._
 
 - _(none)_
 
-## Integration  (1)
+## Integration  (0)
 _Approved; merging dev → main (prod) + updating docs._
 
-- **E6.7** · _E6 · Multi-user platform_ — **Security review - GATE before inviting anyone** _(depends E6.6, web)_ · [spec](features/E6_database_design.md)
-  - Prove isolation with a SECOND account: cross-user read/write must fail at the DATABASE, not just in the UI.
-  - Confirm no service key ships in the client bundle, TLS is enforced end to end, and delete-account removes the row.
-  - No tester is invited until this passes.
-  - THREE adversarial review rounds over E6.4-E6.8. Round 1: 36 confirmed. Round 2: 30 more, including three HIGH data-loss paths INTRODUCED by the round-1 fixes (lockOut cleared the very state its own save guards read). Engine re-verified untouched after every round - 28 functions byte-identical to main.
-  - Proven live, not by inspection: a session dying mid-save with another save queued behind it writes NOTHING to the shared /api/portfolio (0 writes; portfolio.dev.json byte-identical) and both edits are rescued; a forged session with no refresh token cannot pass the gate or reach the offline mirror.
-  - OUTSTANDING, needs the dashboard: (1) check 6, confirm account deletion cascades; (2) custom SMTP before ANY invite (the built-in sender is capped at 2 emails/hour); (3) flip signup to invite-only. See sql/ISOLATION_TEST.md.
-  - Round 5 verdict: NOT CONVERGED. The gate for inviting anyone is therefore still CLOSED, independently of the three outstanding Supabase dashboard actions.
-  - Check 6 is now PARTLY evidenced: the owner registered a real account with email confirmation, deleted it, and the DB shows the account gone with ZERO orphaned rows. Still not decisive - both remaining rows belong to the two test accounts, so we cannot tell whether the deleted account ever had one. To close it: delete test-b (confirmed to hold a row, revision 2 / 4 checkpoints) and re-run the count - portfolio_rows must drop 2 -> 1. See sql/ISOLATION_TEST.md.
-  - CHECK 6 CLOSED 2026-08-15: the owner listed the rows (test-a rev 19 / 3 checkpoints, test-b rev 2 / 4 checkpoints), deleted test-b, and portfolio_rows dropped 2 -> 1 with orphaned_rows still 0. That is on-delete-cascade firing on a row KNOWN to exist, not a vacuous zero. **The isolation gate is now 8 of 8.**
-  - NOTE: test-b@example.com no longer exists. Any future cross-account test needs a second account created from the dashboard (the assistant does not create accounts). test-a@example.com / Test@1234 survives.
-  - REMAINING before inviting anyone: custom SMTP (built-in sender is capped at 2 emails/hour, so invites and password resets stall) and flipping signup to invite-only (currently OPEN - the owner's own registration with a real email confirmed that).
-  - PRE-TESTING (owner, 2026-08-15): move Supabase to a PAID tier before formal testing. Free projects pause after a week idle and, since E9 removed every local copy, a paused project means testers see nothing rather than a cached portfolio. This retires the old E6.8 requirement that a stored session must keep working while the backend is asleep. Remaining pre-invite items: custom SMTP (built-in sender is 2 emails/hour) and invite-only signup.
-  - 2026-08-16: ALL E6-E10 CODE IS NOW MERGED TO main/prod. This ticket stays OPEN anyway, because it is a GATE on inviting people, not on shipping code, and all three owner-only actions (paid tier, custom SMTP, invite-only signup) are still outstanding. Signup is OPEN to anyone with the URL right now. The assistant cannot do any of the three - they are Supabase dashboard actions on the owner's account.
-  - OWNER DECISION 2026-08-16 - all three DEFERRED, we are not in the testing phase yet: open signup is acceptable for now; custom SMTP and the paid tier will both be resolved when we move to paid at testing time. Interim plan for pausing: resume the project manually from the dashboard (Free projects pause after 7 days of low activity, restorable for up to 1 year - Dashboard > organization > project > Resume project). Better still, simply USING the app once a week is the activity that prevents the pause. This ticket stays open as the reminder, not because anything is broken.
-  - ROUND 6 (2026-08-27) - the first pass over the CLIENT surface; rounds 1-5 were the data layer. Found a real stored XSS: the app had NO escaping helper at all and 49 template interpolations dropped free text straight into innerHTML. PROVEN by executing it, not by reading: a theme name of <img src=x onerror=...> fired SEVEN times per render, and the Supabase session token sits in localStorage where any injected script reads it - so XSS meant account takeover.
-  - Severity, stated honestly: in the normal flow it is SELF-XSS - you have to type the payload into your own theme name, and no path shows one account's strings to another (no sharing, no file import, feedback has no select policy). The latent third-party path is the ticker directory: build_ticker_directory.py does no validation and the weekly bot refreshes it, so one upstream row containing < would have reached innerHTML in every user's browser. Today's data is clean - 0 angle brackets, 0 double quotes across 11,317 entries.
-  - Fixed at the SINK with esc(), not on input - input-escaping corrupts the stored value and double-escapes on every re-save. tests/security.spec.js proves both halves: hostile markup is inert AND ordinary names like 'Robotics & AI' still read back exactly, because an over-eager escape showing users '&amp;' is also a defect. Two of the five fail against the pre-fix code.
-  - Because escaping is now at every sink, input validation in the ticker builder is NOT needed - it would be a second guard on a closed hole.
-  - Added www/_headers: the app had NO CSP and NO X-Frame-Options, so it was framable (clickjacking against a signed-in session that can delete its own account). CSP keeps script-src 'unsafe-inline' deliberately - the app is three inline scripts and a stale per-deploy hash would block every one of them, taking the whole app down. So it does not stop injected script RUNNING; it stops it REACHING an attacker (connect-src, img-src, form-action, base-uri, object-src). Honest limit: CSP cannot block top-level navigation, so location=... exfiltration would still work. Verified before deploy by replaying the real policy locally over every view plus the tour and Account sheet: 0 violations, 0 page errors.
-  - check_syntax.py now fails if the CSP's connect-src does not name the SB_URL the app actually calls - a drifted origin would break every sign-in as an opaque console block. Mutation-tested.
-  - RE-VERIFIED LIVE against prod, not by inspection: anonymous SELECT on portfolios and an anonymous call to delete_own_account are BOTH denied with 42501, at the GRANT level, before RLS is even consulted. The SQL is textbook - FORCE row level security, explicit auth.uid() is not null, to authenticated, and SECURITY DEFINER with search_path pinned to '' and the uid taken from auth.uid() rather than an argument.
-  - No SSRF in the proxy: every upstream URL is a hardcoded Yahoo literal and symbols are encodeURIComponent'd, so /api cannot be aimed at another host. It IS an open unauthenticated Yahoo proxy with no rate limit or Origin check - an abuse and quota problem, not a pivot.
-  - STILL OPEN, so THE GATE REMAINS CLOSED: (1) custom SMTP - measured this session, mailer_autoconfirm is false and disable_signup is false, so a stranger can start signing up and can never finish. RESOLVED SAME DAY: (2) the Auth redirect allowlist - the owner set it and it is verified, our prod URL now round-trips AND a nested path /reset/x survives, which is what the double asterisk buys, while a non-allowlisted URL falls back to the prod Site URL instead of localhost; (3) pb-proxy deleted with the owner's go-ahead - it now 404s while prod /api still returns live quotes, and worker/wrangler.toml is annotated and set workers_dev=false so an accidental deploy cannot hand out a public URL again. ACCEPTED, not fixed: (4) no size cap on a stored portfolio, since E10.1 bounds history at 10 versions.
-  - MOBILE WEB (2026-08-27), found while hardening the demo path: tools/phone/ only ever verified the CAPACITOR build - it stubs window.Capacitor so NATIVE is true. The owner's actual demo is the web app in Mobile Safari, where NATIVE is false, and nothing was watching it. Two defects sat on the first screen a new user sees: nav.tabs still carried the pre-E5 labels (Fundamentals & Allocation, Calculator / Rebalance) so 419px of text in a 390px viewport pushed History off screen and panned the whole page, breaking the owner's own standing rule; and the gate's email and password fields were 14px, which makes iOS Safari zoom the page on the first tap. Same root cause both times - a fact taught to one reader of it: the rail and the native tab bar were renamed and nav.tabs was not, and the 16px rule was written '.native input...' so the browser that actually zooms was never covered. tests/mobileweb.spec.js guards both plus label parity between the strip and the rail; all five fail against the pre-fix code. Header also trimmed 253px to 183px on a 390px screen.
-  - STATUS 2026-08-27, of the three items this ticket listed as outstanding: (2) custom SMTP is DONE and proven by a real non-team registration; (3) 'flip signup to invite-only' is WITHDRAWN - the owner's model is an unlisted URL where anyone holding it signs up normally, so open signup is the design, not a gap. That leaves (1) confirming the account-deletion cascade with a second account.
-  - Round 6 (client surface) fixed a real stored XSS and added the security headers. E11.14 then fixed a cross-account landing the owner found in his own first end-to-end registration. THE GATE IS STILL THE OWNER'S TO DECLARE: the E11.14 fix is verified synthetically in prod but he has not re-run the real sequence that exposed it.
+- _(none)_
 
-## Done  (83)
+## Done  (84)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -247,7 +221,7 @@ _Integrated into the product (on main)._
 - **E5.8** — Every table sorts by its headers · [spec](features/E5_web-ui-overhaul.md)
 
 </details>
-<details><summary><b>E6 · Multi-user platform</b> — 7 done</summary>
+<details><summary><b>E6 · Multi-user platform</b> — 8 done</summary>
 
 - **E6.1** — Forward-compat: schemaVersion + revision + updatedAt · [spec](features/E6_database_design.md)
 - **E6.2** — Extract a storage-adapter interface · [spec](features/E6_database_design.md)
@@ -256,6 +230,7 @@ _Integrated into the product (on main)._
 - **E6.5** — Cloud adapter with optimistic concurrency · [spec](features/E6_database_design.md)
 - **E6.6** — Import local portfolio.json + cutover · [spec](features/E6_database_design.md)
 - **E6.8** — Login landing page - sign-in required before anything · [spec](features/E6_database_design.md)
+- **E6.7** — Security review - GATE before inviting anyone · [spec](features/E6_database_design.md)
 
 </details>
 <details><summary><b>E11 · Online, for invited users</b> — 17 done</summary>

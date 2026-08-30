@@ -42,3 +42,105 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---------------------------------------------------------------------------------------------
+  # Publish www/ to Cloudflare Pages.
+  #
+  # WHY THIS EXISTS. The bot that refreshes www/data/tickers.json every Sunday can commit but
+  # cannot deploy, so prod silently served a week-stale ticker directory until somebody noticed.
+  # That is the second time a www/ change sat on main without reaching the live site. A deploy step
+  # that depends on a human remembering is not a deploy step.
+  #
+  # It lives in THIS file, beside the gates, because `needs:` only resolves within one workflow -
+  # so this is the only way to guarantee that a build failing check_syntax or the Playwright suite
+  # can never reach the live site.
+  #
+  # It stamps in the runner and does NOT commit the stamp: the deployed bundle names the exact
+  # commit it was built from, with no bot pushing back into the branch that triggered it, which is
+  # how deploy loops start. The hand-made "Stamp" commits are no longer needed.
+  #
+  # It fails SOFT when the token is absent - a warning, not a red run - so this can land before the
+  # secret exists.
+  # ---------------------------------------------------------------------------------------------
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-deploy          # two pushes must not race onto the live site
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2           # enough to diff this push against its parent
+
+      - name: Is there anything to publish?
+        id: changed
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push or unknown parent - publishing to be safe."
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Docs-only commits move main without changing what is served. Publishing them would move
+          # the build stamp for something nobody serves; the repo's convention is that this is
+          # correct, not drift.
+          if git diff --name-only "$BEFORE" "${{ github.sha }}" | grep -qE '^(www/|functions/|worker/)'; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing under www/, functions/ or worker/ changed - nothing to publish."
+            echo "yes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Are the credentials present?
+        id: creds
+        if: steps.changed.outputs.yes == 'true'
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLOUDFLARE_API_TOKEN is not set, so nothing was published. Add it under Settings > Secrets and variables > Actions."
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Stamp the build with the commit it came from
+        if: steps.creds.outputs.ok == 'true'
+        run: python3 tools/stamp_version.py
+
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          node-version: "22"
+
+      # Run from the repo ROOT so functions/ is picked up: functions/api/[[path]].js imports
+      # worker/src/index.js, and that Function serves /api/* on the app's own origin. wrangler is
+      # pinned to a major so a surprise 5.x cannot change deploy behaviour unattended.
+      - name: Publish to Cloudflare Pages
+        if: steps.creds.outputs.ok == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 pages deploy www --project-name portfolio-builder --branch main
+
+      # A 200 from Pages proves nothing: any unknown path returns index.html with HTTP 200. The
+      # only honest check is that the live page carries the stamp for THIS commit.
+      - name: Prove the live site is serving this commit
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          SHORT="$(git rev-parse --short "${{ github.sha }}")"
+          for i in 1 2 3 4 5 6; do
+            sleep 5
+            LIVE="$(curl -sL "https://portfolio-builder-esb.pages.dev/?cb=$i" | grep -oE 'APP_VERSION="[^"]*"' || true)"
+            echo "attempt $i: $LIVE"
+            case "$LIVE" in *"$SHORT"*) echo "Live site is serving $SHORT."; exit 0;; esac
+          done
+          echo "::error::The live site is not serving $SHORT after the deploy reported success."
+          exit 1
