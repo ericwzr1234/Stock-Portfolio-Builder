@@ -24,7 +24,7 @@ jobs:
       - name: Brace and string balance
         run: python3 tools/check_syntax.py
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -115,7 +115,7 @@ jobs:
         if: steps.creds.outputs.ok == 'true'
         run: python3 tools/stamp_version.py
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.creds.outputs.ok == 'true'
         with:
           node-version: "22"
