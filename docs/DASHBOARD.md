@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 84 |
+| Done | 86 |
 
 ---
 
@@ -123,7 +123,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (84)
+## Done  (86)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -140,7 +140,7 @@ _Integrated into the product (on main)._
 - **C10** — Cross-platform: web + iOS
 
 </details>
-<details><summary><b>E1 · User-Defined Themes</b> — 12 done</summary>
+<details><summary><b>E1 · User-Defined Themes</b> — 13 done</summary>
 
 - **E1.1** — Data-driven theme list (foundation) · [spec](features/E1.1_data-driven-themes.md)
 - **E1.2** — Add / remove a ticker in a theme · [spec](features/E1.2_add-remove-ticker.md)
@@ -154,6 +154,7 @@ _Integrated into the product (on main)._
 - **E1.10** — Two-level allocation: rank tickers inside a theme, not just themes · [spec](features/E1.1_data-driven-themes.md)
 - **E1.11** — Editing a portfolio no longer throws you onto Rebalance · [spec](features/E1.2_add-remove-ticker.md)
 - **E1.12** — UI vocabulary: a theme is called a portfolio · [spec](features/E1.1_data-driven-themes.md)
+- **E1.13** — Per-name target weight on the Model tab · [spec](features/E1.1_data-driven-themes.md)
 
 </details>
 <details><summary><b>E2 · User-Defined Metrics</b> — 6 done</summary>
@@ -233,7 +234,7 @@ _Integrated into the product (on main)._
 - **E6.7** — Security review - GATE before inviting anyone · [spec](features/E6_database_design.md)
 
 </details>
-<details><summary><b>E11 · Online, for invited users</b> — 17 done</summary>
+<details><summary><b>E11 · Online, for invited users</b> — 18 done</summary>
 
 - **E11.0** — Spike: does Yahoo work from a Cloudflare IP · [spec](features/E11_online-deployment.md)
 - **E11.1** — Nightly pg_dump, and a restore actually performed · [spec](features/E11_online-deployment.md)
@@ -252,5 +253,6 @@ _Integrated into the product (on main)._
 - **E11.7a** — Feedback channel · [spec](features/E11_online-deployment.md)
 - **E11.8** — Tests and CI · [spec](features/E11_online-deployment.md)
 - **E11.14** — Idle lock did not sign out; verification links landed in the cached account · [spec](features/E11_online-deployment.md)
+- **E11.15** — Deploy automatically on merge to main · [spec](features/E11_online-deployment.md)
 
 </details>

@@ -4107,14 +4107,29 @@ function renderFundamentals(){
   };
   A.rows.forEach(r=>{
     const t=r.theme;
+    /* E1.13: the model ranks the names inside a portfolio, but until now that was only visible as
+       dollars over on Rebalance - not here, where the metrics driving it are actually tuned. This
+       column is the name's share OF THIS PORTFOLIO; multiply by the target pill in the header to
+       get its share of the book, which the tooltip spells out. Names sitting on the owner's floor
+       or ceiling are marked, because "why is this one not moving when I change the weights" is
+       otherwise a genuinely confusing thing to hit. */
+    const wIn=(A.within&&A.within[t.key])||{}, nIn=tickersOf(t.key).length, bIn=weightBounds(nIn);
+    const wCell=s=>{
+      const w=wIn[s];
+      if(!isNum(w)) return '<td class="num">—</td>';
+      const atHi=nIn>1 && w>=bIn.hi-1e-9, atLo=nIn>1 && w<=bIn.lo+1e-9;
+      const tag=atHi?`<span class="tag" title="At the ceiling, 1/(n-1) = ${pct(bIn.hi)}">max</span>`
+               :atLo?`<span class="tag" title="At the floor, 1/(2n) = ${pct(bIn.lo)}">min</span>`:'';
+      return `<td class="num" title="${pct(r.alloc*w)} of the whole book">${pct(w)}${tag}</td>`;
+    };
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${wCell(s)}${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
-    const thead=`<tr><th>Ticker</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
-    const tfoot=`<tr><td>Portfolio</td>${mcapOn?`<td class="num" title="portfolio average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
+    const thead=`<tr><th>Ticker</th><th title="Share of this portfolio's capital. The pill above gives the portfolio's share of the book.">Target</th>${mcapOn?'<th>Cap</th>':''}${cols.map(m=>`<th>${m.header}</th>`).join("")}</tr>`;
+    const tfoot=`<tr><td>Portfolio</td><td class="num" title="the names always add up to the whole portfolio">100.0%</td>${mcapOn?`<td class="num" title="portfolio average market cap">${bil(r.mcap)}</td>`:''}${cols.map(m=>footCell(m,r)).join("")}</tr>`;
     // E5.2: same collapsible pattern as Overview — the old equal-height grid left dead space
     // under shorter portfolios. The header is a DIV, not a <button>, because it contains the
     // add/rename/delete buttons and nested buttons are invalid HTML.

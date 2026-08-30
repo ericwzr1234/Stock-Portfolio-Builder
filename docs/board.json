@@ -779,6 +779,22 @@
       "The calculation was DUPLICATED in two render functions, both wrong identically. It is now one function, which is the same lesson this codebase keeps relearning.",
       "tests/daypl.spec.js - all five fail against the pre-fix code, including the owner's exact symptom: for a book bought entirely today, day P/L must EQUAL the all-time gain." ] },
 
+    { "id": "E1.13", "epic": "E1", "stage": "done", "platform": "web + ios", "depends": "E1.10", "spec": "docs/features/E1.1_data-driven-themes.md",
+      "title": "Per-name target weight on the Model tab", "notes": [
+      "E1.10 made the model rank names INSIDE a portfolio, but the result was only visible as dollars on Rebalance - not on Model, where the metrics causing it are actually tuned. You could change a weight and see nothing move.",
+      "A Target column now sits beside the metrics: the name's share OF ITS PORTFOLIO, so it composes with the target pill in the portfolio header (share of the book) rather than duplicating it. The tooltip gives the share of the whole book, and the footer row reads 100.0% because the names always add up to their portfolio.",
+      "Names pinned by the owner's floor 1/(2n) or ceiling 1/(n-1) are tagged min / max. Without that, a name refusing to move when you change the weights looks like a bug rather than the bound doing its job.",
+      "It is a table, so E5.8 makes the column sortable for free - clicking Target ranks the portfolio by what the model wants to own.",
+      "tests/modelweights.spec.js - agrees with the engine to a decimal place, always totals 100%, a better name never shows less than a worse one, the ceiling tag appears when pinned, and a single-name portfolio takes 100% without dividing by zero. All five fail against the pre-change code." ] },
+
+    { "id": "E11.15", "epic": "E11", "stage": "done", "platform": "web", "depends": "E11.3", "spec": "docs/features/E11_online-deployment.md",
+      "title": "Deploy automatically on merge to main", "notes": [
+      "The bot that refreshes www/data/tickers.json every Sunday can commit but cannot deploy, so prod silently served a week-stale directory until someone noticed - the SECOND time a www/ change sat on main without reaching the live site. A deploy step that depends on a human remembering is not a deploy step.",
+      "The publish job lives in ci.yml, not its own file, because `needs:` only resolves within one workflow. I wrote it as a separate deploy.yml first with a comment claiming both jobs were in one workflow, and caught that the claim was false before shipping - needs: test would never have resolved and the gate would have been decorative.",
+      "Three deliberate properties: it needs the test job, so a build failing check_syntax or Playwright cannot reach the live site; it skips commits touching nothing under www/, functions/ or worker/, because publishing a docs commit would move the build stamp for something nobody serves; and it stamps IN THE RUNNER without committing, so the bundle names its own commit and no bot pushes back into the branch that triggered it. The hand-made Stamp commits are retired.",
+      "It fails soft when CLOUDFLARE_API_TOKEN is absent - a warning on a green run - so it could land before the secret existed. Afterwards it proves the live page carries this commit's stamp, because a 200 from Pages proves nothing: any unknown path returns index.html with HTTP 200.",
+      "OWNER ACTION: repo secrets CLOUDFLARE_API_TOKEN (Edit Cloudflare Workers template) and CLOUDFLARE_ACCOUNT_ID." ] },
+
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
       "OWNER (2026-08-15): \"We will keep only the last 10 edits the users made. Any earlier edits will be removed/dropped from the database. We can safely assume that no one will want to revert to backups 10 edits ago.\"",
