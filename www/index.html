@@ -1328,7 +1328,11 @@
   .gate-sq{width:22px;height:22px;background:var(--accent);flex:none;display:block}
   .gate-kicker{margin-left:auto;font-weight:600;font-size:10px;letter-spacing:.14em;
     color:rgba(243,242,242,.45);white-space:nowrap}
-  /* Pushed to the bottom: the promise is the last thing read before the form. */
+  /* Owner, 2026-08-31: the statement and its three assurances sit CENTRED in the field, with the
+     legal line still pinned to the bottom. A single auto top margin (what this was) pushes the
+     whole group to the floor and leaves the top two thirds of the panel empty. Two auto margins in
+     a column flex - one here, one on .gate-legal - split the free space between them instead, so
+     the group centres and the footnote stays where it belongs. No wrapper element needed. */
   .gate-statement{margin:auto 0 0;font-weight:800;font-size:54px;line-height:.97;
     letter-spacing:-.035em;max-width:20ch}
   .gate-assure{list-style:none;margin:28px 0 0;padding:26px 0 0;
@@ -1338,7 +1342,7 @@
   .gate-assure li:last-child{border-bottom:0}
   .gate-assure b{color:var(--bg);font-weight:700}
   .gate-dot{width:8px;height:8px;background:var(--accent);flex:none;margin-top:7px}
-  .gate-legal{margin:22px 0 0;font-size:12px;line-height:1.6;color:rgba(243,242,242,.45)}
+  .gate-legal{margin:auto 0 0;padding-top:22px;font-size:12px;line-height:1.6;color:rgba(243,242,242,.45)}
 
   /* --- right: the form ----------------------------------------------------- */
   .gate-form{display:flex;align-items:center;padding:48px 44px;min-width:0}

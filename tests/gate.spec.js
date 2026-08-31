@@ -86,3 +86,29 @@ test("nothing in the gate has a corner radius", async ({ page }) => {
       .filter(e => getComputedStyle(e).borderTopLeftRadius !== "0px").length);
   expect(rounded).toBe(0);
 });
+
+test("the ink field's statement is centred, with the legal line still on the floor", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 950 });
+  await page.goto("/");
+  await page.waitForFunction(() => typeof window.showGate === "function");
+  const r = await page.evaluate(() => {
+    const b = (s) => { const e = document.querySelector(s); return e && e.getBoundingClientRect(); };
+    const panel = b(".gate-ink"), stmt = b(".gate-statement"), assure = b(".gate-assure"),
+          legal = b(".gate-legal"), brand = b(".gate-inktop");
+    return {
+      above: stmt.top - brand.bottom,
+      below: legal.top - assure.bottom,
+      groupMid: (stmt.top + assure.bottom) / 2,
+      panelMid: (panel.top + panel.bottom) / 2,
+      legalGap: panel.bottom - legal.bottom,
+    };
+  });
+  /* Owner, 2026-08-31: this block sat on the floor with the top two thirds of the field empty,
+     because a single `margin-top:auto` pushes everything after it to the bottom. A second auto
+     margin on .gate-legal splits the free space instead.
+     Measured at 1400x950 - centred: above 147, below 147, midpoint 19px off centre.
+     Floored: above 294, below 22, midpoint 128px off. The thresholds sit between those. */
+  expect(Math.abs(r.groupMid - r.panelMid)).toBeLessThan(60);
+  expect(Math.abs(r.above - r.below)).toBeLessThan(80);
+  expect(r.legalGap).toBeLessThan(80);          // and the footnote stays pinned to the bottom
+});
