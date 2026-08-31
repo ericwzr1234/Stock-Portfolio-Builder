@@ -8,7 +8,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 1 |
+| Ideation | 2 |
 | Design | 13 |
 | Implementation | 0 |
 | Testing | 0 |
@@ -18,7 +18,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 
 ---
 
-## Ideation  (1)
+## Ideation  (2)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E6.0** · _E6 · Multi-user platform_ — **Keep Phase 1 on the multi-user path (no build)** _(web + ios)_ · [spec](features/E6_multi-user-platform.md)
@@ -26,6 +26,8 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Today web and iOS CAN already share one book via opt-in LAN sync (useRemote -> the web's portfolio.json over Wi-Fi), but with no account, no password, no encryption, same-network only. Fine for one person; not a basis for Phase 2.
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
+- **E12.9** · _E12 · V3 UI_ — **IMPORT portfolio.json on the first-run poster - owner's call** _(depends E12.6, web)_ · [spec](features/E12_v3-ui.md)
+  - Spec section 4.7 puts an IMPORT portfolio.json button beside BUILD INITIAL PORTFOLIO. Not built, deliberately. No import path exists anywhere in the app - the iOS LAN sync reads a portfolio.json but nothing user-facing accepts a file - so this is a NEW feature (file input, parse, validate a whole book, decide what happens to a conflicting existing account) rather than a migration of an existing one. It is worth building only if the owner actually wants to move a book in from a file; on a brand-new account there is nothing to import from.
 
 ## Design  (13)
 _Detailed requirements captured; a spec exists in docs/features/._

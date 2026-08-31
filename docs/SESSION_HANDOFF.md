@@ -42,19 +42,57 @@ donut, the cards and the shadows are gone. Design of record:
 
 ### Open, and needing the owner
 
-1. **`IMPORT portfolio.json`** (spec §4.7). Not built. No import path exists anywhere in the app, so
+1. **`IMPORT portfolio.json`** (spec §4.7, tracked as `E12.9`). Not built. No import path exists anywhere in the app, so
    this is a *new feature* — file parsing plus validation of a whole book — rather than a migration
    of one. Worth doing only if you actually want to move a book in from a file.
 2. **`E12.7` dark mode.** Deferred by your own light-only decision. Un-defer when you want it.
 3. **`E11.7b` Sentry.** Deferred by your decision, with the revisit trigger recorded.
 
+`E12.8` closed the epic: the compat shim is **empty** (160 alias uses rewritten to the V3 token
+each already resolved to) and 66 dead V2 rules are gone. Both halves were *proved*, not eyeballed —
+see **the fingerprint** below. `check_syntax.py` now fails if any of the 20 V2 aliases reappears.
+
+### The deploy bug this session found
+
+**The publish job skipped silently on any push of more than one commit.** `github.event.before` is
+N commits back for a push of N commits, but the checkout used `fetch-depth: 2`. So the BEFORE sha
+was not in the clone, `git diff $BEFORE $SHA` died with *unknown revision*, the path filter saw
+nothing, and the step concluded there was nothing to publish — **while the job reported success**.
+Two pushes deployed nothing and said nothing about it. Every earlier deploy had worked only because
+those pushes happened to contain a single commit.
+
+Fixed two ways, because the depth alone leaves the failure mode intact: `fetch-depth: 0`, and the
+check now **fails safe** — an unresolvable range publishes rather than skips. Skipping on an error
+is indistinguishable from skipping on a docs-only commit, and one of those is a stale production
+site. If prod ever looks stale again, the workflow has a manual **deploy-now** button
+(`workflow_dispatch`).
+
+### The fingerprint — `tools/styleprint.spec.js`
+
+Grepping for a class name cannot answer *is this rule dead*: 17 places in `index.html` build a
+class attribute by interpolation, so a name can reach the DOM without appearing literally. The
+fingerprint records 68 computed properties on **every element across 36 screens** — both gate modes,
+every lane, accordions open, all six ranges, all three trade modes, the catalog, the
+add-to-portfolio dialog, the stock panel and its tabs, an undone timeline, a toast, the tour, the
+poster and every empty state — 16,811 element states, with animation frozen so the comparison is
+exact. Delete, re-run, diff. Anything non-zero is a real regression.
+
+    npx playwright test --config playwright.styleprint.js
+
+It earned its keep immediately. **My first CSS pruner was wrong** and only the fingerprint knew: it
+treated the comment preceding a selector as part of the selector list, split that comment on its
+commas and rejoined the fragments with `, `, producing malformed selectors the browser dropped
+whole — taking `.app`, `.thm` and `#ovChart .gl` with them. 524 computed values moved. Nothing
+threw, the tests still passed, and a glance at a screenshot would have missed most of it.
+
+Its one blind spot: `.native` rules style the iOS shell, which a desktop run never exercises, so a
+zero diff proves nothing about them. All 115 are excluded by rule and verified byte-identical.
+
 ### Open, and mine
 
-- **`E12.8`** — empty the V2 compat shim. §2 says it must be empty when E12 closes; a leftover alias
-  is an unmigrated surface. What remains is on surfaces no lane owns (toasts, coach marks, the sync
-  sheet, banners, the iOS LAN chrome). The app *looks* right because every alias resolves to a V3
-  value, so this is architecture debt, not a visual defect.
 - **`APP2.*`** — the iOS tickets, which need your Mac and a physical iPhone.
+- The 29 MB `tools/styleprint.json` sits in one commit of history (it is now gitignored and
+  untracked). Purging it means a force-push of `main`, which is your call, not mine.
 
 ### House rules that keep being earned the hard way
 
