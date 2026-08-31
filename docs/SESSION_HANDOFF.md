@@ -1,5 +1,15 @@
 # Session handoff — read this first
 
+> **NEXT SESSION STARTS HERE: `E13` — security, data protection and a hostile-path review.**
+> Spec: [`features/E13_security-and-data-review.md`](features/E13_security-and-data-review.md).
+> Opened 2026-08-31 after a **real stored XSS** was found, fixed and deployed. A hostile ticker
+> symbol executed 12 times per render. It predates E12. It survived because the test covering it
+> wrote `state.membership` / `state.data` — keys this app has never read — so the payload was never
+> rendered and nothing was ever escaped. **Three P0s**: kill `'unsafe-inline'` in `script-src`,
+> *prove* RLS with a test, audit all 94 `innerHTML` sites behind a gate.
+> Owner set the repo to private pending this work. A scan of 781 blobs of history found no secrets,
+> and `portfolio.json` has never been committed.
+
 **THE V3 WEB APP IS LIVE:** https://portfolio-builder-esb.pages.dev — app and `/api/*` on one
 origin. Unlisted (`robots.txt` + `noindex`), installable to a phone home screen, 5-minute idle
 sign-out, Turnstile on the gate, RLS on every table.
