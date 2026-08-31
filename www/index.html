@@ -715,35 +715,89 @@
   .empty-note p{margin:0 auto 14px;font-size:12.5px;color:var(--muted);max-width:46ch;line-height:1.55}
 
   /* ===== E6.8 login landing page ===== */
-  .gate{position:fixed;inset:0;z-index:400;background:var(--cream);display:flex;align-items:center;
-    justify-content:center;padding:24px;overflow:auto}
+  /* ===== E12 §4.8 SIGN-IN GATE ==============================================
+     The first screen anyone sees, and the only place the account rule is
+     explained - state it here so it never has to be explained inside the app.
+     No nav, no context bar, no signal rule. Full height, no max-width. ======== */
+  .gate{position:fixed;inset:0;z-index:400;background:var(--bg);
+    display:grid;grid-template-columns:1.05fr 1fr;overflow:auto}
   .gate[hidden]{display:none}
-  .gate-card{width:100%;max-width:380px}
-  .gate-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-  .gate-brand .rmark{width:30px;height:30px;flex:none;display:grid;place-items:center;
-    background:var(--teal);color:var(--on-accent);font-weight:750;font-size:15px}
-  .gate-brand b{font-size:14.5px;display:block;letter-spacing:-.01em}
-  .gate-brand span{display:block;font-size:11px;color:var(--muted)}
-  .gate-h{font-size:22px;margin:0;letter-spacing:-.02em}
-  .gate-sub{font-size:12.5px;color:var(--muted);margin:6px 0 4px;line-height:1.5}
   html.gated, html.gated body{overflow:hidden}
   html.gated .app{pointer-events:none}          /* belt and braces alongside [inert] */
 
-  /* ===== E6.4 accounts ===== */
-  #acctBtn.on{border-color:var(--teal);color:var(--teal)}
-  .auth-field{display:block;margin:9px 0 3px;font-size:12px;color:var(--muted)}
-  .auth-in{width:100%;padding:9px 10px;border:1px solid var(--line);
-    background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit}
-  .auth-in:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px color-mix(in srgb,var(--teal) 18%,transparent)}
-  .gate-captcha{margin-top:14px;display:flex;justify-content:center;min-height:65px}
-  .gate-captcha:empty{min-height:0;margin-top:0}
-  .auth-msg{margin-top:10px;font-size:12.5px;padding:8px 10px;display:none}
-  .auth-msg.show{display:block}
-  .auth-msg.err{background:color-mix(in srgb,var(--neg) var(--tint),var(--paper));color:var(--neg)}
-  .auth-msg.ok{background:color-mix(in srgb,var(--pos) var(--tint),var(--paper));color:var(--pos)}
-  .auth-alt{display:flex;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
-  .linkish{background:none;border:0;padding:0;color:var(--teal);font-size:12px;cursor:pointer;
-    font-family:inherit;text-decoration:underline;text-underline-offset:2px}
+  /* --- left: the ink field ------------------------------------------------- */
+  .gate-ink{background:var(--ink);color:var(--bg);padding:48px 44px;
+    display:flex;flex-direction:column;min-width:0}
+  .gate-inktop{display:flex;align-items:center;gap:14px}
+  .gate-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:13px;
+    letter-spacing:.02em}
+  .gate-sq{width:22px;height:22px;background:var(--accent);flex:none;display:block}
+  .gate-kicker{margin-left:auto;font-weight:600;font-size:10px;letter-spacing:.14em;
+    color:rgba(243,242,242,.45);white-space:nowrap}
+  /* Pushed to the bottom: the promise is the last thing read before the form. */
+  .gate-statement{margin:auto 0 0;font-weight:800;font-size:54px;line-height:.97;
+    letter-spacing:-.035em;max-width:20ch}
+  .gate-assure{list-style:none;margin:28px 0 0;padding:26px 0 0;
+    border-top:2px solid rgba(243,242,242,.32)}
+  .gate-assure li{display:flex;gap:13px;padding:15px 0;font-size:15px;line-height:1.5;
+    color:rgba(243,242,242,.82);border-bottom:1px solid rgba(243,242,242,.16)}
+  .gate-assure li:last-child{border-bottom:0}
+  .gate-assure b{color:var(--bg);font-weight:700}
+  .gate-dot{width:8px;height:8px;background:var(--accent);flex:none;margin-top:7px}
+  .gate-legal{margin:22px 0 0;font-size:12px;line-height:1.6;color:rgba(243,242,242,.45)}
+
+  /* --- right: the form ----------------------------------------------------- */
+  .gate-form{display:flex;align-items:center;padding:48px 44px;min-width:0}
+  .gate-formin{width:100%;max-width:430px}
+  .gate-lbl{display:block;font-weight:600;font-size:9px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-50)}
+  .gate-h{font-weight:800;font-size:38px;line-height:1;letter-spacing:-.03em;margin:10px 0 0}
+  .gate-sub{font-size:15px;line-height:1.5;color:var(--ink-62);margin:12px 0 0}
+  .gate-fields{margin-top:24px;padding-top:22px;border-top:var(--rule-strong)}
+  .auth-field{display:block;margin:0 0 6px;font-size:12px;font-weight:600;color:var(--ink-75)}
+  .auth-labelrow{display:flex;align-items:baseline;gap:12px;margin-top:16px}
+  .auth-labelrow .auth-field{margin-bottom:6px}
+  .auth-labelrow .linkish{margin-left:auto}
+  /* 46px: comfortably over the 44px touch minimum, and 16px text so iOS never zooms. */
+  /* .gate .auth-in, not .auth-in: an attribute selector like input[type=password] scores the
+     same as a class, so the generic field rule above outranked a bare .auth-in and the inputs
+     rendered at 13px. Under 16px is precisely what makes iOS Safari zoom on focus. */
+  .gate .auth-in{width:100%;height:46px;padding:0 12px;font-size:16px;font-family:inherit;
+    color:var(--ink);background:var(--surface);border:1px solid rgba(32,30,29,.4);
+    caret-color:var(--accent)}
+  .gate .auth-in:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 2px var(--accent-100)}      /* never the browser's default ring */
+  #gateConfirmWrap{margin-top:16px}
+  /* Holds its own height before the widget arrives, so the layout never jumps. */
+  .gate-captcha{margin-top:18px;min-height:64px;display:flex;align-items:center;
+    justify-content:flex-start}
+  .gate-captcha:empty{border:1px dashed rgba(32,30,29,.4);background:var(--surface)}
+  .gate-captcha:empty::before{content:attr(data-placeholder);font-weight:600;font-size:9px;
+    letter-spacing:.14em;color:var(--ink-45);padding:0 14px}
+  /* RESERVED row: an error must not shift the button under the user's cursor. */
+  .auth-msg{min-height:20px;margin:16px 0 10px;font-size:13px;line-height:1.5;color:var(--ink-62)}
+  .auth-msg.err{color:var(--neg)}
+  .auth-msg.ok{color:var(--accent-700)}
+  .gate-go{width:100%;padding:18px 20px;display:flex;align-items:center;
+    justify-content:flex-start;font-size:15px}   /* label flush left (§2 rule 3) */
+  .gate-arrow{margin-left:auto}
+  .gate-alt{display:flex;align-items:center;gap:16px;margin-top:22px;padding-top:20px;
+    border-top:var(--rule-strong);flex-wrap:wrap}
+  .gate-legallink{margin-left:auto}
+  .linkish{background:none;border:0;padding:0;color:var(--accent-700);font-size:12px;
+    font-weight:600;cursor:pointer;font-family:inherit}
+  .linkish:hover{text-decoration:underline;text-underline-offset:2px}
+
+  /* iOS / narrow: stacked. The ink field becomes a short header band carrying the
+     statement only; the three assurance rows collapse away. Inputs stay 46px. */
+  @media(max-width:820px){
+    .gate{grid-template-columns:1fr;align-content:start}
+    .gate-ink{padding:22px 20px 24px}
+    .gate-statement{font-size:32px;margin-top:18px;max-width:none}
+    .gate-assure,.gate-legal{display:none}
+    .gate-form{padding:26px 20px 40px}
+    .gate-formin{max-width:none}
+  }
   .synced{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
   .synced .dot2{width:7px;height:7px;background:var(--pos);flex:none}
 
@@ -847,24 +901,67 @@
 <body>
 <!-- ===== E6.8 login landing page. Covers everything until a session exists. ===== -->
 <div id="gate" class="gate">
-  <div class="gate-card card pad">
-    <div class="gate-brand"><span class="rmark">&#9704;</span>
-      <div><b>Portfolio Builder</b></div></div>
-    <h1 class="gate-h" id="gateTitle">Sign in</h1>
-    <p class="gate-sub" id="gateSub">Your portfolio and its rebalance history &mdash; kept to your account, and nowhere else.</p>
-    <label class="auth-field" for="gateEmail">Email</label>
-    <input class="auth-in" type="email" id="gateEmail" autocomplete="username" placeholder="you@example.com">
-    <label class="auth-field" for="gatePass">Password</label>
-    <input class="auth-in" type="password" id="gatePass" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
-    <div id="gateCaptcha" class="gate-captcha"></div>
-    <div id="gateMsg" class="auth-msg"></div>
-    <button class="btn primary" id="gateGo" style="width:100%;margin-top:14px;padding:11px">Sign in</button>
-    <div class="auth-alt">
-      <button class="linkish" id="gateToggle">Create an account</button>
-      <button class="linkish" id="gateForgot">Forgot password?</button>
+  <!-- E12 §4.8 — LEFT: an ink field, not accent. The accent field is reserved for the first-run
+       poster; a full green screen at the front door over-promises before the user has any numbers.
+       The gate never takes the day accent either: there is no portfolio yet, so there is no day. -->
+  <div class="gate-ink">
+    <div class="gate-inktop">
+      <div class="gate-brand"><span class="gate-sq" aria-hidden="true"></span><span>PORTFOLIO BUILDER</span></div>
+      <span class="gate-kicker">MODEL-DRIVEN &middot; NO API KEYS</span>
     </div>
-    <p class="xs muted" style="margin:16px 0 0;text-align:center">Your holdings are private to your account and never shared.<br>
-      <button class="linkish" id="gateLegal" type="button">Not investment advice &middot; what we store</button></p>
+    <p class="gate-statement">Your book lives in your account. Nowhere else.</p>
+    <!-- Order is deliberate: what it does, then who can see it, then where the data comes from. -->
+    <ul class="gate-assure">
+      <li><span class="gate-dot" aria-hidden="true"></span><span><b>Allocate on performance, not on a hunch.</b>
+        Capital is split across your portfolios by how the companies inside them actually perform &mdash;
+        valuation, balance-sheet strength, margins and growth &mdash; blended with each name&rsquo;s price
+        momentum, and re-derived every time you rebalance.</span></li>
+      <li><span class="gate-dot" aria-hidden="true"></span><span><b>Your book is yours alone.</b>
+        Row-level security separates accounts &mdash; another signed-in user cannot read your holdings,
+        and the database enforces that rather than this code. Nothing is cached on this device, so you
+        are never shown a stale number.</span></li>
+      <li><span class="gate-dot" aria-hidden="true"></span><span><b>Free public data, no API keys.</b>
+        Prices come from Yahoo Finance&rsquo;s free endpoints; fundamentals are assembled from the
+        companies&rsquo; own SEC filings &mdash; three statements, trailing twelve months. Some prices can
+        be delayed up to fifteen minutes.</span></li>
+    </ul>
+    <!-- Data sourcing moved up into bullet 3 precisely so this line is purely legal. -->
+    <p class="gate-legal">Not investment advice. This tool performs arithmetic on public data and
+      forecasts nothing. Past performance is not a promise. Nothing here is a recommendation to buy or
+      sell, and every trade is yours to place or not.</p>
+  </div>
+
+  <!-- RIGHT: the form. Vertically centred, 430px, everything flush left. -->
+  <div class="gate-form">
+    <div class="gate-formin">
+      <span class="gate-lbl">ACCOUNT</span>
+      <h1 class="gate-h" id="gateTitle">Sign in</h1>
+      <p class="gate-sub" id="gateSub">Your portfolio and its rebalance history &mdash; kept to your account, and nowhere else.</p>
+      <div class="gate-fields">
+        <label class="auth-field" for="gateEmail">Email</label>
+        <input class="auth-in" type="email" id="gateEmail" autocomplete="username" placeholder="you@example.com">
+        <div class="auth-labelrow">
+          <label class="auth-field" for="gatePass">Password</label>
+          <button class="linkish" id="gateForgot" type="button">Forgot password?</button>
+        </div>
+        <input class="auth-in" type="password" id="gatePass" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+        <!-- create-account only; hidden in sign-in mode by wireGate -->
+        <div id="gateConfirmWrap" hidden>
+          <label class="auth-field" for="gatePass2">Confirm password</label>
+          <input class="auth-in" type="password" id="gatePass2" autocomplete="new-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+        </div>
+        <!-- The captcha mount keeps its ID and its place; the dashed box holds the space so the
+             layout never jumps when the widget loads. -->
+        <div id="gateCaptcha" class="gate-captcha" data-placeholder="CAPTCHA MOUNTS HERE"></div>
+      </div>
+      <!-- A RESERVED row: an error must not shift the button under the user's cursor. -->
+      <div id="gateMsg" class="auth-msg" role="status" aria-live="polite"></div>
+      <button class="btn primary gate-go" id="gateGo"><span id="gateGoLabel">Sign in</span><span class="gate-arrow" aria-hidden="true">&rarr;</span></button>
+      <div class="gate-alt">
+        <button class="btn" id="gateToggle" type="button">Create an account</button>
+        <button class="linkish gate-legallink" id="gateLegal" type="button">Not investment advice &middot; what we store</button>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -3334,6 +3431,7 @@ function showGate(show){
        "Sign in" actually attempted a registration. */
     const em=$("#gateEmail"), pw=$("#gatePass"), ms=$("#gateMsg"), b=$("#gateGo");
     if(em) em.value=""; if(pw) pw.value="";
+    const p2=$("#gatePass2"); if(p2) p2.value="";
     if(ms){ ms.className="auth-msg"; ms.textContent=""; }
     /* The widget is rendered here as well as from the script's own onload, because either can
        happen first - the script is async. A fresh challenge per visit, so a token solved by the
@@ -3344,6 +3442,10 @@ function showGate(show){
     setTimeout(()=>{ if(em) em.focus(); },40);
   }
 }
+/* Set the BUTTON LABEL without destroying the button. setMode and submit both used
+   gateGo.textContent, which replaces every child - including the arrow span that E12 §4.8
+   requires to sit flush right. The arrow silently vanished on the first render. */
+function gateGoLabel(t){ const l=$("#gateGoLabel"); if(l) l.textContent=t; else { const b=$("#gateGo"); if(b) b.textContent=t; } }
 function gateMsg(kind,text){
   const m=$("#gateMsg"); if(!m) return;
   m.className="auth-msg show "+(kind==="ok"?"ok":"err"); m.textContent=text;
@@ -3356,9 +3458,12 @@ function wireGate(){
     $("#gateSub").textContent   = m==="signin"
       ? "Your portfolio and its rebalance history \u2014 kept to your account, and nowhere else."
       : "You will get an email to confirm the address before your first sign-in.";
-    $("#gateGo").textContent    = m==="signin"?"Sign in":"Create account";
+    gateGoLabel(m==="signin"?"Sign in":"Create account");
     $("#gateToggle").textContent= m==="signin"?"Create an account":"I already have an account";
     $("#gatePass").setAttribute("autocomplete", m==="signin"?"current-password":"new-password");
+    /* E12 §4.8: Confirm password and the captcha belong to create-account only. */
+    const cw=$("#gateConfirmWrap");
+    if(cw){ cw.hidden = (m!=="signup"); if(cw.hidden && $("#gatePass2")) $("#gatePass2").value=""; }
   };
   gateSetMode=setMode;                      // so showGate() can reset the form
   $("#gateToggle").addEventListener("click",()=>setMode(mode==="signin"?"signup":"signin"));
@@ -3373,7 +3478,14 @@ function wireGate(){
   const submit=async()=>{
     const email=($("#gateEmail").value||"").trim(), pass=$("#gatePass").value||"";
     if(!email||!pass){ gateMsg("err","Email and password are both required."); return; }
-    const b=$("#gateGo"); b.disabled=true; b.textContent="Working\u2026";
+    /* Caught here rather than at Supabase: a typo in a NEW password is otherwise only
+       discovered at the next sign-in, with no way to know what was actually stored. */
+    if(mode==="signup"){
+      const p2=$("#gatePass2")? ($("#gatePass2").value||"") : "";
+      if(!p2){ gateMsg("err","Confirm your password."); return; }
+      if(p2!==pass){ gateMsg("err","Those passwords do not match."); return; }
+    }
+    const b=$("#gateGo"); b.disabled=true; gateGoLabel("Working\u2026");
     try{
       if(mode==="signup"){
         const r=await sbSignUp(email,pass);
@@ -3399,13 +3511,13 @@ function wireGate(){
       /* E6 FIX - the app is loaded BEFORE the gate comes down. Dropping it first meant the new
          user stared at the PREVIOUS user's holdings, totals and history - still painted in the
          DOM underneath - for the several seconds bootSignedIn spends on the network. */
-      b.textContent="Loading your portfolio\u2026";
+      gateGoLabel("Loading your portfolio\u2026");
       try{ await bootSignedIn(); } finally{ booting=false; }
       /* E6 FIX - re-check AFTER the load. bootSignedIn swallows its own errors, so a session that
          died during it (raising the gate via lockOut) would otherwise have the gate torn straight
          back down here, leaving the app running unauthenticated with the price timer started. */
       if(!signedIn() || appLocked) throw new Error("Your session ended while loading. Please sign in again.");
-      b.disabled=false; b.textContent="Sign in";
+      b.disabled=false; gateGoLabel("Sign in");
       showGate(false);
       setupAutoRefresh();                          // start the price timer only once past the gate
       startIdleWatch();                            // ...and the idle clock, on the same condition

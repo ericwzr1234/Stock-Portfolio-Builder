@@ -823,9 +823,15 @@
       "A BUG THE SCREENSHOT CAUGHT AND MY PROBE DID NOT: the Trade sub-tabs rendered on Overview. display:flex on a class beats the UA rule for [hidden], so setting the attribute did nothing - and I had asserted on the .hidden PROPERTY rather than on whether the element painted. Identical mistake to the E5.8 sort arrow. Both new tests now assert offsetParent.",
       "tests/mobileweb.spec.js rewritten: its old test asserted the tab strip matched the desktop RAIL, an invariant that existed only because V2 had two chromes onto one set of views. V3 has one. 78 tests pass; 3 of them fail without this card." ] },
 
-    { "id": "E12.0b", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+    { "id": "E12.0b", "epic": "E12", "stage": "done", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
       "title": "Sign-in gate", "notes": [
-      "Section 4.8. Markup and CSS only - every gate* element ID preserved, captcha mount unmoved, autocomplete attributes intact." ] },
+      "Section 4.8. Markup and CSS only - every gate* element ID preserved, captcha mount unmoved, autocomplete attributes intact." ,
+      "DONE. Built against the real mockup, which the owner supplied mid-session and which is now committed at docs/prototypes/V3_UI_mockup.html - the spec referenced it but it had never been in the repo.",
+      "All 11 gate* element IDs preserved, autocomplete hints intact, captcha mount unmoved. Inputs are 46px tall at 16px - and the 16px needed .gate .auth-in rather than .auth-in, because an attribute selector like input[type=password] scores the same as a class and was winning, rendering them at 13px. Under 16px is exactly what makes iOS Safari zoom on focus, the bug E6.7 already fixed once.",
+      "A BUG WORTH RECORDING: setMode and submit both set gateGo.textContent, which replaces EVERY child - so the arrow that section 4.8 puts flush right was destroyed on the first render and again on every attempt. All five label writes now go through gateGoLabel(). A test that checked the label alone would have passed; the test added checks the ARROW survives a mode switch and a submit.",
+      "Confirm password added per section 4.8, with the mismatch caught client-side - a typo in a NEW password is otherwise only discovered at the next sign-in, with no way to know what was stored.",
+      "DESIGN-VERSUS-FUNCTION CONFLICT, resolved in favour of function and flagged: section 4.8 shows the captcha in create-account mode only, but E11.4b established that Supabase demands a captcha token for SIGN-IN and recovery as well, not just signup. Hiding it on sign-in would break sign-in, so the mount stays visible in both modes. The owner should confirm.",
+      "85 tests pass; 4 of the 7 new gate tests fail against the pre-card code."] },
 
     { "id": "E12.1", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
       "title": "Overview", "notes": [

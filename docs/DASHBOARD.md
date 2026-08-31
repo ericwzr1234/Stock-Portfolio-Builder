@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 20 |
+| Design | 19 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 89 |
+| Done | 90 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (20)
+## Design  (19)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -101,8 +101,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
-- **E12.0b** · _E12 · V3 UI_ — **Sign-in gate** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
-  - Section 4.8. Markup and CSS only - every gate* element ID preserved, captcha mount unmoved, autocomplete attributes intact.
 - **E12.1** · _E12 · V3 UI_ — **Overview** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
   - Section 4.2. 1D default, honest period return net of contributions, dashed ink invested line, scrub with number retarget, five-cell grid with the conditional accent action, allocation bar plus drift legend, holdings accordion. Donut deleted.
   - OWNER DECISION on the 1D series: draw the real intraday line. /v8/finance/chart needs no cookie and no crumb (E11.0 measured it), so it is one call per holding once per session; the app already bursts 100 calls in 4 seconds with zero throttle signals. The live continuation costs nothing extra because it appends points from the 60s quote poll that already runs. A straight line from previous close to login value was rejected - it asserts prices that never happened.
@@ -139,7 +137,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (89)
+## Done  (90)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -274,8 +272,9 @@ _Integrated into the product (on main)._
 - **E11.16** — The dev server sends the same headers prod does · [spec](features/E11_online-deployment.md)
 
 </details>
-<details><summary><b>E12 · V3 UI</b> — 1 done</summary>
+<details><summary><b>E12 · V3 UI</b> — 2 done</summary>
 
 - **E12.0** — Shell: token sheet, four text lanes, rail deleted · [spec](features/E12_v3-ui.md)
+- **E12.0b** — Sign-in gate · [spec](features/E12_v3-ui.md)
 
 </details>
