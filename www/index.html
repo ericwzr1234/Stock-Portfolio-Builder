@@ -239,8 +239,6 @@
   .ov-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
   .ov-legend i{display:inline-block;width:14px;height:0;border-top-width:2px;margin-right:5px;vertical-align:middle}
   /* donut: bigger, with the legend laid out horizontally UNDER it so names never truncate */
-  .ov-donutwrap{display:flex;justify-content:center;padding:0 0 4px}
-  .ov-donut{width:158px;height:158px;flex:none}
   .ov-dlegend{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center}
   .ov-dlegend .r{display:flex;align-items:center;gap:7px;font-size:12px}
   .ov-dlegend .sw{width:9px;height:9px;flex:none}
@@ -715,6 +713,145 @@
   .empty-note p{margin:0 auto 14px;font-size:12.5px;color:var(--muted);max-width:46ch;line-height:1.55}
 
   /* ===== E6.8 login landing page ===== */
+  /* ===== E12 §4.2 OVERVIEW ==================================================
+     Full bleed, vertical, 28px gutters. Rules organise; whitespace does not. === */
+  .ov3{padding:0 0 56px}
+  .ov3-sec{border-top:var(--rule-strong);padding:26px 28px 30px}
+  .ov3-sechead{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+  .ov3-sechead h2{font-weight:800;font-size:21px;line-height:1;letter-spacing:-.015em;margin:0}
+  .ov3-sechead span{font-size:13px;color:var(--ink-50)}
+  .ov3-sechead .retsw{margin-left:auto}
+  .ov3-src{padding:22px 28px 0;font-size:12px;line-height:1.6;color:var(--ink-45)}
+
+  /* --- hero ---------------------------------------------------------------- */
+  .ov3-hero{padding:32px 28px 24px}
+  .ov3-lbl{font-weight:600;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .ov3-value{font-weight:800;font-size:84px;line-height:.95;letter-spacing:-.04em;margin:10px 0 0}
+  .ov3-slots{display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;margin-top:14px;font-size:15px}
+  .ov3-slots .s-lead{font-weight:800}
+  .ov3-slots .s-k{color:var(--ink-50)}
+  .ov3-note{margin-top:8px;font-size:13px;line-height:1.5;color:var(--ink-50);max-width:78ch}
+  /* One bordered box; options divided by border-left, never gaps. */
+  .ov3-range{display:inline-flex;border:1px solid rgba(32,30,29,.4);margin-top:20px}
+  .ov3-range button{border:0;border-left:1px solid rgba(32,30,29,.4);background:none;cursor:pointer;
+    font:inherit;font-weight:800;font-size:12px;letter-spacing:.06em;padding:9px 15px;color:var(--ink-50)}
+  .ov3-range button:first-child{border-left:0}
+  .ov3-range button:hover{color:var(--ink)}
+  .ov3-range button.on{background:var(--ink);color:var(--bg)}
+
+  /* --- chart --------------------------------------------------------------- */
+  .ov3-chartwrap{padding:0 28px}
+  .ov3-chart{display:block;width:100%;height:300px;overflow:visible}
+  .ov3-chart-sm{height:150px}
+  .ov3-caption{display:flex;align-items:center;gap:20px;padding:10px 0 26px;
+    font-weight:600;font-size:10px;letter-spacing:.1em;color:var(--ink-45)}
+  .ov3-caption > :last-child{margin-left:auto}
+  .ov3-legend{display:flex;align-items:center;gap:16px;text-transform:none;letter-spacing:.04em}
+  .ov3-legend i{display:inline-block;width:16px;height:0;border-top:2px solid currentColor;
+    margin-right:6px;vertical-align:middle;font-style:normal}
+  .ov3-legend .dash{border-top-style:dashed}
+
+  /* --- five-cell grid ------------------------------------------------------- */
+  .ov3-grid{display:grid;grid-template-columns:repeat(5,1fr);
+    border-top:var(--rule-strong);border-bottom:var(--rule-strong)}
+  .ov3-cell{padding:20px 22px;border-right:var(--rule-strong);min-width:0}
+  .ov3-cell:last-child{border-right:0}
+  .ov3-cell .k{font-weight:600;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .ov3-cell .v{font-weight:800;font-size:26px;line-height:1;letter-spacing:-.02em;margin-top:9px}
+  .ov3-cell .d{font-size:12px;color:var(--ink-50);margin-top:7px}
+  /* The action cell: the one place the app tells you what to do next. */
+  .ov3-cell.act{background:var(--accent);color:var(--bg);border-right:0}
+  .ov3-cell.act .k,.ov3-cell.act .d{color:rgba(243,242,242,.85)}
+  .ov3-cell.act:hover{background:var(--accent-600)}
+  a.ov3-cell.act,button.ov3-cell.act{cursor:pointer;border:0;text-align:left;font:inherit;display:block;width:100%}
+  .ov3-cell.quiet .v{color:var(--ink-50)}
+
+  /* --- allocation ----------------------------------------------------------- */
+  .ov3-stack{display:flex;gap:2px;height:16px}
+  .ov3-stack span{display:block;min-width:2px}
+  .ov3-alegend{display:grid;grid-template-columns:repeat(5,1fr);margin-top:18px;
+    border-top:var(--rule-hair)}
+  .ov3-al{padding:14px 16px 14px 0;border-right:var(--rule-hair);min-width:0}
+  .ov3-al:last-child{border-right:0}
+  .ov3-al .n{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+  .ov3-al .sq{width:9px;height:9px;flex:none;display:block}
+  .ov3-al .p{font-weight:800;font-size:25px;line-height:1;letter-spacing:-.02em;margin-top:10px}
+  .ov3-al .t{font-size:12px;color:var(--ink-50);margin-top:6px}
+  /* Centred drift bar: a 1px midline, growing right when positive and left when negative,
+     capped at +-10pp. Positive is green and negative red - the model has no opinion about
+     which side of target you sit on (§2 rule 10). */
+  .ov3-drift{display:flex;align-items:center;gap:9px;margin-top:10px}
+  .ov3-track{position:relative;flex:1;height:5px;background:rgba(32,30,29,.13);min-width:40px}
+  .ov3-track::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;
+    background:rgba(32,30,29,.4)}
+  .ov3-track i{position:absolute;top:0;bottom:0;display:block}
+  .ov3-drift .pp{font-weight:800;font-size:12px;white-space:nowrap}
+
+  /* --- holdings ------------------------------------------------------------- */
+  .ov3-hhead,.ov3-hrow{display:grid;grid-template-columns:2fr 1fr 1.1fr 1.1fr 1.1fr .9fr;
+    gap:14px;align-items:center}
+  .ov3-hhead{padding:0 0 10px;border-bottom:var(--rule-strong);
+    font-weight:600;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .ov3-hhead span:not(:first-child),.ov3-hrow > .num{text-align:right}
+  .ov3-hrow{width:100%;padding:14px 0;border-bottom:var(--rule-hair);border-left:0;border-right:0;
+    border-top:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+  .ov3-hrow:hover{background:rgba(32,30,29,.04)}
+  .ov3-hrow .nm{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;min-width:0}
+  .ov3-hrow .nm span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ov3-hrow .chev{flex:none;font-size:9px;color:var(--ink-45);transition:transform .12s;display:inline-block}
+  .ov3-hrow[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .ov3-hrow .sq{flex:none;width:9px;height:9px}
+  .ov3-hrow .num{font-variant-numeric:tabular-nums;font-size:14px}
+  .ov3-hbody{background:var(--surface);border-bottom:var(--rule-hair)}
+  .ov3-nrow{display:grid;grid-template-columns:2fr 1fr 1.1fr 1.1fr 1.1fr .9fr;gap:14px;
+    align-items:center;padding:10px 0 10px 33px;border-bottom:var(--rule-faint);width:100%;
+    border-left:0;border-right:0;border-top:0;background:none;font:inherit;color:inherit;
+    text-align:left;cursor:pointer}
+  .ov3-nrow:last-child{border-bottom:0}
+  .ov3-nrow:hover{background:rgba(32,30,29,.04)}
+  .ov3-nrow .tk{font-weight:800;font-size:13px;min-width:0}
+  .ov3-nrow .tk i{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--ink-50);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ov3-nrow > .num{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .ov3-nhead{padding:9px 0 9px 33px;border-bottom:var(--rule-hair);font-weight:600;font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .ov3-live{margin-top:20px;border-top:var(--rule-strong)}
+
+  /* --- checkpoints ---------------------------------------------------------- */
+  .ov3-ewbtn{border:0;background:none;cursor:pointer;font:inherit;font-weight:600;font-size:10px;
+    letter-spacing:.1em;color:var(--ink-45);padding:0;text-transform:uppercase}
+  .ov3-ewbtn:hover{color:var(--ink)}
+  .ov3-cps{display:grid;grid-template-columns:repeat(4,1fr);border-top:var(--rule-strong)}
+  .ov3-cp{padding:16px 18px;border-right:var(--rule-hair);min-width:0}
+  .ov3-cp:last-child{border-right:0}
+  .ov3-cp .tag{display:inline-block;font-weight:600;font-size:9px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-45);background:none;padding:0}
+  .ov3-cp .tag.cur{color:var(--accent-700)}
+  .ov3-cp .t{font-weight:800;font-size:15px;margin-top:8px}
+  .ov3-cp .m{font-size:12px;color:var(--ink-50);margin-top:5px}
+  .ov3-allhist{margin-left:auto;border:0;background:none;cursor:pointer;font:inherit;
+    font-weight:800;font-size:11px;letter-spacing:.06em;color:var(--accent-700)}
+
+  @media(max-width:900px){
+    .ov3-hero{padding:24px 16px 20px}
+    .ov3-value{font-size:46px;letter-spacing:-.035em}
+    .ov3-chartwrap{padding:0 16px}
+    .ov3-chart{height:168px}
+    .ov3-sec{padding:20px 16px 24px}
+    .ov3-grid{grid-template-columns:repeat(2,1fr)}
+    .ov3-cell{border-bottom:var(--rule-hair)}
+    .ov3-alegend{grid-template-columns:1fr}
+    .ov3-al{border-right:0;border-bottom:var(--rule-hair);padding-right:0}
+    .ov3-cps{grid-template-columns:1fr}
+    .ov3-cp{border-right:0;border-bottom:var(--rule-hair)}
+    .ov3-hhead{display:none}
+    .ov3-hrow,.ov3-nrow{grid-template-columns:1fr 1fr;gap:6px 14px;padding-left:0}
+    .ov3-hrow .nm,.ov3-nrow .tk{grid-column:1/-1}
+    .ov3-nhead{display:none}
+    .ov3-hrow > .num::before,.ov3-nrow > .num::before{content:attr(data-k) " ";
+      font-weight:600;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-50)}
+  }
+
   /* ===== E12 §4.8 SIGN-IN GATE ==============================================
      The first screen anyone sees, and the only place the account rule is
      explained - state it here so it never has to be explained inside the app.
@@ -847,7 +984,6 @@
      card keeps its heading and its one line of guidance. !important because .native .ov-chart sets
      a taller height at equal specificity, and this must win regardless of source order. */
   .ov-chart.is-empty,.hist-chart.is-empty{height:0!important;margin:0!important}
-  .ov-donutwrap.is-empty{height:0!important;margin:0!important;overflow:hidden}
   /* Sortable table headers (owner request 2026-08-27) */
   th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
   th.sortable:hover{color:var(--ink)}
@@ -882,7 +1018,6 @@
      Spend reclaimed width on content rather than stretching two columns into long lines. ===== */
   @media(min-width:1500px){
     .metric-grid{grid-template-columns:repeat(3,minmax(96px,1fr) auto)}   /* 2 metric pairs -> 3 */
-    .ov-donut{width:190px;height:190px}
     .ov-chart{height:150px}
     .ov-chart-sm{height:118px}   /* MUST come after .ov-chart: same specificity, source order decides */
   }
@@ -1030,61 +1165,90 @@
 <main>
   <!-- ============ PRICES ============ -->
   <section id="view-prices" class="view active">
-    <!-- ===== E5.1 Overview — charts + totals LEFT, holdings RIGHT ===== -->
-    <div class="ov-layout">
-      <div class="ov-left">
-        <div class="card pad">
-          <div class="ov-head">
-            <div>
-              <div class="ov-k">Total value</div>
-              <div class="ov-big num" id="ovValue">—</div>
-              <div id="ovSub" class="small muted">—</div>
-            </div>
-            <!-- APP2.6 - phone only. The spec puts Value / Return % / Return $ behind one segmented
-                 chart "rather than V2's two cards": on a phone two stacked charts means scrolling
-                 past one to reach the other. The web keeps both cards; this is display:none there. -->
-            <div class="ovseg" role="tablist" aria-label="Chart series">
-              <button type="button" role="tab" data-ovseg="value" class="on" aria-selected="true">Value</button>
-              <button type="button" role="tab" data-ovseg="pct" aria-selected="false">Return %</button>
-              <button type="button" role="tab" data-ovseg="dol" aria-selected="false">Return $</button>
-            </div>
-            <div class="ov-legend" id="ovChartLegend"></div>
-          </div>
-          <svg id="ovChart" class="ov-chart"
-               role="img" aria-label="Total value and invested capital at each checkpoint"></svg>
-          <div id="ovChartNote" class="xs muted"></div>
+    <!-- ===== E12 §4.2 Overview — full bleed, vertical, 28px gutters ===== -->
+    <div class="ov3">
+
+      <!-- 1. HERO. The number this screen is about is the largest thing on it (§2 rule 5). -->
+      <div class="ov3-hero">
+        <div class="ov3-lbl" id="ovHeroLabel">TOTAL VALUE &middot; LIVE</div>
+        <div class="ov3-value" id="ovValue">&mdash;</div>
+        <div class="ov3-slots" id="ovSub">&mdash;</div>
+        <div class="ov3-note" id="ovHeroNote"></div>
+        <!-- One bordered box, options divided by border-left. 1D is the default: the app opens
+             on today, which is what makes the day-state colour mean anything. -->
+        <div class="ov3-range" id="ovRange" role="group" aria-label="Range">
+          <button data-range="1D" class="on">1D</button><button data-range="1W">1W</button
+          ><button data-range="1M">1M</button><button data-range="3M">3M</button
+          ><button data-range="1Y">1Y</button><button data-range="ALL">ALL</button>
         </div>
-        <div class="card pad">
-          <div class="ov-head">
-            <div>
-              <div class="ov-k">Return vs invested</div>
-              <div id="ovRetHead" class="small muted">—</div>
-            </div>
-            <div class="retsw" role="group" aria-label="Return units">
-              <button id="retPct" class="on" aria-pressed="true">%</button>
-              <button id="retDol" aria-pressed="false">$</button>
-            </div>
-          </div>
-          <svg id="ovRetChart" class="ov-chart ov-chart-sm"
-               role="img" aria-label="Return vs invested: our strategy versus equal weight"></svg>
-          <div class="ov-legend" id="ovRetLegend"></div>
-        </div>
-        <div class="card pad">
-          <div class="ov-k" style="margin-bottom:4px">Allocation</div>
-          <div class="ov-donutwrap">
-            <svg id="ovDonut" viewBox="0 0 200 200" class="ov-donut" role="img" aria-label="Allocation by portfolio"></svg>
-          </div>
-          <div class="ov-dlegend" id="ovDonutLegend"></div>
-        </div>
-        <div class="band" id="priceBand"></div>
       </div>
-      <div class="ov-right card pad">
-        <div class="ov-k" style="margin-bottom:8px">Holdings by portfolio
-          <span class="xs muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a portfolio to expand</span></div>
+
+      <!-- 2. CHART -->
+      <div class="ov3-chartwrap">
+        <svg id="ovChart" class="ov3-chart" viewBox="0 0 1376 300" preserveAspectRatio="none"
+             role="img" aria-label="Total value over the selected range"></svg>
+        <div class="ov3-caption">
+          <span id="ovChartFrom"></span>
+          <span class="ov3-legend" id="ovChartLegend"></span>
+          <span id="ovChartNote"></span>
+        </div>
+      </div>
+
+      <!-- 3. FIVE-CELL MODULAR GRID. The fifth cell is the one place the app says what to do next. -->
+      <div class="ov3-grid" id="ovGrid"></div>
+
+      <!-- 4. ALLOCATION — a stacked bar of CURRENT weights plus a drift legend. No donut: a donut
+           cannot show target against current, and this reads in one line. -->
+      <div class="ov3-sec">
+        <div class="ov3-sechead"><h2>Allocation</h2><span>current weight against the model target</span></div>
+        <div class="ov3-stack" id="ovAlloc"></div>
+        <div class="ov3-alegend" id="ovAllocLegend"></div>
+      </div>
+
+      <!-- 5. HOLDINGS — spelled out, never abbreviated to P/L. -->
+      <div class="ov3-sec">
+        <div class="ov3-sechead"><h2>Holdings</h2><span>click a portfolio for the names inside it</span></div>
+        <div class="ov3-hhead">
+          <span>Portfolio</span><span>% of book</span><span>Market value</span>
+          <span>Cost basis</span><span>Profit or loss</span><span>Return</span>
+        </div>
         <div id="priceGrid"></div>
-        <p class="note" style="margin-top:12px">Prices via Yahoo Finance (free, delayed up to ~15 min for some
-          tickers). Nothing here costs money and no key is used.</p>
+        <!-- item 7: V2's Prices tab, kept as a second expandable block here rather than as its own
+             destination. The four stat cards it used to carry are gone - they restated the hero. -->
+        <div class="ov3-live">
+          <button class="ov3-hrow" id="ovLiveToggle" type="button" aria-expanded="false">
+            <span class="nm"><span class="chev">&#9654;</span><span>LIVE PRICES</span></span>
+            <span class="num" data-k="Names" id="ovLiveCount"></span><span></span><span></span>
+            <span></span><span class="num" data-k="Updated" id="ovLiveWhen"></span>
+          </button>
+          <div class="ov3-hbody" id="priceBand" hidden></div>
+        </div>
       </div>
+
+      <!-- 6. RECENT CHECKPOINTS -->
+      <div class="ov3-sec">
+        <div class="ov3-sechead"><h2>Recent checkpoints</h2>
+          <button class="ov3-allhist" id="ovAllHistory" type="button">ALL HISTORY &middot; UNDO &rarr;</button></div>
+        <div class="ov3-cps" id="ovCheckpoints"></div>
+      </div>
+
+      <!-- 7. Secondary: return vs invested, and the live-price block. §4.2 item 7 lists these as
+           features with no pixel in the mockup that must not be dropped. -->
+      <div class="ov3-sec">
+        <div class="ov3-sechead"><h2>Return vs invested</h2><span id="ovRetHead">&mdash;</span>
+          <div class="retsw" role="group" aria-label="Return units">
+            <button id="retPct" class="on" aria-pressed="true">%</button>
+            <button id="retDol" aria-pressed="false">$</button>
+          </div>
+        </div>
+        <svg id="ovRetChart" class="ov3-chart ov3-chart-sm"
+             role="img" aria-label="Return vs invested: our strategy versus equal weight"></svg>
+        <div class="ov3-caption"><span class="ov3-legend" id="ovRetLegend"></span></div>
+      </div>
+
+      <p class="ov3-src">Prices via Yahoo Finance (free, delayed up to ~15 min for some tickers).
+        Nothing here costs money and no key is used.</p>
+    </div>
     </div>
   </section>
 
@@ -3920,99 +4084,376 @@ function openImportChoice(local,src){
  });
 }
 
+/* ===== E12 4.2 Overview ======================================================================
+   THE DAY IS THE ACCENT (rule 9). Derived from the day figure in ONE place and written to a root
+   attribute, so no component rule branches on the day - if one did, the next component would
+   forget to. Two things deliberately do NOT follow it: the portfolio ramp, which identifies a
+   portfolio rather than measuring it, and the fixed gain/loss semantics, because a portfolio that
+   is up prints green on a red day. */
+function applyDayAccent(){
+  var down=false;
+  try{ down = isInit() && dayPL() < 0; }catch(e){}
+  document.documentElement.setAttribute("data-day", down ? "down" : "up");
+}
+
+let EW_ON=true;
+/* What the value chart was last drawn AT, and whether a scrub is in flight. Both exist for the
+   resize watcher below - see the note there. */
+let OV_W=0, OV_HT=0, OV_SCRUBBING=false;
+let OV_RANGE="1D";
+
+/* ===== 1D: the session view ===================================================================
+   The spec left this open between accumulating ticks and adding a dsIntraday adapter. Ticks win on
+   the owner's own constraint: a dsIntraday adapter means a SECOND Yahoo endpoint per symbol on every
+   60s poll - roughly a doubling of the call rate against a free, unkeyed, rate-limited endpoint,
+   which is the ban risk he flagged. This costs nothing: the poll already runs, and every tick is a
+   value we have already paid for. It is a session view and says so - a reload starts it again.
+
+   The day's opening basis is derived ONCE, from dayPL, as curTotal-dayPL. dayPL already accounts for
+   what you actually held at the open and what you spent buying today; recomputing that here would be
+   a second reader of one fact, which is how this codebase has broken before. */
+function dayOpenValue(){ return curTotal()-dayPL(); }
+let OV_TICKS=[];
+function ovTick(){
+  if(!isInit()) return;
+  const v=curTotal(); if(!isNum(v)) return;
+  const t=new Date();
+  const label=t.getHours()+":"+String(t.getMinutes()).padStart(2,"0");
+  const last=OV_TICKS[OV_TICKS.length-1];
+  if(last&&last.label===label){ last.value=v; return; }   // one point per minute, not one per render
+  OV_TICKS.push({ label:label, value:v, invested:totalContributed(), live:true });
+  if(OV_TICKS.length>600) OV_TICKS.splice(0,OV_TICKS.length-600);
+}
+function ovIntraday(){
+  if(!isInit()) return [];
+  const open=dayOpenValue(); if(!isNum(open)) return [];
+  const inv=totalContributed();
+  return [{ label:"OPEN", value:open, invested:inv, type:"" }].concat(OV_TICKS);
+}
+
+const OV_RANGE_DAYS={"1D":1,"1W":7,"1M":31,"3M":93,"1Y":366,"ALL":null};
+
+function ovSeries(){
+  if(OV_RANGE==="1D") return ovIntraday();
+  const H=valueHistory()||[];
+  const days=OV_RANGE_DAYS[OV_RANGE];
+  if(!days||H.length<2) return H;
+  const cut=Date.now()-days*864e5;
+  const within=H.filter(function(pt){ const t=Date.parse(pt.at||pt.date||""); return !isFinite(t)||t>=cut; });
+  return within.length>=2 ? within : H.slice(-2);
+}
+
+/* THE PERIOD FIGURE IS A RETURN, NOT A VALUE DELTA. last-first books every deposit as gain, which
+   over a full history overstates the return roughly threefold and contradicts the All-time gain
+   cell three sections below on the same screen. Measure the gain at each end against invested. */
+function ovPeriodReturn(H){
+  if(!H||H.length<2) return null;
+  const a=H[0], b=H[H.length-1];
+  /* invested is null on any checkpoint whose snapshot predates it or was trimmed (E10.1). Reading
+     null as 0 books the ENTIRE starting value as period gain: a book up 28.5% all-time printed
+     -33.5% for the window, directly beside the +28.5% cell. Refuse the figure instead - one honest
+     blank beats two numbers on one screen that cannot both be true. */
+  if(!isNum(a.value)||!isNum(b.value)||!isNum(a.invested)||!isNum(b.invested)) return null;
+  const gA=a.value-a.invested, gB=b.value-b.invested;
+  return { abs:gB-gA, pct: b.invested>0 ? (gB-gA)/b.invested*100 : null,
+           added:b.invested-a.invested };
+}
+
+/* The hero number is written in exactly one place so the scrub animation and the plain render can
+   never fight over it. OV_SHOWN carries the value actually on screen, which is what a retarget has
+   to ease FROM - reading it back out of the DOM would mean parsing formatted money. */
+let OV_ANIM=null, OV_SHOWN=null;
+function ovSetValue(n,anim){
+  const el=$("#ovValue"); if(!el) return;
+  if(OV_ANIM){ cancelAnimationFrame(OV_ANIM); OV_ANIM=null; }
+  if(!isNum(n)){ el.textContent="\u2014"; OV_SHOWN=null; return; }
+  if(!anim||!isNum(OV_SHOWN)||OV_SHOWN===n){ el.textContent=money(n,0); OV_SHOWN=n; return; }
+  const from=OV_SHOWN, t0=(window.performance||Date).now();
+  const step=function(t){
+    const k=Math.min(1,(t-t0)/420), e=1-Math.pow(1-k,3);   /* cubic ease-out, 420ms */
+    OV_SHOWN=from+(n-from)*e; el.textContent=money(OV_SHOWN,0);
+    if(k<1) OV_ANIM=requestAnimationFrame(step); else { OV_SHOWN=n; OV_ANIM=null; }
+  };
+  OV_ANIM=requestAnimationFrame(step);
+}
+
+function ovHero(){
+  const init=isInit(), total=curTotal(), inv=totalContributed(), gain=total-inv;
+  const dpl=init?dayPL():0;
+  const sgn=function(n){ return (n>=0?"+":"\u2212")+money(Math.abs(n),0); };
+  const lbl=$("#ovHeroLabel"), val=$("#ovValue"), slots=$("#ovSub"), note=$("#ovHeroNote");
+  if(lbl) lbl.textContent="TOTAL VALUE \u00b7 "+(OV_RANGE==="1D"?"TODAY, LIVE":OV_RANGE);
+  ovSetValue(init?total:null,false);
+  if(!slots) return;
+  if(!init){ slots.innerHTML=""; if(note) note.textContent="Nothing tracked yet \u2014 "+firstStepHint()+"."; return; }
+  const H=ovSeries(), pr=ovPeriodReturn(H);
+  const cls=function(n){ return n>=0?"up":"down"; };
+  /* The day basis is the value the book STARTED the day at, not what it is worth now. Dividing by
+     the current total understates a gain and overstates a loss - the same denominator error the
+     spec calls out for the period figure, one line further down the same row. */
+  const dayOpen=dayOpenValue();
+  const dayItem='<span class="s-lead '+cls(dpl)+'">'+(dpl>=0?"\u25b2":"\u25bc")+" "+sgn(dpl)+
+    " \u00b7 "+signed(dayOpen>0?dpl/dayOpen*100:0,2)+'%</span>';
+  const allItem='<span><span class="s-k">All-time</span> <b class="'+cls(gain)+'">'+sgn(gain)+
+    " \u00b7 "+(inv>0?signed(gain/inv*100,1):"0.0")+'%</b></span>';
+  const invItem='<span><span class="s-k">Invested</span> <b>'+money(inv,0)+"</b></span>";
+  const periodItem=(pr&&isNum(pr.pct))
+    ? '<span class="s-lead '+cls(pr.abs)+'">'+sgn(pr.abs)+" \u00b7 "+signed(pr.pct,1)+'%</span>' : "";
+  /* No slot may state the same measurement twice: on 1D the selected period IS today, so the
+     second slot carries all-time rather than repeating the day figure beside itself. */
+  slots.innerHTML = (OV_RANGE==="1D" || !periodItem)
+    ? [dayItem, allItem, invItem].join("")
+    : [periodItem, dayItem, invItem].join("");
+  if(note){
+    if(OV_RANGE==="1D"){
+      note.textContent="Today, since the open \u2014 measured against yesterday\u2019s close. All-time you are "+
+        (gain>=0?"up ":"down ")+money(Math.abs(gain),0)+" \u2014 "+
+        (inv>0?Math.abs(gain/inv*100).toFixed(1):"0.0")+"% on the "+money(inv,0)+" invested.";
+    } else if(pr && Math.abs(pr.added)>0.5){
+      note.textContent="Return over this window, measured against money invested \u2014 the "+
+        money(Math.abs(pr.added),0)+" you added along the way is not counted as gain.";
+    } else note.textContent="";
+  }
+}
+
+function fmtDate(d){
+  try{ const t=new Date(d); return isNaN(t)?String(d||"\u2014")
+    : t.toLocaleDateString(undefined,{day:"2-digit",month:"short"}); }
+  catch(e){ return String(d||"\u2014"); }
+}
+
+/* Five cells. The fifth is the one place the app says what to do next, and it must NOT render
+   when drift is inside the band - an action cell that is always there stops being an action. */
+function ovGrid(){
+  const g=$("#ovGrid"); if(!g) return;
+  const init=isInit(), total=curTotal(), inv=totalContributed(), gain=total-inv;
+  let A=null; try{ A=computeAllocation(); }catch(e){}
+  const rows=((A&&A.rows)||[]).filter(function(r){ return !r.empty; });
+  const cvt=curValueByTheme();
+  let worst=null;
+  rows.forEach(function(r){
+    if(!init||total<=0) return;
+    const cur=(cvt[r.theme.key]||0)/total, d=cur-r.alloc;
+    if(!worst||Math.abs(d)>Math.abs(worst.d)) worst={d:d,name:r.theme.name};
+  });
+  const cap=(A&&isNum(A.cap))?A.cap:null;
+  const over=!!(worst&&cap!=null&&Math.abs(worst.d)>cap*0.5);
+  const vs=versions()||[], h=head();
+  const last=(vs.length&&h>=0)?vs[Math.min(h,vs.length-1)]:null;
+  const cell=function(k,v,d,cls){
+    return '<div class="ov3-cell '+(cls||"")+'"><div class="k">'+k+'</div><div class="v">'+v+
+           '</div><div class="d">'+(d||"")+"</div></div>"; };
+  let html="";
+  html+=cell("All-time gain",
+    init?'<span class="'+(gain>=0?"up":"down")+'">'+(gain>=0?"+":"\u2212")+money(Math.abs(gain),0)+"</span>":"\u2014",
+    (init&&inv>0)?signed(gain/inv*100,1)+"% on invested":"");
+  html+=cell("Portfolios", String(rows.length), membership().length+" names \u00b7 ranked within");
+  html+=cell("Max drift", worst?signed(worst.d*100,1)+"pp":"\u2014",
+    worst?esc(worst.name)+", "+(worst.d>=0?"overweight":"underweight"):"");
+  html+=cell("Last checkpoint", last?fmtDate(last.date||last.at):"\u2014",
+    last?esc(String(last.mode||last.type||""))+" \u00b7 "+((last.trades||[]).length)+" trades":"");
+  html+= over
+    ? '<button class="ov3-cell act" id="ovRebalance" type="button"><div class="k">Drift is past your band</div>'+
+      '<div class="v">Rebalance \u2192</div><div class="d">'+esc(worst.name)+" is "+signed(worst.d*100,1)+"pp off target</div></button>"
+    : cell("Nothing to do","In band","Every portfolio sits inside its cap","quiet");
+  g.innerHTML=html;
+  const rb=$("#ovRebalance"); if(rb) rb.addEventListener("click",function(){ switchView("calc"); });
+}
+
+/* Allocation: a stacked bar of CURRENT weights plus a per-portfolio drift legend. No donut - a
+   donut cannot show target against current. Never renormalise to the assigned subtotal: value
+   held outside a portfolio is its own explicit segment, or every slice inflates. */
+function renderAllocationBar(){
+  const bar=$("#ovAlloc"), leg=$("#ovAllocLegend"); if(!bar||!leg) return;
+  let A=null; try{ A=computeAllocation(); }catch(e){}
+  const rows=((A&&A.rows)||[]).filter(function(r){ return !r.empty; });
+  if(!rows.length){
+    bar.innerHTML="";
+    leg.innerHTML='<div class="ov3-al"><div class="t">No portfolios yet \u2014 '+firstStepHint()+".</div></div>";
+    return;
+  }
+  const total=curTotal(), cvt=curValueByTheme(), init=isInit();
+  const seg=rows.map(function(r,i){
+    const cur=(init&&total>0)?(cvt[r.theme.key]||0)/total:r.alloc;
+    return { name:r.theme.name, cur:cur, target:r.alloc, colour:"var(--portfolio-"+((i%5)+1)+")" };
+  });
+  const assigned=seg.reduce(function(a,x){ return a+x.cur; },0);
+  if(init && assigned<0.999)
+    seg.push({ name:"Exiting / unassigned", cur:1-assigned, target:0, colour:"var(--ink-45)" });
+  bar.innerHTML=seg.map(function(x){
+    return '<span style="flex:'+Math.max(x.cur,0.001)+";background:"+x.colour+'"></span>'; }).join("");
+  leg.innerHTML=seg.map(function(x){
+    const d=x.cur-x.target, pp=d*100, capped=Math.max(-10,Math.min(10,pp)), w=Math.abs(capped)/10*50;
+    const css=d>=0 ? "left:50%;width:"+w+"%;background:var(--pos)"
+                   : "right:50%;width:"+w+"%;background:var(--neg)";
+    return '<div class="ov3-al"><div class="n"><span class="sq" style="background:'+x.colour+'"></span>'+
+      esc(x.name)+'</div><div class="p">'+pct(x.cur)+'</div><div class="t">target '+pct(x.target)+'</div>'+
+      '<div class="ov3-drift"><span class="ov3-track"><i style="'+css+'"></i></span>'+
+      '<span class="pp '+(d>=0?"up":"down")+'">'+signed(pp,1)+"pp</span></div></div>";
+  }).join("");
+}
+
+function renderCheckpointStrip(){
+  const el=$("#ovCheckpoints"); if(!el) return;
+  const vs=versions()||[], h=head();
+  if(!vs.length){
+    el.innerHTML='<div class="ov3-cp"><div class="m">No checkpoints yet \u2014 they appear when you rebalance.</div></div>';
+    return;
+  }
+  const start=Math.max(0,vs.length-4);
+  el.innerHTML=vs.slice(start).map(function(v,i){
+    const idx=start+i;
+    const tag = idx===h ? '<span class="tag cur">CURRENT</span>'
+              : idx<h  ? '<span class="tag">APPLIED</span>'
+                       : '<span class="tag">REDOABLE</span>';
+    return '<div class="ov3-cp">'+tag+'<div class="t">'+esc(String(v.label||v.mode||v.type||"Checkpoint"))+
+      '</div><div class="m">'+fmtDate(v.date||v.at)+" \u00b7 "+((v.trades||[]).length)+" trades"+
+      (isNum(v.valueAfter)?" \u00b7 "+money(v.valueAfter,0):"")+"</div></div>";
+  }).join("");
+}
+
+function wireOvRange(){
+  const r=$("#ovRange"); if(!r) return;
+  r.addEventListener("click", function(e){
+    const b=e.target.closest("button[data-range]"); if(!b) return;
+    OV_RANGE=b.dataset.range;
+    [].forEach.call(r.querySelectorAll("button"), function(x){ x.classList.toggle("on", x===b); });
+    renderPrices();
+  });
+}
+
 function renderOverview(){
   const svg=$("#ovChart"); if(!svg) return;
   if(accountUnreachable()){ unreachablePanel("view-prices"); return; }
   const init=isInit(), total=curTotal();
-  // ---- hero numbers (all live/real) ----
-  const dpl=dayPL();
-  const inv=totalContributed(), gain=total-inv;
-  const setHero=(v,sub)=>{ $("#ovValue").textContent=v; $("#ovSub").innerHTML=sub; };
-  const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n),0);        // money() keeps thousands separators; signed() does not
-  const heroDefault=()=>setHero(init?money(total,0):"—",
-    init?`<span class="${dpl>=0?'up':'down'}">${sgn(dpl)} today</span> · `+
-         `<span class="${gain>=0?'up':'down'}">${sgn(gain)} (${inv>0?signed(gain/inv*100,1):"0.0"}%) all time</span>`
-        :`Nothing tracked yet — `+firstStepHint()+`.`);
+  /* E12 4.2: the hero, the five-cell grid and the checkpoint strip are their own renderers now.
+     heroDefault stays as the point the chart scrub returns to on mouseleave. */
+  applyDayAccent();
+  const heroDefault=ovHero;
   heroDefault();
+  ovGrid();
+  renderCheckpointStrip();
 
-  // ---- value chart ----
-  const H=valueHistory();
-  const legend=$("#ovChartLegend"), note=$("#ovChartNote");
+  // ---- value chart (E12 4.2 item 2) ----
+  const H=ovSeries();
+  const legend=$("#ovChartLegend"), note=$("#ovChartNote"), from=$("#ovChartFrom");
   if(H.length<2){
     svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);   // else stale handlers keep reporting the OLD portfolio's dollars
     svg.classList.add("is-empty");
-    if(legend)legend.innerHTML="";
-    if(note)note.textContent=init?"One checkpoint so far — the curve appears once you have a second.":"";
+    if(legend)legend.innerHTML=""; if(from)from.textContent="";
+    if(note)note.textContent=init?"One checkpoint so far \u2014 the curve appears once you have a second.":"";
     /* Render the return chart HERE too. This early return used to skip it entirely, so on a
        brand-new account it kept its full CSS height with nothing drawn in it - a tall empty card
        on the first screen anyone sees. Its own empty branch collapses it. */
-    try{ renderReturnChart(H); }catch(e){ console.error("return chart",e); }
-    renderOverviewDonut(); return;
+    try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
+    renderAllocationBar(); return;
   }
   svg.classList.remove("is-empty");
   // viewBox must match the CSS box's aspect, or the default preserveAspectRatio letterboxes the
   // drawing (it rendered in the middle ~61% of the card) AND the scrub maths goes out of register.
   const W=Math.max(320,Math.round(svg.clientWidth||620)), Ht=Math.max(80,Math.round(svg.clientHeight||170)),
         PB=Math.max(10,Math.round(Ht*0.11)), PT=Math.max(6,Math.round(Ht*0.06));
-  svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
-  const vals=H.flatMap(p=>[p.value,p.ew]).filter(isNum);   // E5.6: scale to the two strategies, not the cash line
-  let lo=Math.min(...vals), hi=Math.max(...vals);
+  svg.setAttribute("viewBox","0 0 "+W+" "+Ht);
+  OV_W=W; OV_HT=Ht;
+  const pr=ovPeriodReturn(H);
+  /* The line takes the DAY sign on 1D and the PERIOD sign on every other range. A book can be down
+     today and up over the year; the line must state the same figure the hero is stating. */
+  const rising = OV_RANGE==="1D" ? !(init&&dayPL()<0) : !(pr&&pr.abs<0);
+  const stroke = rising ? "var(--accent-700)" : "var(--neg)";
+  const showInv = OV_RANGE!=="1D";     /* on 1D the basis is the previous close, not invested */
+  const invLvl = showInv ? H.map(function(q){ return q.invested; }).filter(isNum).pop() : null;
+  const vals=H.reduce(function(acc,q){ return acc.concat([q.value,q.ew]); },[]).filter(isNum);
+  if(isNum(invLvl)) vals.push(invLvl);   // the reference line must sit inside the frame, not be clipped off it
+  let lo=Math.min.apply(null,vals), hi=Math.max.apply(null,vals);
   if(!(isFinite(lo)&&isFinite(hi))||hi<=lo){ lo=(lo||0)*0.98; hi=(hi||1)*1.02+1; }
   const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
-  const X=i=>H.length<2?0:(i/(H.length-1))*(W-8)+4;
-  const Y=v=>Ht-PB-((v-lo)/(hi-lo))*(Ht-PB-PT);
-  const path=key=>{ let d="",pen=false;
-    H.forEach((p,i)=>{ const v=p[key];
+  const X=function(i){ return H.length<2?0:(i/(H.length-1))*(W-8)+4; };
+  const Y=function(v){ return Ht-PB-((v-lo)/(hi-lo))*(Ht-PB-PT); };
+  const path=function(key){ let d="",pen=false;
+    H.forEach(function(q,i){ const v=q[key];
       if(!isNum(v)){ pen=false; return; }                 // gap: an unpriced checkpoint breaks the line
       d+=(pen?"L":"M")+X(i).toFixed(1)+","+Y(v).toFixed(1)+" "; pen=true; });
     return d.trim(); };
-  const vPath=path("value"), ewPath=path("ew");
-  const lastV=[...H].reverse().find(p=>isNum(p.value));
-  const area=vPath?`${vPath} L${X(H.length-1).toFixed(1)},${(Ht-PB).toFixed(1)} L${X(0).toFixed(1)},${(Ht-PB).toFixed(1)} Z`:"";
+  const vPath=path("value"), ewPath=EW_ON?path("ew"):"";
+  const lastV=H.slice().reverse().filter(function(q){ return isNum(q.value); })[0];
+  const area=vPath?vPath+" L"+X(H.length-1).toFixed(1)+","+(Ht-PB).toFixed(1)+
+                   " L"+X(0).toFixed(1)+","+(Ht-PB).toFixed(1)+" Z":"";
   svg.innerHTML=
-    `<defs><linearGradient id="ovg" x1="0" y1="0" x2="0" y2="1">
-       <stop offset="0%" stop-color="var(--teal)" stop-opacity=".22"/>
-       <stop offset="100%" stop-color="var(--teal)" stop-opacity="0"/></linearGradient></defs>`+
-    [0.25,0.5,0.75].map(f=>`<line class="gl" x1="0" y1="${(PT+(Ht-PB-PT)*f).toFixed(1)}" x2="${W}" y2="${(PT+(Ht-PB-PT)*f).toFixed(1)}" stroke-width="1"/>`).join("")+
-    (area?`<path d="${area}" fill="url(#ovg)"/>`:"")+
-    (ewPath?`<path d="${ewPath}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>`:"")+
-    (vPath?`<path d="${vPath}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`:"")+
-    (lastV?`<circle class="dot" cx="${X(H.indexOf(lastV)).toFixed(1)}" cy="${Y(lastV.value).toFixed(1)}" r="4"/>`:"")+
-    `<rect id="ovHit" x="0" y="0" width="${W}" height="${Ht}" fill="transparent"/>`;
+    '<defs><linearGradient id="ovg" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="'+stroke+'" stop-opacity=".18"/>'+
+      '<stop offset="100%" stop-color="'+stroke+'" stop-opacity="0"/></linearGradient></defs>'+
+    [0.25,0.5,0.75].map(function(f){ const y=(PT+(Ht-PB-PT)*f).toFixed(1);
+      return '<line class="gl" x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'" stroke-width="1"/>'; }).join("")+
+    (area?'<path d="'+area+'" fill="url(#ovg)"/>':"")+
+    (isNum(invLvl)?'<line x1="0" y1="'+Y(invLvl).toFixed(1)+'" x2="'+W+'" y2="'+Y(invLvl).toFixed(1)+
+      '" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="7 5"/>':"")+
+    (ewPath?'<path d="'+ewPath+'" fill="none" stroke="var(--ink-45)" stroke-width="1.5" stroke-linejoin="round"/>':"")+
+    (vPath?'<path d="'+vPath+'" fill="none" stroke="'+stroke+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>':"")+
+    (lastV?'<circle cx="'+X(H.indexOf(lastV)).toFixed(1)+'" cy="'+Y(lastV.value).toFixed(1)+'" r="3.5" fill="'+stroke+'"/>':"")+
+    '<line id="ovScrubRule" x1="0" y1="0" x2="0" y2="'+Ht+'" stroke="rgba(32,30,29,.4)" stroke-width="1" visibility="hidden"/>'+
+    '<rect id="ovScrubDot" width="9" height="9" fill="'+stroke+'" visibility="hidden"/>'+
+    '<rect id="ovHit" x="0" y="0" width="'+W+'" height="'+Ht+'" fill="transparent"/>';
+  if(from) from.textContent=H[0]?fmtDate(H[0].label).toUpperCase():"";
   if(legend) legend.innerHTML=
-    `<span><i style="border-top:2.4px solid var(--teal)"></i>Portfolio Value</span>`+
-    `<span><i style="border-top:2px dashed var(--blue)"></i>Equal-weight Strategy Value</span>`;
-  const gaps=H.filter(p=>!isNum(p.value)).length, est=H.filter(p=>p.estimated&&isNum(p.value)).length;
-  const saves=H.filter(p=>!p.live).length;   // the appended "now" point is live, not a saved checkpoint
-  if(note) note.textContent=`${saves} checkpoint${saves===1?"":"s"} · value as recorded at each save`+
+    (isNum(invLvl)?'<span><i style="border-top:1.5px dashed var(--ink)"></i>INVESTED '+money(invLvl,0)+"</span>":"")+
+    (ewPath?'<span><i style="border-top:1.5px solid var(--ink-45)"></i>EQUAL WEIGHT</span>':"")+
+    '<button type="button" id="ovEwToggle" class="ov3-ewbtn">'+(EW_ON?"HIDE":"SHOW")+' EQUAL WEIGHT</button>';
+  const ewb=$("#ovEwToggle");
+  if(ewb) ewb.addEventListener("click",function(){ EW_ON=!EW_ON; renderOverview(); });
+  const gaps=H.filter(function(q){ return !isNum(q.value); }).length,
+        est=H.filter(function(q){ return q.estimated&&isNum(q.value); }).length;
+  const saves=H.filter(function(q){ return !q.live; }).length;   // the appended "now" point is live, not a saved checkpoint
+  if(note) note.textContent = OV_RANGE==="1D"
+    ? "TODAY \u00b7 SINCE THE OPEN \u00b7 ACCUMULATED THIS SESSION, NOT STORED"
+    : "TODAY \u00b7 "+saves+" checkpoint"+(saves===1?"":"s")+
     /* E10.1 - once older checkpoints have been trimmed the equal-weight series is RE-ANCHORED at the
        oldest kept one, so it covers that window while "invested" is still cumulative from the start.
        The difference stays honest for the window, but the absolute figure is not a since-inception
        number and must not read as one. */
-    (timelineTrimmed()?" · equal weight compared over the kept checkpoints only":"")+
-    (H.some(p=>p.live)?" · plus today at live prices":"")+
-    (est?` · ${est} reconstructed from traded prices`:"")+
-    (gaps?` · ${gaps} not priced (line breaks there)`:"");
+    (timelineTrimmed()?" \u00b7 equal weight over the kept checkpoints only":"")+
+    (est?" \u00b7 "+est+" reconstructed from traded prices":"")+
+    (gaps?" \u00b7 "+gaps+" not priced":"");
   // scrub
-  svg.onmousemove=e=>{
+  svg.onmousemove=function(e){
     const r=svg.getBoundingClientRect(); if(!r.width) return;
+    OV_SCRUBBING=true;
     // map through the SVG's own transform so the index matches the point actually drawn
     let ux=null;
     try{ const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
       const m=svg.getScreenCTM(); if(m) ux=pt.matrixTransform(m.inverse()).x; }catch(err){}
     let i = (ux!=null && W>8) ? Math.round(((ux-4)/(W-8))*(H.length-1))
                               : Math.round(((e.clientX-r.left)/r.width)*(H.length-1));
-    i=Math.max(0,Math.min(H.length-1,i)); const p=H[i];
-    const vsEw=(isNum(p.value)&&isNum(p.ew))?p.value-p.ew:null;
-    setHero(isNum(p.value)?money(p.value,0):"—",
-      `<b>${esc(p.label)}</b>${p.type?` · ${p.type}`:""} · invested ${isNum(p.invested)?money(p.invested,0):"—"}`+
-      (isNum(p.value)&&isNum(p.invested)?` · <span class="${p.value-p.invested>=0?'up':'down'}">${sgn(p.value-p.invested)}</span>`:"")+
-      (vsEw!=null?` · equal-weight ${money(p.ew,0)} <span class="${vsEw>=0?'up':'down'}">(${vsEw>=0?'ahead by ':'behind by '}${money(Math.abs(vsEw),0)})</span>`:""));
+    i=Math.max(0,Math.min(H.length-1,i)); const q=H[i];
+    const rule=svg.querySelector("#ovScrubRule"), dot=svg.querySelector("#ovScrubDot");
+    if(rule){ rule.setAttribute("x1",X(i).toFixed(1)); rule.setAttribute("x2",X(i).toFixed(1));
+              rule.setAttribute("visibility","visible"); }
+    if(dot){ if(isNum(q.value)){ dot.setAttribute("x",(X(i)-4.5).toFixed(1));
+              dot.setAttribute("y",(Y(q.value)-4.5).toFixed(1)); dot.setAttribute("visibility","visible"); }
+             else dot.setAttribute("visibility","hidden"); }
+    const lbl=$("#ovHeroLabel");
+    if(lbl) lbl.textContent=(q.live?"NOW":fmtDate(q.label).toUpperCase())+
+      (q.type?" \u00b7 "+String(q.type).toUpperCase():"");
+    ovSetValue(isNum(q.value)?q.value:null,true);
+    const slots=$("#ovSub"), gain=(isNum(q.value)&&isNum(q.invested))?q.value-q.invested:null;
+    const vsEw=(isNum(q.value)&&isNum(q.ew))?q.value-q.ew:null;
+    if(slots) slots.innerHTML=
+      '<span><span class="s-k">Invested</span> <b>'+(isNum(q.invested)?money(q.invested,0):"\u2014")+"</b></span>"+
+      (gain!=null?'<span><span class="s-k">Gain</span> <b class="'+(gain>=0?"up":"down")+'">'+
+        (gain>=0?"+":"\u2212")+money(Math.abs(gain),0)+"</b></span>":"")+
+      (vsEw!=null?'<span><span class="s-k">'+(vsEw>=0?"Ahead of":"Behind")+' equal weight</span> <b>'+
+        money(Math.abs(vsEw),0)+"</b></span>":"");
+    const hn=$("#ovHeroNote"); if(hn) hn.textContent="";
   };
-  svg.onmouseleave=heroDefault;
-  wireScrub(svg, svg.onmousemove, heroDefault);
-  try{ renderReturnChart(H); }catch(e){ console.error("return chart",e); }
-  renderOverviewDonut();
+  svg.onmouseleave=function(){
+    OV_SCRUBBING=false;
+    const rule=svg.querySelector("#ovScrubRule"), dot=svg.querySelector("#ovScrubDot");
+    if(rule) rule.setAttribute("visibility","hidden");
+    if(dot) dot.setAttribute("visibility","hidden");
+    heroDefault();
+  };
+  wireScrub(svg, svg.onmousemove, svg.onmouseleave);
+  try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
+  renderAllocationBar();
 }
 /* E5.6: return vs invested — our strategy against the equal-weight counterfactual.
    Toggle shows either % of invested capital or absolute dollars. Both series use identical
@@ -4099,107 +4540,100 @@ function renderReturnChart(H){
   svg.onmouseleave=()=>setHead(last);
   wireScrub(svg, svg.onmousemove, ()=>setHead(last));
 }
-function renderOverviewDonut(){
-  const svg=$("#ovDonut"), leg=$("#ovDonutLegend"); if(!svg||!leg) return;
-  let A=null; try{ A=computeAllocation(); }catch(e){}
-  const wrap=svg.parentElement;
-  if(!A||!A.rows||!A.rows.length){ svg.innerHTML="";
-    if(wrap)wrap.classList.add("is-empty");
-    leg.innerHTML='<span class="small muted">No portfolios yet — '+firstStepHint()+'.</span>'; return; }
-  if(wrap)wrap.classList.remove("is-empty");
-  const cvt=curValueByTheme(), total=curTotal(), init=isInit();
-  // the ring shows where the money IS today when there's a portfolio, else the model target
-  const seg=A.rows.map(r=>({ name:r.theme.name, color:r.theme.color, target:r.alloc,
-    current:(init&&total>0)?(cvt[r.theme.key]||0)/total:null }));
-  const useCur=init&&total>0;
-  const parts=seg.map(s=>useCur?(s.current||0):(s.target||0));
-  // Do NOT renormalise: curTotal() spans tradeUniverse (membership UNION holdings) while
-  // curValueByTheme() covers themed names only, so a held-but-unthemed position would inflate
-  // every slice. Show the remainder as its own segment instead, so the ring still closes.
-  let sum=parts.reduce((a,b)=>a+b,0);
-  if(useCur){ const other=1-sum;
-    if(other>1e-6){ seg.push({name:"Exiting / unthemed",color:"var(--muted)",target:0,current:other}); parts.push(other); }
-    sum=parts.reduce((a,b)=>a+b,0); }
-  if(!(sum>0)) sum=1;
-  const cx=100,cy=100,R=84,r0=54; let a0=-Math.PI/2, d="";
-  svg.innerHTML=seg.map((s,i)=>{
-    const frac=parts[i]/sum; if(frac<=0) return "";
-    const a1=a0+frac*Math.PI*2, big=(a1-a0)>Math.PI?1:0;
-    d=`M${(cx+R*Math.cos(a0)).toFixed(2)},${(cy+R*Math.sin(a0)).toFixed(2)} `+
-      `A${R},${R} 0 ${big} 1 ${(cx+R*Math.cos(a1)).toFixed(2)},${(cy+R*Math.sin(a1)).toFixed(2)} `+
-      `L${(cx+r0*Math.cos(a1)).toFixed(2)},${(cy+r0*Math.sin(a1)).toFixed(2)} `+
-      `A${r0},${r0} 0 ${big} 0 ${(cx+r0*Math.cos(a0)).toFixed(2)},${(cy+r0*Math.sin(a0)).toFixed(2)} Z`;
-    a0=a1;
-    return `<path class="ov-seg" d="${d}" fill="${s.color}"><title>${esc(s.name)} ${pct(parts[i]/sum)}</title></path>`;
-  }).join("")+
-   `<text x="100" y="96" text-anchor="middle" style="font-size:9.5px;fill:var(--muted);letter-spacing:.06em">${useCur?"CURRENT":"TARGET"}</text>`+
-   `<text x="100" y="114" text-anchor="middle" class="num" style="font-size:15px;font-weight:650;fill:var(--ink)">${themes().length} portfolio${themes().length===1?"":"s"}</text>`;
-  leg.innerHTML=seg.map(s=>{
-    const drift=(s.current!=null)?(s.current-s.target):null;
-    return `<div class="r"><span class="sw" style="background:${s.color}"></span>
-      <span class="nm">${esc(s.name)}</span>
-      <b class="num">${pct(useCur?(s.current||0):s.target)}</b>
-      <span class="dv num">${drift!=null?`(tgt ${pct(s.target)}, ${signed(drift*100,1)}pp)`:`target`}</span></div>`;
-  }).join("");
-}
 
 function renderPrices(){
   const cvt=curValueByTheme(), total=curTotal(), init=isInit();
+  ovTick();                       // seed the session view; ovTick collapses repeats within a minute
   try{ renderOverview(); }catch(e){ console.error("overview",e); }   // E5.1 hero: never block the price tables
-  // summary band
-  const band=$("#priceBand");
-  const dpl=dayPL();
-  band.innerHTML=`
-    <div class="card stat"><div class="k">Total value</div><div class="v num">${init?money(total,0):"—"}</div>
-      <div class="d muted">${init?("cost "+money(totalCostBasis(),0)):"not initialized"}</div></div>
-    <div class="card stat"><div class="k">Day P/L</div><div class="v num ${dpl>=0?'up':'down'}">${init?signed(dpl,0).replace(/^([+-])/,'$1$'):"—"}</div>
-      <div class="d muted">unrealized today</div></div>
-    <div class="card stat"><div class="k">Total invested</div><div class="v num">${init?money(totalContributed(),0):"—"}</div>
-      <div class="d muted">${init?("gain "+money(total-totalCostBasis(),0)):"add capital in Calculator"}</div></div>
-    <div class="card stat"><div class="k">Portfolios / tickers</div><div class="v num">${themes().length} / ${membership().length}</div>
-      <div class="d muted">ranked within each portfolio</div></div>`;
-  // ===== E5.1: collapsible theme accordion (open state survives the auto-refresh re-render) =====
-  const grid=$("#priceGrid"); grid.innerHTML="";
-  themes().forEach(t=>{
+  const cl=function(n){ return n>=0?"up":"down"; };
+  const sgn=function(n){ return (n>=0?"+":"\u2212")+money(Math.abs(n),0); };
+  const dash='<span class="muted">\u2014</span>';
+
+  /* HOLDINGS - one 6-column row per portfolio, expanding to its names. The header words are spelled
+     out ("Profit or loss", not "P/L") because the owner rejected the abbreviations outright. */
+  const grid=$("#priceGrid"); if(!grid) return;
+  grid.innerHTML="";
+  themes().forEach(function(t,i){
     const syms=tickersOf(t.key);
-    const rows=syms.map(s=>{
-      const q=state.quotes[s]||{}, p=price(s), ch=q.change, cp=q.changePct;
-      const h=holdings()[s]; const val=(h&&isNum(p))?h.shares*p:null;
-      const cls=isNum(ch)?(ch>=0?"up":"down"):"";
-      const arrow=isNum(ch)?(ch>=0?"▲":"▼"):"";
-      return `<tr>
-        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<span class="co">${nameOf(s)}</span></td>
-        <td class="num">${money(p,2)}</td>
-        <td class="num ${cls}">${isNum(cp)?arrow+" "+Math.abs(cp).toFixed(2)+"%":"—"}</td>
-        <td class="num">${init&&isNum(val)?money(val,0):"<span class='muted'>—</span>"}</td>
-      </tr>`;}).join("");
     const val=cvt[t.key]||0, w=total>0?val/total:0;
-    const cost=syms.reduce((a,s)=>{ const h=holdings()[s]; return a+((h&&isNum(h.costBasis))?h.costBasis:0); },0);
+    const cost=syms.reduce(function(a,s){ const h=holdings()[s];
+      return a+((h&&isNum(h.costBasis))?h.costBasis:0); },0);
     const pl=val-cost, plPct=cost>0?(pl/cost*100):null;
-    const cl=n=>n>=0?"up":"down";
-    const stat=(label,value)=>`<span><i>${esc(label)}</i><b>${value}</b></span>`;
     const open=OPEN_THEMES.has(t.key);
-    grid.insertAdjacentHTML("beforeend",`
-      <div class="thm ${open?"open":""}" data-thmkey="${t.key}">
-        <button class="thm-head" data-thmtoggle="${t.key}" aria-expanded="${open}">
-          <span class="chev">▶</span>
-          <span class="sw" style="background:${t.color}"></span>
-          <span class="nm">${esc(t.name)}</span>
-          <span class="muted xs">${syms.length} name${syms.length===1?"":"s"}</span>
-        </button>
-        <div class="thm-stats">
-          ${stat("% of book", init?pct(w,1):"—")}
-          ${stat("Market value", init?money(val,0):"—")}
-          ${stat("Cost basis", init?money(cost,0):"—")}
-          ${stat("Profit / loss", init&&cost>0?`<span class="${cl(pl)}">${(pl>=0?"+":"−")+money(Math.abs(pl),0)}</span>`:"—")}
-          ${stat("Return", init&&plPct!=null?`<span class="${cl(pl)}">${signed(plPct,1)}%</span>`:"—")}
-        </div>
-        <div class="thm-body" ${open?"":"hidden"}>
-          <table><thead><tr><th>Ticker</th><th>Price</th><th>Day</th><th>Value</th></tr></thead>
-          <tbody>${rows||`<tr><td colspan="4" class="muted xs" style="padding:10px">No names yet — add from the Screener.</td></tr>`}</tbody></table>
-        </div>
-      </div>`);
+    const sq="var(--portfolio-"+((i%5)+1)+")";
+    const names=syms.map(function(s){
+      const q=state.quotes[s]||{}, px=price(s), cp=q.changePct;
+      const h=holdings()[s], sh=(h&&isNum(h.shares))?h.shares:null;
+      const v=(isNum(sh)&&isNum(px))?sh*px:null;
+      return '<button class="ov3-nrow" type="button" data-stock="'+esc(s)+'">'+
+        '<span class="tk">'+esc(s)+"<i>"+esc(nameOf(s))+"</i></span>"+
+        '<span class="num" data-k="Price">'+(isNum(px)?money(px,2):dash)+"</span>"+
+        '<span class="num '+(isNum(cp)?cl(cp):"")+'" data-k="Today">'+
+          (isNum(cp)?(cp>=0?"\u25b2 ":"\u25bc ")+Math.abs(cp).toFixed(2)+"%":dash)+"</span>"+
+        '<span class="num" data-k="Shares">'+(isNum(sh)?sh.toFixed(2):dash)+"</span>"+
+        '<span class="num" data-k="Value">'+(isNum(v)?money(v,0):dash)+"</span>"+
+        '<span class="num" data-k="Weight">'+((init&&total>0&&isNum(v))?pct(v/total,1):dash)+"</span></button>";
+    }).join("");
+    grid.insertAdjacentHTML("beforeend",
+      '<div class="thm'+(open?" open":"")+'" data-thmkey="'+esc(t.key)+'">'+
+      '<button class="ov3-hrow" type="button" data-thmtoggle="'+esc(t.key)+'" aria-expanded="'+open+'">'+
+        '<span class="nm"><span class="chev">\u25b6</span><span class="sq" style="background:'+sq+'"></span>'+
+          "<span>"+esc(t.name)+"</span></span>"+
+        '<span class="num" data-k="% of book">'+(init?pct(w,1):dash)+"</span>"+
+        '<span class="num" data-k="Market value">'+(init?money(val,0):dash)+"</span>"+
+        '<span class="num" data-k="Cost basis">'+(init?money(cost,0):dash)+"</span>"+
+        '<span class="num" data-k="Profit or loss">'+
+          ((init&&cost>0)?'<span class="'+cl(pl)+'">'+sgn(pl)+"</span>":dash)+"</span>"+
+        '<span class="num" data-k="Return">'+
+          ((init&&plPct!=null)?'<span class="'+cl(pl)+'">'+signed(plPct,1)+"%</span>":dash)+"</span>"+
+      "</button>"+
+      '<div class="thm-body ov3-hbody"'+(open?"":" hidden")+'>'+
+        '<div class="ov3-nhead ov3-nrow"><span class="tk">Ticker</span><span class="num">Price</span>'+
+        '<span class="num">Today</span><span class="num">Shares</span><span class="num">Value</span>'+
+        '<span class="num">Weight</span></div>'+
+        (names||'<div class="ov3-nrow"><span class="tk muted">No names yet \u2014 add them from Research.</span></div>')+
+      "</div></div>");
   });
+  if(!themes().length)
+    grid.insertAdjacentHTML("beforeend",
+      '<div class="ov3-nrow" style="padding-left:0"><span class="tk muted">No portfolios yet \u2014 '+
+      firstStepHint()+".</span></div>");
+
+  /* LIVE PRICES - every name across every portfolio, flat, with each portfolio's live value and
+     weight beside its names. Collapsed by default: it is a reference block, not the headline. */
+  const band=$("#priceBand"); if(!band) return;
+  const all=membership();
+  const cnt=$("#ovLiveCount"); if(cnt) cnt.textContent=all.length+" name"+(all.length===1?"":"s");
+  const when=$("#ovLiveWhen"); if(when) when.textContent=($("#updated")||{}).textContent||"";
+  band.innerHTML = themes().map(function(t,i){
+    const syms=tickersOf(t.key); if(!syms.length) return "";
+    const val=cvt[t.key]||0;
+    const head='<div class="ov3-nhead ov3-nrow"><span class="tk">'+esc(t.name)+
+      '</span><span class="num"></span><span class="num"></span><span class="num"></span>'+
+      '<span class="num">'+(init?money(val,0):"")+'</span><span class="num">'+
+      (init&&total>0?pct(val/total,1):"")+"</span></div>";
+    return head+syms.map(function(s){
+      const q=state.quotes[s]||{}, px=price(s), cp=q.changePct, ch=q.change;
+      const h=holdings()[s], sh=(h&&isNum(h.shares))?h.shares:null;
+      const v=(isNum(sh)&&isNum(px))?sh*px:null;
+      return '<button class="ov3-nrow" type="button" data-stock="'+esc(s)+'">'+
+        '<span class="tk">'+esc(s)+"<i>"+esc(nameOf(s))+"</i></span>"+
+        '<span class="num" data-k="Price">'+(isNum(px)?money(px,2):dash)+"</span>"+
+        '<span class="num '+(isNum(ch)?cl(ch):"")+'" data-k="Today">'+
+          (isNum(ch)?signed(ch,2):dash)+"</span>"+
+        '<span class="num '+(isNum(cp)?cl(cp):"")+'" data-k="Change">'+
+          (isNum(cp)?signed(cp,2)+"%":dash)+"</span>"+
+        '<span class="num" data-k="Value">'+(isNum(v)?money(v,0):dash)+"</span>"+
+        '<span class="num" data-k="Weight">'+((init&&total>0&&isNum(v))?pct(v/total,1):dash)+"</span></button>";
+    }).join("");
+  }).join("") || '<div class="ov3-nrow"><span class="tk muted">No names yet.</span></div>';
+}
+let LIVE_OPEN=false;
+function toggleLive(){
+  LIVE_OPEN=!LIVE_OPEN;
+  const b=$("#priceBand"), t=$("#ovLiveToggle");
+  if(b) b.hidden=!LIVE_OPEN;
+  if(t) t.setAttribute("aria-expanded",String(LIVE_OPEN));
 }
 /* which theme sections are expanded — module state so a price refresh doesn't collapse them */
 const OPEN_THEMES=new Set();
@@ -5157,7 +5591,7 @@ const TOURS = {
       body:"Rebalances what you already hold back to the current targets." } ] },
 
   prices: { name:"Overview", steps:[
-    { sel:"#ovDonut", title:"Where the money is",
+    { sel:"#ovAlloc", title:"Where the money is",
       body:"Your target allocation across themes. It fills in as soon as you have themes with names in them." },
     { sel:"#ovChart", title:"Value over time",
       body:"Every rebalance writes a checkpoint, and this tracks the book against an equal-weight version of the same holdings - so you can see whether the model is actually earning its keep." },
@@ -5946,7 +6380,7 @@ function renderSyncBadge(){
 async function refreshPrices(showToast){
   if(appLocked || !signedIn()) return;            // E6 FIX: nothing runs behind the gate
   $("#refreshBtn").disabled=true;
-  try{ await loadQuotes(); renderStatus(); renderContext(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }   // E5 fix: the context bar is on the refresh path, else it shows stale money beside live money
+  try{ await loadQuotes(); ovTick(); renderStatus(); renderContext(); renderPrices(); renderFundamentals(); if(isInit())renderCalcMain(); if(showToast)toast("Prices updated"); }   // E5 fix: the context bar is on the refresh path, else it shows stale money beside live money
   catch(e){ toast("Price refresh failed"); }
   finally{ $("#refreshBtn").disabled=false; }
 }
@@ -6118,8 +6552,13 @@ function setupEvents(){
     const hd=e.target.closest("[data-vtoggle]"); if(!hd) return;
     e.preventDefault(); toggleVersion(hd.dataset.vtoggle); });
   $("main").addEventListener("click",e=>{   // E3.3: click a ticker -> stock detail (guard interactive controls)
+    /* E12 4.2: an Overview name row IS a button, so this must run BEFORE the guard below - which
+       exists to stop a click on a control from also opening a panel. Spec 4.6: the stock panel is
+       reachable from every place a ticker appears, and a holdings row is one of the five. */
+    const rb=e.target.closest("button[data-stock]"); if(rb){ openStockDetail(rb.dataset.stock); return; }
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
+  if($("#ovLiveToggle")) $("#ovLiveToggle").addEventListener("click",toggleLive);
   $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
     /* The refusal comes FIRST. It sat below the assignment, so "try again in a moment"
@@ -6170,7 +6609,8 @@ async function init(){
   });
   wireGate();                                             // E6.8
   captchaBoot();                                          // E11.4b: render the challenge, whenever the script lands
-  wireSorting();                                          // delegated, so it survives every re-render
+  wireSorting();
+  wireOvRange();                                          // E12 4.2 range strip                                          // delegated, so it survives every re-render
   // Raise the gate BEFORE any await: setupEvents() wires every handler, and the pre-paint script
   // only sets `gated` (mouse), so keyboard focus could reach the app during dsLoadUniverse().
   if(!signedIn()){ appLocked=true; showGate(true); }
@@ -6202,7 +6642,19 @@ async function init(){
 (function watchChartSize(){
   const els=["ovChart","ovRetChart"].map(id=>document.getElementById(id)).filter(Boolean);
   if(!els.length) return;
-  let t=null; const redraw=()=>{ clearTimeout(t); t=setTimeout(()=>{ try{ renderOverview(); }catch(e){} },120); };
+  /* This redraw exists ONLY because renderOverview builds the viewBox from the measured box, so it
+     must fire when that box changes - and for no other reason. Unguarded it also fired on changes
+     the chart itself had caused: scrubbing rewrites the hero slots row, that reflows the page, the
+     page gains or loses a scrollbar, the chart's width changes by the scrollbar, and 120ms later
+     this redrew the SVG - wiping the scrub marker and firing mouseleave. The scrub destroyed
+     itself, on a real screen, about a tenth of a second after the user started it.
+     Two guards, because they cover different cases: the dimension check kills the ordinary loop,
+     and the scrub check covers a resize that IS genuine but arrives mid-gesture. */
+  let t=null; const redraw=()=>{ clearTimeout(t); t=setTimeout(()=>{
+    if(OV_SCRUBBING) return;
+    const c=document.getElementById("ovChart");
+    if(c && c.clientWidth===OV_W && c.clientHeight===OV_HT) return;
+    try{ renderOverview(); }catch(e){} },120); };
   if(window.ResizeObserver){ try{ const ro=new ResizeObserver(redraw); els.forEach(e=>ro.observe(e)); return; }catch(e){} }
   window.addEventListener("resize",redraw);
 })();

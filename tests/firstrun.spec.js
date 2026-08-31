@@ -29,7 +29,10 @@ async function newAccount(page, themes) {
   await page.waitForTimeout(300);
 }
 
-const hero = (page) => page.textContent("#ovSub");
+/* E12 4.2 split the hero into a label, a value, a slot row and a note. The first-step hint now
+   lives in the note rather than in #ovSub, so read the whole hero band - the invariant is what the
+   user is TOLD, not which element carries it. */
+const hero = (page) => page.textContent(".ov3-hero");
 const ctx  = (page) => page.textContent("#ctxKpis");
 
 test("with no themes, the first step offered is Model — not Rebalance", async ({ page }) => {
@@ -70,15 +73,22 @@ test("a populated account still draws its charts — the collapse must not overr
       { access_token: "T", refresh_token: "r", user: { id: "u1", email: "x@y.z" } }));
     sbLoadSession(); appLocked = false; showGate(false);
     state.themes = [{ key: "rob", name: "Robotics", color: "#2f9e8f" }];
-    state.membership = { rob: ["AAA"] };
-    state.data = { AAA: { price: 12, name: "Acme", marketCap: 1e11, peg: 1, ev: 10, dfcf: 10, pe: 10 } };
+    /* The real state keys. This fixture used to write state.membership / state.data, which the app
+       has never read - so "a populated account" was in fact an empty one, and the donut assertion
+       it carried passed on a theme with no names in it. */
+    state.themeTickers = { rob: ["AAA"] };
+    state.quotes = { AAA: { price: 12, prevClose: 12, marketCap: 1e11, marketState: "REGULAR" } };
+    state.fundamentals = { AAA: { peg: 1, ev: 10, dfcf: 10, pe: 10, marketCap: 1e11 } };
     rebuildThemeOf(); renderAll();
-    const d = document.querySelector("#ovDonut");
-    return { donutDrawn: d.children.length > 0,
-             donutCollapsed: d.parentElement.classList.contains("is-empty") };
+    /* The donut is deleted (E12 section 6). The allocation is now a stacked bar plus a drift
+       legend, which is what actually answers "target against current". */
+    const bar = document.querySelector("#ovAlloc");
+    const leg = document.querySelector("#ovAllocLegend");
+    return { segments: bar ? bar.children.length : 0,
+             legendRows: leg ? leg.querySelectorAll(".ov3-al").length : 0 };
   });
-  expect(r.donutDrawn).toBe(true);            // themes exist, so the ring has something to show
-  expect(r.donutCollapsed).toBe(false);
+  expect(r.segments).toBeGreaterThan(0);      // portfolios exist, so the bar has something to show
+  expect(r.legendRows).toBeGreaterThan(0);
 });
 
 /* The Danger zone offers to clear "every holding and the whole checkpoint timeline". On a
