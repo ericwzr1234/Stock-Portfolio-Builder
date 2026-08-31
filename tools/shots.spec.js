@@ -1,6 +1,6 @@
 /* Not a test - a screenshot harness for E12 visual review. Run: npx playwright test shot */
 const { test } = require("@playwright/test");
-const { seedBook } = require("./book");
+const { seedBook } = require("../tests/book");
 
 test("shots", async ({ page }) => {
   await seedBook(page);
