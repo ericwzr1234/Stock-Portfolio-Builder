@@ -6,6 +6,11 @@ const PORT = 8767;   // not 8765/8766 - a test run must never collide with a dev
 
 module.exports = {
   testDir: "./tests",
+  /* The screenshot harness is not a test - it asserts nothing and it REWRITES seven PNGs on every
+     run, so including it left the working tree dirty after `npx playwright test` and put stale
+     images one `git add -A` away from a commit. It lives in tools/ and is run deliberately:
+        npx playwright test --config playwright.shots.js
+     Anything under tests/ is a real assertion; anything that writes files is not. */
   timeout: 30000,
   fullyParallel: false,          // the engine mutates module-level `state`; parallel pages would race
   reporter: process.env.CI ? "list" : "line",
