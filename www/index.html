@@ -908,6 +908,48 @@
     .md3-step{justify-content:flex-start}
   }
 
+  /* === E12 4.7 First run ====================================================== */
+  /* The context bar restates a total that is zero, and the price chrome - the market dot, the
+     refresh interval, the Refresh button - offers to update prices for a book with no names in it.
+     The lane tabs stay, because the guided tours behind them are what teach this exact user how
+     the app works. */
+  html.firstrun .kpis{display:none!important}
+  html.firstrun #mktDot,html.firstrun #mktLabel,html.firstrun #updated,
+  html.firstrun #refreshSel,html.firstrun #refreshBtn,html.firstrun #syncBadge{display:none!important}
+  .fr3-field{background:var(--accent);color:var(--bg);padding:64px 28px 56px}
+  .fr3-field h1{font-weight:800;font-size:68px;line-height:.96;letter-spacing:-.035em;margin:0;
+    max-width:15ch}
+  .fr3-field p{font-size:17px;line-height:1.5;opacity:.9;margin:22px 0 0;max-width:58ch}
+  .fr3-steps{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:var(--rule-strong)}
+  .fr3-step{padding:26px 28px 30px;border-right:var(--rule-strong)}
+  .fr3-step:last-child{border-right:0}
+  .fr3-step b{display:block;font-weight:800;font-size:34px;line-height:1;color:var(--accent)}
+  .fr3-step h2{font-weight:800;font-size:19px;letter-spacing:-.015em;margin:12px 0 8px}
+  .fr3-step p{font-size:14px;line-height:1.5;color:var(--ink-62);margin:0}
+  .fr3-go{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;padding:30px 28px 0}
+  .fr3-lbl{display:block;font-weight:800;font-size:10px;letter-spacing:.14em;color:var(--ink-50);
+    margin-bottom:6px}
+  .fr3-amt{display:flex;align-items:baseline;font-weight:800;font-size:58px;line-height:1;
+    letter-spacing:-.035em}
+  .fr3-amt input{font:inherit;width:6ch;border:0;border-bottom:2px solid var(--ink);background:none;
+    color:inherit;padding:0 2px;font-variant-numeric:tabular-nums}
+  .fr3-amt input::-webkit-outer-spin-button,.fr3-amt input::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0}
+  .fr3-amt input{-moz-appearance:textfield}
+  .fr3-primary{border:0;background:var(--accent);color:#fff;cursor:pointer;font:inherit;
+    font-weight:800;font-size:13px;letter-spacing:.08em;padding:17px 24px}
+  .fr3-primary:hover{background:var(--accent-700)}
+  .fr3-hint{flex-basis:100%;font-size:12px;color:var(--ink-50);margin:12px 0 0}
+  .fr3-acct{font-size:12px;color:var(--ink-50);margin:26px 0 0;padding:0 28px 40px}
+  @media(max-width:860px){
+    .fr3-field{padding:44px 16px 40px}
+    .fr3-field h1{font-size:40px}
+    .fr3-steps{grid-template-columns:1fr}
+    .fr3-step{border-right:0;border-bottom:var(--rule-hair);padding:22px 16px 24px}
+    .fr3-go,.fr3-acct{padding-left:16px;padding-right:16px}
+    .fr3-amt{font-size:42px}
+  }
+
   /* === E12 4.5 History ======================================================== */
   .hi3{display:grid;grid-template-columns:1.35fr 1fr;align-items:start}
   .hi3-l{padding:26px 28px 34px;border-right:var(--rule-strong);min-width:0}
@@ -1583,6 +1625,31 @@
 
 <main>
   <!-- ============ PRICES ============ -->
+  <!-- ===== E12 4.7 First run - the one poster moment the design system allows. Its own section
+       rather than a banner on Overview, because a brand-new account has nothing for the four lanes
+       to show and four empty lanes is a worse first impression than one clear instruction. ===== -->
+  <section id="view-first" class="view">
+    <div class="fr3">
+      <div class="fr3-field">
+        <h1>You own the model.<br>It owns the weights.</h1>
+        <p>Pick the portfolios you believe in. Pick the fundamentals that decide who wins.
+          The model does the arithmetic &mdash; every month, on live statement data.</p>
+      </div>
+      <div class="fr3-steps">
+        <div class="fr3-step"><b>1</b><h2>Build your portfolios</h2>
+          <p>There are no default portfolios. Name a thesis, add the names you&rsquo;d own inside it.
+            Equal weight within, model weight across.</p></div>
+        <div class="fr3-step"><b>2</b><h2>Choose the metrics</h2>
+          <p>Six to start, twenty-one more in the catalog. Weight them. Decide what happens when a
+            company reports something negative or nothing at all.</p></div>
+        <div class="fr3-step"><b>3</b><h2>Fund it once</h2>
+          <p>Enter your starting capital. Every rebalance after this is a checkpoint you can undo.</p></div>
+      </div>
+      <div class="fr3-go" id="frGo"></div>
+      <p class="fr3-acct">Nothing is written to this device. Your book lives in your account only.</p>
+    </div>
+  </section>
+
   <section id="view-prices" class="view active">
     <!-- ===== E12 §4.2 Overview — full bleed, vertical, 28px gutters ===== -->
     <div class="ov3">
@@ -6944,6 +7011,7 @@ function renderAll(){
      It writes only #watchlist, #screenerBody and #resStats, never the search box or its results,
      so repainting cannot disturb typing. */
   renderStatus(); renderContext(); renderPrices(); renderFundamentals(); renderCalc(); renderHistory(); renderScreener();
+  renderFirstRun(); applyFirstRun();
   resortAll();          // the tables were just rebuilt - put the user's chosen sort back
 }
 
@@ -6951,6 +7019,29 @@ function renderAll(){
 const LANE_OF={prices:"prices", fundamentals:"fundamentals", calc:"calc", screener:"calc", history:"history"};
 /* Clicking the Trade lane returns to whichever half of Trade you were last on. */
 let lastTradeView="calc";
+/* A brand-new account has no portfolios and nothing funded, so the four lanes have nothing to
+   show. One clear instruction beats four empty screens. This is derived, never stored: the moment
+   a portfolio exists the poster stops applying, with no flag to get out of step. */
+function isFirstRun(){ return !themes().length && !isInit(); }
+
+function renderFirstRun(){
+  const go=$("#frGo"); if(!go) return;
+  const ready=membership().length>0;
+  /* The capital field is only offered once there is something to buy with it. A brand-new account
+     pressing Build would be told "add some tickers first", which is a button that cannot work. */
+  go.innerHTML = ready
+    ? '<div class="fr3-cap"><span class="fr3-lbl">STARTING CAPITAL</span>'+
+      '<span class="fr3-amt">$<input type="number" id="initCapital" value="80000" step="1000"'+
+      ' aria-label="Starting capital"></span></div>'+
+      '<button class="fr3-primary" id="buildBtn" type="button">BUILD INITIAL PORTFOLIO</button>'
+    : '<button class="fr3-primary" id="frCreate" type="button">CREATE YOUR FIRST PORTFOLIO</button>'+
+      '<p class="fr3-hint">Name a thesis and add a few tickers, then come back here to fund it.</p>';
+  const c=$("#frCreate");
+  if(c) c.addEventListener("click",function(){ switchView("fundamentals"); openCreateTheme(); });
+  const b=$("#buildBtn");
+  if(b) b.addEventListener("click",doBuildInitial);
+}
+
 function switchView(v){
   if(v==="calc" && curView==="screener" && lastTradeView==="screener") v="screener";
   if(v==="calc"||v==="screener") lastTradeView=v;
@@ -6970,9 +7061,25 @@ function switchView(v){
   /* §3: the context bar is absent on Overview, where the hero IS the context - the
      total value must never render twice on one screen. */
   const cx=$("#ctxKpis");
-  if(cx) cx.hidden = (v==="prices");
+  if(cx) cx.hidden = (v==="prices"||v==="first");
   if(v==="screener") ensureScreener();
-  if(changed) maybeCoach(v);
+  /* The tour explains lanes the poster is standing in front of, so it waits. */
+  if(changed && v!=="first") maybeCoach(v);
+}
+
+/* The chrome the poster does without: the lane tabs, the sub-tabs and the context bar all describe
+   places a brand-new account cannot usefully go. Applied from ONE place, keyed off isFirstRun, so
+   the chrome and the routing can never disagree about which state the app is in. */
+/* The poster is where a brand-new account LANDS, not somewhere it is held. Landing is decided
+   once, on the first paint that sees an empty account, and never re-asserted - so the four lanes
+   and their guided tours stay reachable, which matters most for exactly this user. The moment a
+   portfolio exists the poster stops applying and anyone still on it is moved along. */
+let _firstLanded=false;
+function applyFirstRun(){
+  const on=isFirstRun();
+  document.documentElement.classList.toggle("firstrun",on);
+  if(on && !_firstLanded){ _firstLanded=true; switchView("first"); return; }
+  if(!on && curView==="first") switchView("prices");
 }
 
 /* ===== E5.0 theme (☀ light / ☾ dark) ===== */
