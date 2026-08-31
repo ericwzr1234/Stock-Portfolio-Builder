@@ -329,13 +329,17 @@
   .row{display:flex;gap:16px;flex-wrap:wrap}
   .muted{color:var(--muted)}
   .small{font-size:12px}.xs{font-size:11px}
-  .tag{display:inline-block;font-size:10.5px;font-weight:650;letter-spacing:.4px;text-transform:uppercase;
-    padding:2px 6px;background:var(--chip);color:var(--muted)}
-  /* Tints are mixed over --paper so a single rule reads correctly in both themes. */
-  .tag.seed{background:color-mix(in srgb,var(--gold) var(--tint),var(--paper));color:var(--gold)}
-  .tag.live{background:color-mix(in srgb,var(--pos) var(--tint),var(--paper));color:var(--pos)}
-  .tag.ovr{background:color-mix(in srgb,var(--blue) var(--tint),var(--paper));color:var(--blue)}
-  .tag.pen{background:color-mix(in srgb,var(--sell) var(--tint),var(--paper));color:var(--sell)}
+  /* E12 4.3 source chips. One split carries the whole meaning: a FILLED chip is a value this app
+     COMPUTED from statements, an OUTLINED one is a value it was HANDED. Seven tinted pastels made
+     that distinction the reader actually needs impossible to see at a glance. */
+  .tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    padding:2px 5px;border:1px solid rgba(32,30,29,.4);background:none;color:var(--ink-50)}
+  .tag.calc,.tag.qual,.tag.prem{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+  .tag.ovr{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tag.na,.tag.fut{border-style:dashed;color:var(--ink-45)}
+  .tag.seed{border-color:var(--neg);color:var(--neg)}
+  .tag.live{border-color:var(--accent-700);color:var(--accent-700)}
+  .tag.pen{background:var(--neg);border-color:var(--neg);color:#fff}
   .pill{font-size:11px;padding:2px 8px;background:var(--chip);color:var(--muted);font-weight:600}
 
   /* summary band */
@@ -355,10 +359,6 @@
   table{width:100%;border-collapse:collapse}
   th,td{text-align:right;padding:8px 15px;font-size:13px;border-bottom:1px solid var(--line2)}
   .theme th,.theme td{padding-left:6px;padding-right:6px}
-  .tag.na{background:var(--chip);color:var(--muted)}
-  .tag.calc{background:color-mix(in srgb,var(--teal) var(--tint),var(--paper));color:var(--teal)}
-  .tag.pulled{background:color-mix(in srgb,var(--slate) var(--tint),var(--paper));color:var(--slate)}
-  .tag.qual{background:color-mix(in srgb,var(--slate) var(--tint),var(--paper));color:var(--slate)}
   th{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;
     border-bottom:1px solid var(--line)}
   th:first-child,td:first-child{text-align:left}
@@ -378,7 +378,6 @@
   .vbanner.warn{background:color-mix(in srgb,var(--gold) var(--tint),var(--paper));border-color:color-mix(in srgb,var(--gold) 40%,var(--line));color:var(--gold)}
   .vcard.cur{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset}
   .vcard.fut{opacity:.6;border-style:dashed}
-  .tag.fut{background:var(--chip);color:var(--muted)}
 
   /* allocation bars */
   .allocbar{height:13px;background:var(--line2);overflow:hidden;display:flex;width:100%}
@@ -817,6 +816,124 @@
     letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
   .ov3-live{margin-top:20px;border-top:var(--rule-strong)}
 
+  /* === E12 4.3 Model ======================================================== */
+  .md3{display:grid;grid-template-columns:1.35fr 1fr;align-items:start}
+  .md3-l{padding:28px 28px 34px;border-right:var(--rule-strong);min-width:0}
+  .md3-r{padding:28px;min-width:0}
+  .md3-h{font-weight:800;font-size:30px;line-height:1;letter-spacing:-.02em;margin:0}
+  .md3-lede{font-size:13px;color:var(--ink-50);margin:10px 0 0;max-width:52ch}
+  .md3-shead{display:flex;align-items:center;gap:12px;margin:26px 0 12px}
+  .md3-num{font-weight:800;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-700)}
+  .md3-r .md3-num{color:var(--ink-50)}
+  .md3-2nd{margin-left:auto;border:1px solid rgba(32,30,29,.4);background:none;cursor:pointer;
+    font:inherit;font-weight:800;font-size:10px;letter-spacing:.08em;padding:6px 10px;color:var(--ink)}
+  .md3-2nd:hover{background:var(--ink);color:var(--bg)}
+  .md3-2nd[aria-checked="true"]{background:var(--ink);color:var(--bg)}
+  .md3-presets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:20px}
+  .md3-presets .md3-2nd{margin-left:0}
+  .md3-psel{font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-50);display:flex;align-items:center;gap:6px}
+  .md3-psel select{font:inherit;font-size:12px;letter-spacing:0;text-transform:none;
+    border:1px solid rgba(32,30,29,.4);background:var(--bg);color:var(--ink);padding:5px 6px;max-width:160px}
+
+  /* one row per metric: the exception policy is a PROPERTY of the metric, so it lives in the
+     metric's own row. V2 put it in a separate table, which meant holding two lists in your head
+     to answer one question. */
+  .md3-m{display:grid;grid-template-columns:1fr 150px 118px;gap:16px;align-items:center;
+    padding:12px 0;border-bottom:var(--rule-hair)}
+  .md3-m .mn{min-width:0}
+  .md3-m .mn b{font-weight:600;font-size:14px}
+  .md3-m .mn .dir{color:var(--ink-45);margin-right:5px}
+  .md3-pol{display:inline-flex;border:1px solid rgba(32,30,29,.4);margin-top:7px}
+  .md3-pol button{border:0;border-left:1px solid rgba(32,30,29,.4);background:none;cursor:pointer;
+    font:inherit;font-weight:600;font-size:10px;letter-spacing:.05em;padding:3px 7px;color:var(--ink-50)}
+  .md3-pol button:first-child{border-left:0}
+  .md3-pol button.on{background:var(--ink);color:var(--bg)}
+  .md3-pen{margin-top:7px;margin-left:8px;font-size:11px;color:var(--ink-50)}
+  .md3-pen input{width:56px;font:inherit;font-size:11px;border:1px solid rgba(32,30,29,.4);
+    background:var(--bg);color:var(--ink);padding:2px 4px}
+  .md3-wbar{height:9px;background:rgba(32,30,29,.13)}
+  .md3-wbar i{display:block;height:100%;background:var(--ink);
+    transition:width .3s cubic-bezier(.22,1,.36,1)}
+  .md3-m.is-mom .md3-wbar i{background:var(--accent)}
+  .md3-step{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  .md3-step button{width:28px;height:28px;border:1px solid rgba(32,30,29,.4);background:none;
+    cursor:pointer;font:inherit;font-weight:800;font-size:14px;line-height:1;color:var(--ink);padding:0}
+  .md3-step button:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .md3-step .pc{font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;min-width:44px;
+    text-align:center}
+  .md3-norm{font-size:12px;color:var(--ink-50);margin:12px 0 0}
+
+  .md3-cap{margin-top:6px}
+  .md3-caprow{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;
+    padding:12px 0;border-top:var(--rule-hair)}
+  .md3-capnum{font-weight:800;font-size:22px;display:flex;align-items:center;gap:4px}
+  .md3-capnum input{width:62px;font:inherit;font-size:22px;font-weight:800;border:0;border-bottom:2px solid var(--ink);
+    background:none;color:var(--ink);padding:0 2px}
+  .md3-capbar{display:block;height:9px;background:rgba(32,30,29,.13)}
+  .md3-capbar i{display:block;height:100%;background:var(--ink)}
+  .md3-capsay{grid-column:1/-1;font-size:12px;color:var(--ink-50)}
+  .md3-exp{margin-top:26px;border-top:var(--rule-hair);padding-top:14px}
+  .md3-exp summary{cursor:pointer;font-weight:600;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-50)}
+  .md3-exp > div{font-size:12px;color:var(--ink-50);margin-top:10px}
+
+  .md3-stack{display:flex;gap:2px;height:16px;margin-bottom:14px}
+  .md3-stack span{display:block;height:100%}
+  .md3-trows{border-top:var(--rule-hair)}
+  .md3-t{display:grid;grid-template-columns:1fr 74px 74px;gap:10px;align-items:center;
+    padding:10px 0;border-bottom:var(--rule-hair)}
+  .md3-t .n{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13px;min-width:0}
+  .md3-t .n span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .md3-t .sq{flex:none;width:9px;height:9px}
+  .md3-t .num{text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700}
+  .md3-say{font-size:12px;color:var(--ink-50);margin:12px 0 0}
+  .md3-dhead{border-top:var(--rule-strong);padding-top:20px}
+  .md3-dhead .md3-2nd{margin-left:auto}
+  .md3-srcrow,.md3-pacts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .md3-srcrow .md3-2nd,.md3-pacts .md3-2nd{margin-left:0}
+  .md3-cov{font-size:11px;color:var(--ink-50)}
+
+  @media(max-width:1000px){
+    .md3{grid-template-columns:1fr}
+    .md3-l{border-right:0;border-bottom:var(--rule-strong);padding:24px 16px 28px}
+    .md3-r{padding:24px 16px 28px}
+    .md3-m{grid-template-columns:1fr;gap:8px}
+    .md3-step{justify-content:flex-start}
+  }
+
+  /* --- metric catalog (E12 4.3) --------------------------------------------- */
+  .mp-back{background:rgba(32,30,29,.42)}
+  .mp-card{background:var(--bg);border:2px solid var(--ink);width:min(760px,94vw);
+    max-height:88vh;display:flex;flex-direction:column}
+  .mp-head{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:var(--rule-strong)}
+  .mp-head h2{font-weight:800;font-size:20px;letter-spacing:-.015em;margin:0}
+  .mp-count{font-weight:600;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-50)}
+  .mp-x{margin-left:auto;width:30px;height:30px;border:1px solid rgba(32,30,29,.4);background:none;
+    cursor:pointer;font:inherit;font-size:17px;line-height:1;color:var(--ink);padding:0}
+  .mp-x:hover{background:var(--ink);color:var(--bg)}
+  .mp-grid{display:grid;grid-template-columns:repeat(3,1fr);overflow:auto;flex:1}
+  .mp-i{display:flex;align-items:center;gap:8px;text-align:left;border:0;border-right:var(--rule-hair);
+    border-bottom:var(--rule-hair);background:none;cursor:pointer;font:inherit;padding:11px 12px;
+    color:var(--ink);min-width:0}
+  .mp-i:hover{background:rgba(32,30,29,.04)}
+  .mp-i.on{background:var(--accent-100)}
+  .mp-box{flex:none;width:13px;height:13px;border:1px solid rgba(32,30,29,.4)}
+  .mp-i.on .mp-box{background:var(--accent);border-color:var(--accent)}
+  .mp-n{flex:1;min-width:0;font-weight:600;font-size:12px;overflow:hidden}
+  .mp-n i{display:block;font-style:normal;font-weight:400;font-size:10px;color:var(--ink-50);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mp-cov,.mp-nd{flex:none;font-weight:600;font-size:9px;letter-spacing:.06em;color:var(--ink-45)}
+  .mp-nd{color:var(--neg)}
+  .mp-g{flex:none;font-weight:600;font-size:9px;letter-spacing:.12em;color:var(--ink-45)}
+  .mp-foot{display:flex;align-items:center;gap:16px;padding:14px 20px;border-top:var(--rule-strong)}
+  .mp-foot span{font-size:11px;color:var(--ink-50)}
+  .mp-done{margin-left:auto;border:0;background:var(--accent);color:#fff;cursor:pointer;font:inherit;
+    font-weight:800;font-size:11px;letter-spacing:.08em;padding:9px 18px}
+  .mp-done:hover{background:var(--accent-700)}
+  @media(max-width:700px){ .mp-grid{grid-template-columns:repeat(2,1fr)} }
+
   /* --- checkpoints ---------------------------------------------------------- */
   .ov3-ewbtn{border:0;background:none;cursor:pointer;font:inherit;font-weight:600;font-size:10px;
     letter-spacing:.1em;color:var(--ink-45);padding:0;text-transform:uppercase}
@@ -1254,59 +1371,71 @@
 
   <!-- ============ FUNDAMENTALS & ALLOCATION ============ -->
   <section id="view-fundamentals" class="view">
-    <div class="grid2" style="margin-bottom:18px">
-      <div class="card pad">
-        <h2 style="font-size:16px">Target vs current weight</h2>
-        <p class="small muted" style="margin-top:2px">Where your money is vs where the model wants it.</p>
-        <table id="driftTable"><thead><tr><th>Portfolio</th><th>Target</th><th>Current</th><th>Drift</th></tr></thead>
-          <tbody></tbody></table>
-        <p class="note">Current weights need an initialized portfolio (Calculator tab).</p>
-        <div class="allocbar" id="allocBar" style="margin-top:18px"></div>
-        <div class="legend" id="allocLegend"></div>
-        <div class="row" style="margin-top:12px;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" id="newThemeBtn">➕ New portfolio</button>
+    <!-- ===== E12 4.3 Model - two columns, the inputs on the left and their consequence on the
+         right, divided by a single strong rule. ===== -->
+    <div class="md3">
+
+      <div class="md3-l">
+        <h1 class="md3-h">The model</h1>
+        <p class="md3-lede">Three inputs decide every target weight. Change one and the targets on
+          the right re-flow immediately &mdash; nothing is saved until you rebalance.</p>
+
+        <div class="md3-presets" id="presetRow">
+          <label class="md3-psel">Preset
+            <select id="presetSelect"><option value="">&mdash;</option></select></label>
+          <button class="md3-2nd" id="savePresetBtn" title="Save the current metric model as a reusable preset">SAVE</button>
+          <button class="md3-2nd" id="delPresetBtn" title="Delete the selected preset">DELETE</button>
+          <button class="md3-2nd" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 - the cap is left unchanged">RESET TO THE DEFAULT SIX</button>
         </div>
-        <div class="row small" id="presetRow" style="margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" id="reset6Btn" title="Reset the metric model (metrics + weights + exception handling) to the default 6 — portfolio cap is left unchanged">↺ Reset to default 6</button>
-          <button class="btn sm" id="savePresetBtn" title="Save the current metric model as a reusable preset">💾 Save preset</button>
-          <label class="muted xs">Preset&nbsp;<select id="presetSelect" style="max-width:170px"><option value="">—</option></select></label>
-          <button class="btn sm" id="delPresetBtn" title="Delete the selected preset">✕</button>
+
+        <div id="wGroup">
+          <div class="md3-shead">
+            <span class="md3-num">&#9312; METRIC WEIGHTS</span>
+            <button class="md3-2nd" id="chooseMetricsBtn">CATALOG &middot; <span id="mdCatCount"></span></button>
+          </div>
+          <div id="wInputs"></div>
+          <p class="md3-norm" id="wEffNote"></p>
         </div>
-        <div class="row small" id="sourceRow" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
-          <label title="Compute each metric from the loaded financial statements (primary). Forward-looking / market metrics (Fwd P/E, PEG, beta, momentum, market cap, dividend yield) always stay pulled from Yahoo.">
-            <input type="checkbox" id="computeStmtToggle" checked> <b>Compute metrics from statements</b></label>
-          <button class="btn sm" id="srcCompareBtn" title="Compare each computed metric with Yahoo's pulled value">Compare sources</button>
-          <span class="muted xs" id="stmtCoverageNote"></span>
+
+        <div class="md3-cap">
+          <div class="md3-shead"><span class="md3-num">&#9314; MAX PER PORTFOLIO</span></div>
+          <div class="md3-caprow">
+            <label class="md3-capnum"><input type="number" id="capPct" value="30" min="20" max="100" step="5"> %</label>
+            <span class="md3-capbar"><i id="mdCapBar"></i></span>
+            <span class="md3-capsay" id="mdCapSay"></span>
+          </div>
         </div>
-      </div>
-      <div class="card pad">
-        <div class="section-title"><h2>Portfolio allocation model</h2>
-          <button id="refreshFundBtn" class="btn sm">↻ Refresh fundamentals</button></div>
-        <div id="wGroup" class="metric-block small">
-          <div class="mb-head"><span class="muted"><b>① Metrics</b> — assign weights</span>
-            <button id="chooseMetricsBtn" class="btn sm" title="Add or remove scoring metrics from the catalog">✎ Choose metrics</button>
-            <span class="muted xs" id="wEffNote"></span></div>
-          <div id="wInputs" class="metric-grid"></div>
-        </div>
-        <div class="metric-block small" id="metricCfgWrap">
-          <div class="mb-head"><span class="muted"><b>② Exception handling</b> — how to treat a metric when a value is negative or missing</span></div>
-          <div id="metricCfgRows" class="cfg-grid"></div>
-        </div>
-        <div class="row small metric-block" style="gap:12px;align-items:center;flex-wrap:wrap">
-          <span class="muted"><b>③ Maximum weight per portfolio</b> →</span>
-          <label><input type="number" id="capPct" value="30" min="20" max="100" step="5" style="width:58px"> %</label>
-        </div>
-        <details class="exp" style="margin-top:14px"><summary>How the math works &amp; data-quality notes</summary>
-          <div id="allocNotes" class="small muted" style="margin-top:8px"></div>
+
+        <details class="md3-exp"><summary>How the math works &amp; data-quality notes</summary>
+          <div id="allocNotes"></div>
         </details>
       </div>
+
+      <div class="md3-r">
+        <div class="md3-shead"><span class="md3-num">TARGET AGAINST CURRENT</span></div>
+        <div class="md3-stack allocbar" id="allocBar"></div>
+        <div id="allocLegend" hidden></div>
+        <div class="md3-trows" id="driftRows"></div>
+        <p class="md3-say">Right column is drift: how far today&rsquo;s weight sits from the target.
+          Green is above target, red is below.</p>
+
+        <div class="md3-shead md3-dhead">
+          <span class="md3-num">PER-PORTFOLIO METRIC DETAIL</span>
+          <button class="md3-2nd" id="fundExpandAll" data-mode="expand">EXPAND ALL</button>
+        </div>
+        <div class="md3-srcrow" id="sourceRow">
+          <button class="md3-2nd" id="computeStmtToggle" role="switch" aria-checked="true"
+            title="Compute each metric from the loaded financial statements (primary). Forward-looking / market metrics (Fwd P/E, PEG, beta, momentum, market cap, dividend yield) always stay pulled from Yahoo.">COMPUTE FROM STATEMENTS</button>
+          <button class="md3-2nd" id="srcCompareBtn" title="Compare each computed metric with Yahoo's pulled value">COMPARE SOURCES</button>
+          <button class="md3-2nd" id="refreshFundBtn">REFRESH FUNDAMENTALS</button>
+          <span class="md3-cov" id="stmtCoverageNote"></span>
+        </div>
+        <div class="md3-pacts">
+          <button class="md3-2nd" id="newThemeBtn">CREATE PORTFOLIO</button>
+        </div>
+        <div id="fundGrid"></div>
+      </div>
     </div>
-    <div class="fund-gridhead">
-      <span class="ov-k">Per-portfolio metrics</span>
-      <span class="xs muted">— click a portfolio to see its names, or edit any value inline</span>
-      <button class="btn sm ghost" id="fundExpandAll" data-mode="expand" style="margin-left:auto">⌄ Expand all</button>
-    </div>
-    <div id="fundGrid"></div>
   </section>
 
   <!-- ============ CALCULATOR / REBALANCE ============ -->
@@ -4662,7 +4791,7 @@ function applyFThemeOpen(key){
 function syncFThemeAllBtn(){
   const b=$("#fundExpandAll"); if(!b) return;
   const all=themes().length && themes().every(t=>OPEN_FTHEMES.has(t.key));
-  b.textContent = all ? "⌃ Collapse all" : "⌄ Expand all";
+  b.textContent = all ? "COLLAPSE ALL" : "EXPAND ALL";
   b.dataset.mode = all ? "collapse" : "expand";
 }
 function toggleAllFThemes(){
@@ -4688,6 +4817,39 @@ function policyOptions(m){
   const opts=[['penalize','Penalize (artificial value)'],['carry','Carry over (impute from quality)'],['exclude','Ignore (exclude the name)']];   // all 3 offered for EVERY metric, incl. the original 6
   return opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join("");
 }
+/* E12 4.3: one row per metric - direction + name, the three policy chips inline beneath it, the
+   weight bar, and the stepper. metricCfgRowHTML is kept because the tour and the catalog still
+   describe policies in prose, but nothing renders a separate policy table any more. */
+function metricRowHTML(m){
+  const W=state.weights, MM=metrics();
+  const sum=MM.reduce((a,x)=>a+(isNum(W[x.weightKey])?W[x.weightKey]:0),0);
+  const w=isNum(W[m.weightKey])?W[m.weightKey]:0;
+  const pc=sum>0?Math.round(w/sum*100):Math.round(100/MM.length);
+  const arrow=effDirection(m)==='higher'?'\u2191':'\u2193';
+  const pol=effBadData(m);
+  const chip=(v,label)=>'<button type="button" data-mpolicy="'+m.key+'" data-pv="'+v+'"'+
+    (pol===v?' class="on"':'')+' aria-pressed="'+(pol===v)+'">'+label+'</button>';
+  /* An editable artificial value only makes sense for a lower-is-better metric: on a higher-better
+     metric a bad reading is already the worst possible value, so there is nothing to substitute. */
+  const showPen = pol==='penalize' && m.direction==='lower';
+  const pen = showPen
+    ? '<label class="md3-pen" title="Artificial value substituted for a negative or missing reading">value '+
+      '<input type="number" data-mpen="'+m.key+'" value="'+(isNum(effPenalty(m))?effPenalty(m):'')+
+      '" min="0" aria-label="'+esc(m.label)+' penalty value"></label>'
+    : '';
+  return '<div class="md3-m'+(m.valueKind==='momentum'?' is-mom':'')+'" data-mrow="'+m.key+'">'+
+    '<div class="mn"><span class="dir" title="'+(effDirection(m)==='higher'?'Higher is better':'Lower is better')+
+      '">'+arrow+'</span><b data-mkey="'+m.key+'" title="'+esc(m.formulaHint?m.label+' \u2014 '+m.formulaHint:m.label)+'">'+
+      esc(m.label)+'</b>'+
+      '<div><span class="md3-pol">'+chip('penalize','PENALIZE')+chip('carry','CARRY OVER')+chip('ignore','IGNORE')+
+      '</span>'+pen+'</div></div>'+
+    '<span class="md3-wbar"><i style="width:'+pc+'%"></i></span>'+
+    '<span class="md3-step"><button type="button" data-wstep="'+m.key+'" data-d="-1" aria-label="Less weight on '+esc(m.label)+'">\u2212</button>'+
+      '<span class="pc">'+pc+'%</span>'+
+      '<button type="button" data-wstep="'+m.key+'" data-d="1" aria-label="More weight on '+esc(m.label)+'">+</button></span>'+
+  '</div>';
+}
+
 function metricCfgRowHTML(m){
   const arrow=m.direction==='higher'?'↑':'↓';   // inline direction cue (works on touch/keyboard, unlike a hover tooltip)
   const dirTip=m.direction==='higher'?'↑ Higher is better (set automatically)':'↓ Lower is better (set automatically)';
@@ -4704,46 +4866,73 @@ function metricCfgRowHTML(m){
 function renderFundamentals(){
   const W=state.weights, MM=metrics();
   const wVal=m=>Math.round((isNum(W[m.weightKey])?W[m.weightKey]:m.defaultWeight)*100);
-  // ① weight inputs — rebuild only when the active set changes; else value-only refresh (focus-guarded)
+  /* ① One row per metric, carrying its weight AND its exception policy. The policy is a property
+     of the metric, so it belongs in the metric's row; V2 kept a second table for it, which meant
+     holding two lists in your head to answer one question about one metric.
+     Rebuilt only when the active set or the policies change - a value-only refresh otherwise, so a
+     focused penalty field is never yanked out from under the cursor mid-keystroke. */
   const wIn=$("#wInputs");
-  if(wIn){ const sig=MM.map(m=>m.key).join(',');
-    if(wIn.dataset.sig!==sig){
-      wIn.innerHTML=MM.map(m=>`<span class="wm-name" data-mkey="${m.key}" title="${m.formulaHint?m.label+' — '+m.formulaHint:m.label}">${esc(m.label)}</span><span class="wm-in"><input type="number" data-wkey="${m.key}" value="${wVal(m)}" min="0" step="5"> %</span>`).join("");
-      wIn.dataset.sig=sig;
-    } else MM.forEach(m=>{ const inp=wIn.querySelector('input[data-wkey="'+m.key+'"]'); if(inp&&document.activeElement!==inp)inp.value=wVal(m); });
+  const _wsum=MM.reduce((a,m)=>a+(isNum(W[m.weightKey])?W[m.weightKey]:0),0);
+  const _pp=m=>_wsum>0?Math.round((isNum(W[m.weightKey])?W[m.weightKey]:0)/_wsum*100):Math.round(100/MM.length);
+  if(wIn){
+    const sig=MM.map(m=>m.key+":"+effBadData(m)).join(",");
+    const _ae=document.activeElement;
+    const typing=_ae&&_ae.matches&&_ae.matches('#wInputs input[data-mpen]');
+    if(wIn.dataset.sig!==sig&&!typing){ wIn.innerHTML=MM.map(metricRowHTML).join(""); wIn.dataset.sig=sig; }
+    else if(!typing) MM.forEach(m=>{
+      const row=wIn.querySelector('.md3-m[data-mrow="'+m.key+'"]'); if(!row) return;
+      const bar=row.querySelector(".md3-wbar i"), pc=row.querySelector(".pc");
+      if(bar) bar.style.width=_pp(m)+"%";
+      if(pc) pc.textContent=_pp(m)+"%";
+    });
   }
-  const _ws=MM.reduce((a,m)=>a+(isNum(W[m.weightKey])?W[m.weightKey]:0),0)||1;
-  const _pp=m=>Math.round((isNum(W[m.weightKey])?W[m.weightKey]:0)/_ws*100);
-  if($("#wEffNote"))$("#wEffNote").textContent="→ "+MM.map(_pp).join("/")+"%";
-  // ② per-metric exception-handling rows (rebuilt unless a penalty input is being typed into — a focused <select> still rebuilds)
-  const cfgRows=$("#metricCfgRows"), _ae=document.activeElement;
-  if(cfgRows && !(_ae && _ae.matches && _ae.matches('#metricCfgRows input[data-mpen]')))
-    cfgRows.innerHTML='<div class="cfg-row cfg-head"><span>Metric</span><span>When negative / missing</span><span>Value</span></div>'+MM.map(metricCfgRowHTML).join("");
+  if($("#wEffNote")) $("#wEffNote").textContent="Normalised to "+MM.map(_pp).join("/")+"%.";
+  if($("#mdCatCount")) $("#mdCatCount").textContent=MM.length+" OF "+METRIC_CATALOG.length;
   if($("#capPct")&&document.activeElement!==$("#capPct"))$("#capPct").value=Math.round((state.cap!=null?state.cap:defaultCap())*100);
   if(typeof renderPresetSelect==='function') renderPresetSelect();
-  if($("#computeStmtToggle")) $("#computeStmtToggle").checked = state.computeFromStatements!==false;
+  if($("#computeStmtToggle")) $("#computeStmtToggle").setAttribute("aria-checked",
+    String(state.computeFromStatements!==false));
   if($("#srcCompareBtn")) $("#srcCompareBtn").disabled = state.computeFromStatements===false;   // E3.4: no computed values to compare when off   // E3.4
   if($("#stmtCoverageNote")){ const ms=membership(), cov=ms.filter(s=>{ const st=state.statements[s]; return st&&st.quarters&&st.quarters.length>=4; }).length;
-    $("#stmtCoverageNote").textContent = state.computeFromStatements ? ("→ "+cov+"/"+ms.length+" names computed from statements (rest fall back to pulled)") : "→ using Yahoo's pulled metrics"; }
+    $("#stmtCoverageNote").textContent = state.computeFromStatements
+      ? cov+"/"+ms.length+" names computed from statements; the rest fall back to pulled"
+      : "using Yahoo's pulled metrics"; }
   const A=computeAllocation();
+  /* The arithmetic is printed rather than left for the reader to reverse-engineer from a
+     percentage - but it is printed from the formula the app ACTUALLY uses. The spec says
+     "1.5 / portfolios"; the code says weightBounds(n).hi = 1 / (n - 1), which is the owner's own
+     ceiling from E1.10 and postdates that sentence. Printing the spec's arithmetic would put a
+     sum on screen that does not equal the number sitting beside it. */
+  const capNow=isNum(A.cap)?A.cap:defaultCap(), nAll=themes().length;
+  if($("#mdCapBar")) $("#mdCapBar").style.width=Math.min(100,capNow*100)+"%";
+  if($("#mdCapSay")) $("#mdCapSay").textContent = nAll>1
+    ? "The ceiling is 1 \u00f7 ("+nAll+" portfolios \u2212 1). The floor is 1 \u00f7 "+(2*nAll)+
+      ", so nothing is squeezed out entirely. Excess is redistributed, repeatedly, until every portfolio fits."
+    : "Excess is redistributed, repeatedly, until every portfolio fits.";
 
   // allocation bar + legend
   const bar=$("#allocBar"); bar.innerHTML="";
-  A.rows.forEach(r=>{ const sp=document.createElement("span");
-    sp.style.width=(r.alloc*100)+"%"; sp.style.background=r.theme.color; sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
+  A.rows.forEach((r,i)=>{ const sp=document.createElement("span");
+    sp.style.flex=Math.max(r.alloc,0.001); sp.style.background="var(--portfolio-"+((i%5)+1)+")";
+    sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
     return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
     ${esc(r.theme.name)} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
 
   // drift table
   const cvt=curValueByTheme(), total=curTotal();
-  $("#driftTable tbody").innerHTML=A.rows.map(r=>{
+  const dr=$("#driftRows");
+  if(dr) dr.innerHTML=A.rows.map((r,i)=>{
     const cw=total>0?cvt[r.theme.key]/total:null;
     const d=isNum(cw)?(cw-r.alloc):null;
-    const dcls=isNum(d)?(Math.abs(d)<0.01?"muted":(d>0?"down":"up")):"muted";
-    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${esc(r.theme.name)}</td>
-      <td class="num">${pct(r.alloc)}</td><td class="num">${isNum(cw)?pct(cw):"—"}</td>
-      <td class="num ${dcls}"><span class="drift">${isNum(d)?signed(d*100,1)+"pp":"—"}</span></td></tr>`;}).join("");
+    /* Green is ABOVE target and red is BELOW - the spec states it in words right under this table,
+       and V2 had the two the other way round. */
+    const dcls=isNum(d)?(Math.abs(d)<0.01?"muted":(d>=0?"up":"down")):"muted";
+    return '<div class="md3-t"><span class="n"><span class="sq" style="background:var(--portfolio-'+((i%5)+1)+
+      ')"></span><span>'+esc(r.theme.name)+'</span></span>'+
+      '<span class="num">'+pct(r.alloc)+'</span>'+
+      '<span class="num '+dcls+'">'+(isNum(d)?signed(d*100,1)+"pp":"\u2014")+'</span></div>';
+  }).join("");
 
   // notes (E2.3: driven by metrics(); muted copy inside the collapsed <details>)
   const exM=metrics().filter(m=>m.valueKind==='themeMetric');
@@ -4991,31 +5180,39 @@ function metricDataCoverage(m){
   let have=0, total=0; syms.forEach(s=>{ total++; if(isNum(m.getter(s)))have++; });
   return {have, total};
 }
+/* E12 4.3 catalog modal. All 27 in one three-column grid rather than seven stacked group lists:
+   the group is a tag on the row, so the reader scans one grid instead of seven. */
+const METRIC_GROUP_TAGS = {value:'VAL', quality:'QUAL', growth:'GROW', income:'INC',
+                           risk:'LEV', size:'SIZE', momentum:'MKT'};
 function openMetricPicker(){
   const activeKeys=new Set(metrics().map(m=>m.key));
   const hasData=Object.keys(state.fundamentals||{}).length>0;
-  const groups={}; METRIC_CATALOG.forEach(m=>{ (groups[m.group]=groups[m.group]||[]).push(m); });
-  const order=['value','quality','growth','income','risk','size','momentum'];
-  const body=order.filter(g=>groups[g]).map(g=>{
-    const rows=groups[g].map(m=>{
-      const cov=hasData?metricDataCoverage(m):null;
-      const badge=cov?(cov.have===0?'<span class="tag na" title="no data for your book">no data</span>':`<span class="muted xs">${cov.have}/${cov.total}</span>`):'';
-      const hint=m.formulaHint?' · '+m.formulaHint:'';
-      return `<label class="row small" style="gap:8px;align-items:center;margin:2px 0">
-        <input type="checkbox" data-mpick="${m.key}"${activeKeys.has(m.key)?' checked':''}>
-        <span style="min-width:150px">${esc(m.label)}</span>
-        <span class="muted xs">${m.direction==='higher'?'↑':'↓'}${hint}</span> ${badge}</label>`;
-    }).join("");
-    return `<div style="margin:12px 0 2px"><b class="small">${METRIC_GROUP_LABELS[g]||g}</b></div>${rows}`;
+  const cells=METRIC_CATALOG.map(m=>{
+    const on=activeKeys.has(m.key);
+    const cov=hasData?metricDataCoverage(m):null;
+    /* A metric with no data for YOUR book scores nothing for anybody, so say so on the row rather
+       than letting it be picked and quietly do nothing. */
+    const badge=cov?(cov.have===0?'<span class="mp-nd">NO DATA</span>':'<span class="mp-cov">'+cov.have+"/"+cov.total+"</span>"):"";
+    return '<button type="button" class="mp-i'+(on?" on":"")+'" data-mpick="'+m.key+'" aria-pressed="'+on+'">'+
+      '<span class="mp-box"></span>'+
+      '<span class="mp-n">'+esc(m.label)+(m.formulaHint?'<i>'+esc(m.formulaHint)+"</i>":"")+"</span>"+
+      badge+'<span class="mp-g">'+(METRIC_GROUP_TAGS[m.group]||"")+"</span></button>";
   }).join("");
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="mpModal"><div class="modal-card card pad" style="max-width:560px;max-height:82vh;overflow:auto">
-      <h2 style="font-size:16px">Choose scoring metrics</h2>
-      <p class="small muted">Tick the metrics that drive your model. New picks start at a 10% weight — tune weights after. At least one metric must stay on.${hasData?'':' <b>Load fundamentals</b> (Refresh) to see per-metric data coverage for your book.'}</p>
-      ${body}
-      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn primary" id="mpClose">Done</button></div>
-    </div></div>`;
+  $("#modalRoot").innerHTML=
+    '<div class="modal-backdrop mp-back" id="mpModal"><div class="mp-card">'+
+      '<div class="mp-head"><h2>Metric catalog</h2><span class="mp-count" id="mpCount"></span>'+
+        '<button class="mp-x" id="mpClose2" type="button" aria-label="Close">\u00d7</button></div>'+
+      '<div class="mp-grid">'+cells+"</div>"+
+      '<div class="mp-foot"><span>Direction is set for you: cheaper is better on a valuation metric, '+
+        'higher is better on a quality or growth one.'+
+        (hasData?"":" Refresh fundamentals to see per-metric coverage for your book.")+"</span>"+
+        '<button class="mp-done" id="mpClose" type="button">DONE</button></div>'+
+    "</div></div>";
+  const count=()=>{ const n=$$('#mpModal .mp-i.on').length;
+    const c=$("#mpCount"); if(c) c.textContent=n+" of "+METRIC_CATALOG.length+" active"; };
+  count();
   const apply=async()=>{
-    const picked=[]; $$('#mpModal input[data-mpick]').forEach(cb=>{ if(cb.checked)picked.push(cb.dataset.mpick); });
+    const picked=[]; $$('#mpModal .mp-i.on').forEach(b=>picked.push(b.dataset.mpick));
     if(!picked.length){ toast("Keep at least one metric"); return false; }
     const list=METRIC_CATALOG.filter(m=>picked.indexOf(m.key)>=0).map(m=>({key:m.key}));   // stable catalog order (6 first)
     const nm=validateMetrics(list);
@@ -5024,9 +5221,15 @@ function openMetricPicker(){
     await savePortfolio(); renderFundamentals(); renderCalc();
     return true;
   };
-  $$('#mpModal input[data-mpick]').forEach(cb=>cb.addEventListener("change",async()=>{ const ok=await apply(); if(!ok)cb.checked=true; }));
-  $("#mpClose").addEventListener("click",closeModal);
-  $("#mpModal").addEventListener("click",e=>{ if(e.target.id==="mpModal")closeModal(); });
+  $("#mpModal").addEventListener("click",async e=>{
+    const b=e.target.closest(".mp-i");
+    if(b){ const was=b.classList.contains("on");
+      b.classList.toggle("on",!was); b.setAttribute("aria-pressed",String(!was));
+      const ok=await apply();
+      if(!ok){ b.classList.toggle("on",was); b.setAttribute("aria-pressed",String(was)); }
+      count(); return; }
+    if(e.target.closest("#mpClose,#mpClose2")||e.target.id==="mpModal") closeModal();
+  });
 }
 
 /* ======================================================================
@@ -5567,17 +5770,17 @@ const TOURS = {
   fundamentals: { name:"Model", steps:[
     { sel:"#newThemeBtn", title:"Start with a theme",
       body:"A theme is a basket - \u201cRobotics\u201d, \u201cPayments\u201d, whatever you are investing behind. The model allocates between themes, so this is the first thing to create." },
-    { sel:"#fundGrid,#driftTable", title:"Add tickers to it",
+    { sel:"#fundGrid,#driftRows", title:"Add tickers to it",
       body:"Open your new theme and add the names that belong in it. Inside a theme the names are equal-weighted, so you are choosing the basket, not the individual sizes." },
     { sel:"#chooseMetricsBtn", title:"Choose how themes are judged",
       body:"Six metrics are on by default (PEG, EV/EBITDA, Debt/FCF, P/E, size and momentum) with 21 more in the catalogue. These decide which theme looks cheap or strong." },
     { sel:"#wGroup", title:"Weight the metrics",
       body:"Say how much each metric matters. The weights are normalised for you, so they do not need to add to 100." },
-    { sel:"#metricCfgRows,#wGroup", title:"Decide what happens to bad data",
+    { sel:"#wGroup", title:"Decide what happens to bad data",
       body:"Some companies genuinely have no P/E or no EV/EBITDA. Per metric you can penalise them, carry over their standing on the metrics they do report, or ignore the metric for them." },
     { sel:"#capPct", title:"Cap any single theme",
       body:"Nothing may exceed this share of the book; the excess spills to the others. It defaults to 1.5 \u00f7 (number of themes)." },
-    { sel:"#driftTable,#allocBar", title:"These are your targets",
+    { sel:"#driftRows,#allocBar", title:"These are your targets",
       body:"Target weight per theme, and - once you hold something - how far you have drifted from it. Next stop is Rebalance, which turns these targets into trades." } ] },
 
   calc: { name:"Rebalance", steps:[
@@ -6505,25 +6708,45 @@ function setupEvents(){
     try{ await Promise.all([loadFundamentals(true), loadStatements(membership(),true)]); rebuildFundamentals(); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
     catch(e){ toast("Fundamentals refresh failed"); } finally{ $("#refreshFundBtn").disabled=false; } });
   // ① weights — MUTATE state.weights over metrics() (never reassign, so activated catalog keys survive); delegated on the stable #wGroup wrapper
-  function readWeights(){ metrics().forEach(m=>{ const inp=document.querySelector('#wInputs input[data-wkey="'+m.key+'"]'); if(inp){ const v=parseFloat(inp.value); state.weights[m.weightKey]=(isNum(v)&&v>=0)?v/100:0; } }); }
-  if($("#wGroup")){
-    $("#wGroup").addEventListener("input",e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); } });
-    $("#wGroup").addEventListener("change",async e=>{ if(e.target.matches('input[data-wkey]')){ readWeights(); renderFundamentals(); renderCalc(); await savePortfolio(); } });
+  /* E12 4.3: weights and exception policies now share one row per metric, so they share one
+     delegated listener on #wGroup - the wrapper, which is never itself replaced.
+     The stepper moves the RAW weight by 5 points; the figure it prints is the NORMALISED share,
+     which is what actually reaches computeAllocation. Never let it reach zero across the board:
+     an all-zero model is a zero-sum book, which liquidates everything. */
+  const WSTEP=0.05;
+  function stepWeight(key,dir){
+    const m=metrics().find(x=>x.key===key); if(!m) return false;
+    const cur=isNum(state.weights[m.weightKey])?state.weights[m.weightKey]:(m.defaultWeight||0);
+    const next=Math.max(0,Math.round((cur+dir*WSTEP)*100)/100);
+    if(next===cur) return false;
+    const sum=metrics().reduce((a,x)=>a+(x===m?next:(isNum(state.weights[x.weightKey])?state.weights[x.weightKey]:0)),0);
+    if(sum<=0) return false;                       // refuse the step that would zero the whole model
+    state.weights[m.weightKey]=next; return true;
   }
-  // ② per-metric exception handling — delegated on #metricCfgRows (policy select + penalty input; direction is auto)
-  if($("#metricCfgRows")){
-    const cfgApply=async persist=>{ renderFundamentals(); if(persist){ renderCalc(); await savePortfolio(); } };
-    $("#metricCfgRows").addEventListener("input",e=>{ const pen=e.target.closest('input[data-mpen]'); if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); cfgApply(false); } });
-    $("#metricCfgRows").addEventListener("change",e=>{ const sel=e.target.closest('select[data-mpolicy]'), pen=e.target.closest('input[data-mpen]');
-      if(sel) setMetricPolicy(sel.dataset.mpolicy, sel.value); else if(pen) setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); else return; cfgApply(true); });
+  if($("#wGroup")){
+    $("#wGroup").addEventListener("click",async e=>{
+      const st=e.target.closest("button[data-wstep]");
+      if(st){ if(stepWeight(st.dataset.wstep, Number(st.dataset.d))){
+        renderFundamentals(); renderCalc(); await savePortfolio(); } return; }
+      const pol=e.target.closest("button[data-mpolicy]");
+      if(pol){ setMetricPolicy(pol.dataset.mpolicy, pol.dataset.pv);
+        renderFundamentals(); renderCalc(); await savePortfolio(); }
+    });
+    // the penalty value is a live field: apply as it is typed, persist when it is committed
+    $("#wGroup").addEventListener("input",e=>{ const pen=e.target.closest('input[data-mpen]');
+      if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value)); renderFundamentals(); } });
+    $("#wGroup").addEventListener("change",async e=>{ const pen=e.target.closest('input[data-mpen]');
+      if(pen){ setMetricPenalty(pen.dataset.mpen, parseFloat(pen.value));
+        renderFundamentals(); renderCalc(); await savePortfolio(); } });
   }
   if($("#chooseMetricsBtn")) $("#chooseMetricsBtn").addEventListener("click",openMetricPicker);   // E2.3: choose active metrics
   if($("#reset6Btn")) $("#reset6Btn").addEventListener("click",resetToDefault6);                  // E2.5: reset the model
   if($("#savePresetBtn")) $("#savePresetBtn").addEventListener("click",saveCurrentPreset);        // E2.5: save preset
   if($("#delPresetBtn")) $("#delPresetBtn").addEventListener("click",deleteSelectedPreset);       // E2.5: delete preset
   if($("#presetSelect")) $("#presetSelect").addEventListener("change",e=>{ if(e.target.value)loadPreset(e.target.value); });   // E2.5: load preset
-  if($("#computeStmtToggle")) $("#computeStmtToggle").addEventListener("change",async e=>{   // E3.4: data-source toggle
-    state.computeFromStatements=e.target.checked; rebuildFundamentals(); renderAll(); await savePortfolio(); });
+  if($("#computeStmtToggle")) $("#computeStmtToggle").addEventListener("click",async e=>{   // E3.4: data-source toggle
+    state.computeFromStatements = state.computeFromStatements===false;
+    rebuildFundamentals(); renderAll(); await savePortfolio(); });
   if($("#srcCompareBtn")) $("#srcCompareBtn").addEventListener("click",openSourceCompare);   // E3.4: computed-vs-pulled compare
   // E5.1: expand/collapse a theme. Delegated on #priceGrid, which is never itself replaced,
   // so it survives every re-render of its children.

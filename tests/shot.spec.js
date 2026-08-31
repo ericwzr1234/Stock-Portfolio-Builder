@@ -7,6 +7,14 @@ test("shots", async ({ page }) => {
   await page.waitForTimeout(300);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({ path: "docs/prototypes/shot-ov-1440.png", fullPage: true });
+  await page.evaluate(() => switchView("fundamentals"));
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: "docs/prototypes/shot-model-1440.png", fullPage: true });
+  await page.click("#chooseMetricsBtn");
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: "docs/prototypes/shot-catalog.png" });
+  await page.click("#mpClose");
+  await page.evaluate(() => switchView("prices"));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(200);
   await page.screenshot({ path: "docs/prototypes/shot-ov-390.png", fullPage: true });
