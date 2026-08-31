@@ -908,6 +908,55 @@
     .md3-step{justify-content:flex-start}
   }
 
+  /* === E12 4.6 Stock detail =================================================== */
+  .sd-back{position:fixed;inset:0;z-index:40;background:rgba(45,43,43,.18)}
+  .sd-panel{position:absolute;top:0;right:0;bottom:0;width:min(640px,100vw);background:var(--bg);
+    border-left:var(--rule-strong);box-shadow:-12px 0 32px rgba(45,43,43,.14);overflow:auto;
+    animation:sdIn .26s cubic-bezier(.22,1,.36,1)}
+  @keyframes sdIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+  .sd-head{padding:22px 24px 18px;border-bottom:var(--rule-strong);position:relative}
+  .sd-id h2{font-weight:800;font-size:34px;line-height:1;letter-spacing:-.03em;margin:0;display:inline-block}
+  .sd-id span{font-size:14px;color:var(--ink-50);margin-left:10px}
+  .sd-x{position:absolute;top:20px;right:22px;width:32px;height:32px;border:1px solid rgba(32,30,29,.4);
+    background:none;cursor:pointer;font:inherit;font-size:18px;line-height:1;color:var(--ink);padding:0}
+  .sd-x:hover{background:var(--ink);color:var(--bg)}
+  .sd-px{display:flex;align-items:baseline;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .sd-px b{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .sd-px span{font-weight:700;font-size:14px}
+  .sd-px i{font-style:normal;font-size:12px;color:var(--ink-50)}
+  .sd-sec{padding:20px 24px 24px;border-bottom:var(--rule-hair)}
+  .sd-lbl{font-weight:800;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-700);margin-bottom:12px}
+  .sd-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--ink-50);
+    padding-bottom:12px;border-bottom:var(--rule-hair);margin-bottom:4px}
+  .sd-m{display:grid;grid-template-columns:1fr 84px 62px;gap:10px;align-items:center;
+    padding:10px 0;border-bottom:var(--rule-hair)}
+  .sd-m .n{font-weight:600;font-size:13px;min-width:0}
+  .sd-m .n i{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--ink-50);
+    margin-top:2px}
+  .sd-m .num{text-align:right;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums}
+  .sd-m .tag{justify-self:end}
+  .sd-note{font-size:11px;color:var(--ink-50);margin:12px 0 0}
+  .sd-tabs{display:flex;border-bottom:var(--rule-strong);margin-bottom:2px}
+  .sd-tab{border:0;background:none;cursor:pointer;font:inherit;font-weight:800;font-size:11px;
+    letter-spacing:.1em;padding:9px 14px 9px 0;color:var(--ink-50)}
+  .sd-tab.on{color:var(--ink);box-shadow:inset 0 -2px 0 0 var(--accent)}
+  .sd-table.is-off{display:none}
+  .sd-r{display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:8px;align-items:center;
+    padding:7px 0;border-bottom:var(--rule-hair);font-size:11px}
+  .sd-rh{font-weight:600;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-50);border-bottom:var(--rule-strong)}
+  .sd-r .l{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sd-r .num{text-align:right;font-variant-numeric:tabular-nums}
+  /* The TTM column is derived, so it is marked as derived rather than sitting among the filings. */
+  .sd-rh .num.ttm{color:var(--accent-700)}
+  .sd-r .num.ttm{font-weight:800}
+  @media(max-width:700px){
+    .sd-panel{width:100vw;border-left:0}
+    .sd-id h2{font-size:26px}
+    .sd-r{grid-template-columns:1.4fr repeat(5,1fr);font-size:10px;gap:5px}
+  }
+
   /* === E12 4.4b Research ==================================================== */
   .rs3{padding:0}
   .rs3-line{display:flex;align-items:center;gap:14px;padding:22px 28px;border-bottom:var(--rule-strong);
@@ -3329,13 +3378,30 @@ function metricSourceOf(sym, m){
 async function openStockDetail(sym){
   sym=(sym||'').toUpperCase(); if(!sym) return;
   const nm=(state.quotes[sym]&&state.quotes[sym].name)||(state.fundamentals[sym]&&state.fundamentals[sym].name)||sym;
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="sdModal" data-sd-sym="${esc(sym)}"><div class="modal-card card pad" style="max-width:860px;max-height:90vh;overflow:auto">
-      <div class="section-title"><h2 style="font-size:17px">${esc(sym)} <span class="muted" style="font-weight:400">· ${nm}</span></h2>
-        <button class="btn sm" id="sdClose">Close</button></div>
-      <div id="sdBody"><p class="small muted" style="margin-top:10px">Loading statements…</p></div>
-    </div></div>`;
+  /* E12 4.6: a right-anchored panel, not a centred modal. Reachable from all five places a ticker
+     appears, and it must work for a name you do NOT own - a searched company has statements and
+     computed metrics exactly like a holding, and that is most of the point of Research. */
+  const q0=state.quotes[sym]||{}, h0=holdings()[sym], t0=themeOf[sym];
+  $("#modalRoot").innerHTML=`<div class="sd-back" id="sdModal" data-sd-sym="${esc(sym)}">
+    <aside class="sd-panel" role="dialog" aria-modal="true" aria-label="${esc(sym)} detail">
+      <div class="sd-head">
+        <div class="sd-id"><h2>${esc(sym)}</h2><span>${esc(nm)}</span></div>
+        <button class="sd-x" id="sdClose" type="button" aria-label="Close">&times;</button>
+        <div class="sd-px">
+          <b>${isNum(q0.price)?money(q0.price,2):"\u2014"}</b>
+          <span class="${isNum(q0.changePct)?(q0.changePct>=0?"up":"down"):""}">${
+            isNum(q0.changePct)?signed(q0.changePct,2)+"%":""}</span>
+          <i>${h0&&isNum(h0.shares)?num(h0.shares,1)+" shares":"not held"}${
+            t0?" \u00b7 "+esc(t0.name):""}</i>
+        </div>
+      </div>
+      <div id="sdBody"><p class="sd-note">Loading statements\u2026</p></div>
+    </aside></div>`;
   $("#sdClose").addEventListener("click",closeModal);
   $("#sdModal").addEventListener("click",e=>{ if(e.target.id==="sdModal")closeModal(); });
+  /* A panel that only closes on a click is a trap for anyone on a keyboard. */
+  $("#sdModal").addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
+  const _x=$("#sdClose"); if(_x) _x.focus();
   // Screener/search names aren't preloaded -> fetch quote + PULLED fundamentals + statements on demand, then rebuild
   const jobs=[];
   if(!state.quotes[sym]) jobs.push(dsQuotes([sym]).then(d=>{ if(d&&d.quotes) state.quotes=Object.assign({},state.quotes,d.quotes); }).catch(()=>{}));
@@ -3348,45 +3414,76 @@ async function openStockDetail(sym){
 function renderStockDetail(sym){
   const body=$("#sdBody"); if(!body) return;
   const st=state.statements[sym], f=state.fundamentals[sym]||{}, ttm=f._ttm;
-  const price=(state.quotes[sym]&&state.quotes[sym].price), mc=effMcap(sym);
+  const mc=effMcap(sym);
   const pf=state.pulled[sym]||{}, fcur=pf.financialCurrency, tcur=pf.currency, fx=!!(fcur&&tcur&&fcur!==tcur);
-  const fxNote = fx ? ` <span class="tag pulled" title="Statements are filed in ${fcur} but the market cap is in ${tcur}. Market-cap ratios (P/E, EV/EBITDA, P/S, P/B) can't be computed across currencies without an FX rate, so they stay pulled; the margin/growth/return ratios are currency-neutral and still computed.">statements in ${fcur} — valuation kept pulled</span>` : '';
-  const head=`<div class="row small" style="gap:14px;flex-wrap:wrap;margin:2px 0 10px">
-    <span>Price <b>${isNum(price)?money(price,2):'—'}</b></span><span>Market cap <b>${bil(mc)}</b></span>
-    ${ttm?`<span class="muted">TTM to ${ttm.asOfDate}</span>`:''}
-    <span class="muted xs">${state.computeFromStatements?'Metrics computed from statements':'Metrics pulled from Yahoo'}</span>${fxNote}</div>`;
-  // computed-metrics panel: every catalog metric with its value + source
-  const tag=s=> s==='computed'?'<span class="tag calc" title="computed from the loaded statements">calc</span>'
-             : s==='pulled'?'<span class="tag pulled" title="pulled from Yahoo (market / forward-looking, or a statement input was missing)">pulled</span>':'';
-  const metricCells=METRIC_CATALOG.map(m=>{ const v=m.getter(sym), s=metricSourceOf(sym,m);
-    return `<div class="it" style="display:flex;justify-content:space-between;gap:8px;min-width:180px">
-      <span class="muted">${esc(m.label)}</span><span><b>${isNum(v)?fmtVal(m,v):'—'}</b> ${tag(s)}</span></div>`; }).join("");
-  const metricPanel=`<h3 style="font-size:14px;margin:6px 0">Metrics <span class="muted xs">(calc = from statements · pulled = Yahoo)</span></h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 16px">${metricCells}</div>`;
-  // statement tables (last 4 quarters + TTM for flows)
-  let stmtHtml='';
+
+  /* WHAT THE MODEL USED - the honest answer to "why does this name have this weight". Only the
+     ACTIVE metrics, because those are the ones that actually moved the number; the other 21 in the
+     catalog did not, and listing all 27 buries the answer among things that had no effect. */
+  const rows=metrics().map(function(m){
+    const v=m.getter(sym), src=metricSourceOf(sym,m);
+    const tag = src==='computed'
+      ? '<span class="tag calc" title="computed from the loaded statements">CALC</span>'
+      : '<span class="tag" title="pulled from Yahoo (market or forward-looking, or a statement input was missing)">PULLED</span>';
+    return '<div class="sd-m"><span class="n">'+esc(m.label)+
+      (m.formulaHint?'<i>'+esc(m.formulaHint)+"</i>":"")+"</span>"+
+      '<span class="num">'+(isNum(v)?fmtVal(m,v):"\u2014")+"</span>"+tag+"</div>";
+  }).join("");
+  const fxNote = fx
+    ? '<p class="sd-note">Filed in <b>'+esc(fcur)+"</b> while the market cap is in <b>"+esc(tcur)+
+      "</b>. Ratios that mix the two \u2014 P/E, EV/EBITDA, P/S, P/B \u2014 cannot be computed without an FX "+
+      "rate, so they stay pulled. Margin, growth and return ratios are currency-neutral and are still computed.</p>"
+    : "";
+  let out='<div class="sd-sec"><div class="sd-lbl">WHAT THE MODEL USED</div>'+
+    '<div class="sd-meta"><span>Market cap <b>'+bil(mc)+"</b></span>"+
+      (ttm?'<span>TTM to <b>'+esc(ttm.asOfDate)+"</b></span>":"")+
+      '<span>'+(state.computeFromStatements?"Computed from statements":"Pulled from Yahoo")+"</span></div>"+
+    rows+fxNote+"</div>";
+
+  // ---- statements, three tabs
   if(st&&st.quarters&&st.quarters.length){
-    if(fcur&&fcur!=='USD') stmtHtml+=`<p class="small muted" style="margin:10px 0 -2px">Figures in <b>${fcur}</b> (the currency the company files in); the $ symbol below is nominal.</p>`;
     const qs=st.quarters.slice(-4);   // last 4 quarters, oldest -> newest
-    STMT_DISPLAY.forEach(([title,kind,rows])=>{
-      const heads=qs.map(q=>`<th class="num">${q.date}</th>`).join("")+(kind==='flow'?'<th class="num">TTM</th>':'');
-      const body2=rows.map(([field,label])=>{
-        const cells=qs.map(q=>`<td class="num">${fmtStmtCell(field,q[field])}</td>`).join("");
-        let ttmCell='';
-        if(kind==='flow'){
-          const noSum=(field==='dilutedShares'||field==='dilutedEPS');   // shares/EPS aren't summed across quarters
-          const vals=qs.map(q=>q[field]), ok=!noSum&&vals.length===4&&vals.every(isNum);
-          ttmCell=`<td class="num"><b>${ok?fmtStmtCell(field, vals.reduce((a,b)=>a+b,0)):'—'}</b></td>`;
+    out+='<div class="sd-sec"><div class="sd-lbl">STATEMENTS</div>'+
+      (fcur&&fcur!=="USD"?'<p class="sd-note">Figures in <b>'+esc(fcur)+
+        "</b>, the currency the company files in; the $ symbol below is nominal.</p>":"")+
+      '<div class="sd-tabs" id="sdTabs">'+STMT_DISPLAY.map(function(d,i){
+        return '<button type="button" class="sd-tab'+(i===0?" on":"")+'" data-sdtab="'+i+'">'+
+               esc(String(d[0]).toUpperCase())+"</button>"; }).join("")+"</div>";
+    STMT_DISPLAY.forEach(function(d,i){
+      const title=d[0], kind=d[1], lines=d[2];
+      /* The TTM column is DERIVED, so its header carries the accent and its figures are bold
+         against the quarters - a derived column that looks reported is a figure the reader will
+         attribute to the filing. */
+      const heads=qs.map(function(q){ return '<span class="num">'+esc(q.date)+"</span>"; }).join("")+
+        (kind==="flow"?'<span class="num ttm">TTM</span>':'<span class="num"></span>');
+      const rws=lines.map(function(l){
+        const field=l[0], label=l[1];
+        const cells=qs.map(function(q){ return '<span class="num">'+fmtStmtCell(field,q[field])+"</span>"; }).join("");
+        let ttmCell='<span class="num"></span>';
+        if(kind==="flow"){
+          const noSum=(field==="dilutedShares"||field==="dilutedEPS");   // shares/EPS aren't summed across quarters
+          const vals=qs.map(function(q){ return q[field]; });
+          const ok=!noSum&&vals.length===4&&vals.every(isNum);
+          ttmCell='<span class="num ttm">'+(ok?fmtStmtCell(field,vals.reduce(function(a,b){return a+b;},0)):"\u2014")+"</span>";
         }
-        return `<tr><td>${esc(label)}</td>${cells}${ttmCell}</tr>`;
+        return '<div class="sd-r"><span class="l">'+esc(label)+"</span>"+cells+ttmCell+"</div>";
       }).join("");
-      stmtHtml+=`<h3 style="font-size:14px;margin:14px 0 4px">${esc(title)}${kind==='point'?' <span class="muted xs">(point-in-time)</span>':''}</h3>
-        <table class="mono" style="font-size:12px"><thead><tr><th>Line item</th>${heads}</tr></thead><tbody>${body2}</tbody></table>`;
+      out+='<div class="sd-table'+(i===0?"":" is-off")+'" data-sdpane="'+i+'">'+
+        '<div class="sd-r sd-rh"><span class="l">'+esc(title)+
+        (kind==="point"?" \u00b7 point in time":"")+"</span>"+heads+"</div>"+rws+"</div>";
     });
+    out+="</div>";
   } else {
-    stmtHtml=`<p class="small muted" style="margin-top:12px">No statement data available for ${esc(sym)} (metrics fall back to Yahoo's pulled figures).</p>`;
+    out+='<div class="sd-sec"><div class="sd-lbl">STATEMENTS</div><p class="sd-note">No statement data '+
+      "for "+esc(sym)+" \u2014 its metrics fall back to Yahoo's pulled figures.</p></div>";
   }
-  body.innerHTML=head+metricPanel+stmtHtml;
+  body.innerHTML=out;
+  const tabs=$("#sdTabs");
+  if(tabs) tabs.addEventListener("click",function(e){
+    const b=e.target.closest("[data-sdtab]"); if(!b) return;
+    $$("#sdTabs .sd-tab").forEach(function(x){ x.classList.toggle("on",x===b); });
+    $$(".sd-table").forEach(function(t){ t.classList.toggle("is-off",t.dataset.sdpane!==b.dataset.sdtab); });
+  });
 }
 
 /* E3.4 — compare each statement-computed metric with Yahoo's pulled value (state.pulled is the untouched base). */
@@ -5962,9 +6059,12 @@ function wireResearchSearch(){
       const need=list.map(r=>r.symbol).filter(sym=>!isNum(price(sym)));
       if(!need.length) return;
       try{
-        const got=await dsQuotes(need);
+        /* dsQuotes returns {quotes, asOf} - NOT the map itself. Treating the envelope as the map
+           writes state.quotes.quotes and state.quotes.asOf and leaves every price blank. Every
+           other caller in this file reads d.quotes; this one has to as well. */
+        const got=(await dsQuotes(need)||{}).quotes||{};
         if(seq!==_rsSeq) return;
-        Object.keys(got||{}).forEach(sym=>{ state.quotes[sym]=Object.assign(state.quotes[sym]||{},got[sym]); });
+        Object.keys(got).forEach(sym=>{ state.quotes[sym]=Object.assign(state.quotes[sym]||{},got[sym]); });
         res.innerHTML='<div class="rs3-rhead"><span>Result</span><span>Listing</span><span class="num">Last</span>'+
           '<span class="num">Today</span><span></span><span></span></div>'+list.map(rowHTML).join("");
       }catch(e){}

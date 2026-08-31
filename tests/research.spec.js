@@ -16,8 +16,12 @@ const stubSearch = (page, opts = {}) => page.evaluate((opts) => {
             { symbol: "NVDA", name: "Nvidia", exchange: "NMS", type: "EQUITY" }];
   };
   window.__quoteCalls = 0;
+  /* dsQuotes returns an ENVELOPE, {quotes, asOf}. A stub written from the calling code rather
+     than from the contract agrees with the caller's bugs - which is exactly what happened here:
+     the first version of this stub returned a bare map and hid a real defect. */
   window.dsQuotes = async (syms) => { window.__quoteCalls++;
-    const o = {}; syms.forEach(s => o[s] = { price: 50, prevClose: 49, changePct: 2.04 }); return o; };
+    const o = {}; syms.forEach(s => o[s] = { price: 50, prevClose: 49, changePct: 2.04 });
+    return { quotes: o, asOf: "2026-08-31T00:00:00Z" }; };
 }, opts);
 
 const openResearch = async (page, opts) => {
