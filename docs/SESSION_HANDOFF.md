@@ -1,12 +1,70 @@
 # Session handoff — read this first
 
-**THE APP IS LIVE:** https://portfolio-builder-esb.pages.dev — app and `/api/*` on one origin,
-proven identical to `server.py` across 1,035 fields. Unlisted (`robots.txt` + `noindex`), installable
-to a phone home screen, 5-minute idle sign-out.
+**THE V3 WEB APP IS LIVE:** https://portfolio-builder-esb.pages.dev — app and `/api/*` on one
+origin. Unlisted (`robots.txt` + `noindex`), installable to a phone home screen, 5-minute idle
+sign-out, Turnstile on the gate, RLS on every table.
 
-**Prod `main` carries E1–E10 complete and 15 of 17 E11 tickets.** Everything that can be built
-without the owner's accounts is done. The two that remain are blocked on credentials only the owner has:
-`E11.4` custom SMTP, `E11.7b` Sentry.
+## Where it stands (session 6, 2026-08-31)
+
+**E12, the V3 UI revamp, is merged to `main` and deployed.** It is a complete rebuild, not a
+restyle: four text lanes replace the rail, every surface is rebuilt on the V3 token sheet, and the
+donut, the cards and the shadows are gone. Design of record:
+[`features/E12_v3-ui.md`](features/E12_v3-ui.md).
+
+| Card | |
+|---|---|
+| `E12.0` | Shell: token sheet, four lanes, Archivo self-hosted (so `font-src 'self'` stays) |
+| `E12.0b` | Sign-in gate |
+| `E12.1` | Overview — hero, honest period return, 1D session view, chart + scrub, allocation bar, holdings |
+| `E12.2` | Model — the metric's exception policy now lives in the metric's own row |
+| `E12.3` | Trade — three modes with their consequences written out; the plan is always live |
+| `E12.4` | Research + the stock panel, reachable from all five places a ticker appears |
+| `E12.5` | History — what happened vs what is only redoable |
+| `E12.6` | First run — the poster |
+
+**Tests went 85 → 165.** Section 4.9's migration checklist is no longer a document:
+`tests/coverage.spec.js` walks its rows and asserts each control *paints*.
+
+### Bugs this epic found, several of which predate it
+
+- A stray `</div>` closed `<main>` early and hoisted four of the five lanes out of it, so **every
+  delegated listener was dead on all four** — with no error anywhere and nothing looking wrong.
+  `tools/check_syntax.py` now counts div depth inside `<main>` and was verified against the bug.
+- `ovPeriodReturn` read a missing `invested` as `0`, printing **−33.5% beside +28.5%** for the same
+  book on the same screen.
+- The value chart's `ResizeObserver` redrew unconditionally, so **scrubbing wiped itself** ~120ms
+  after the user started it.
+- A failed save was only a toast; it now replaces the account sentence **in place** (baseline §9 r1).
+- `dsQuotes` returns `{quotes, asOf}` and one new caller read the envelope as the map.
+- `versionLabel` printed `#undefined` for a checkpoint with no id.
+- The `firstrun` fixture wrote `state.membership` / `state.data` — keys the app has never read — so
+  "a populated account" was in fact an empty one, and the assertion it carried proved nothing.
+
+### Open, and needing the owner
+
+1. **`IMPORT portfolio.json`** (spec §4.7). Not built. No import path exists anywhere in the app, so
+   this is a *new feature* — file parsing plus validation of a whole book — rather than a migration
+   of one. Worth doing only if you actually want to move a book in from a file.
+2. **`E12.7` dark mode.** Deferred by your own light-only decision. Un-defer when you want it.
+3. **`E11.7b` Sentry.** Deferred by your decision, with the revisit trigger recorded.
+
+### Open, and mine
+
+- **`E12.8`** — empty the V2 compat shim. §2 says it must be empty when E12 closes; a leftover alias
+  is an unmigrated surface. What remains is on surfaces no lane owns (toasts, coach marks, the sync
+  sheet, banners, the iOS LAN chrome). The app *looks* right because every alias resolves to a V3
+  value, so this is architecture debt, not a visual defect.
+- **`APP2.*`** — the iOS tickets, which need your Mac and a physical iPhone.
+
+### House rules that keep being earned the hard way
+
+- **Assert what PAINTS, not what a property says.** Twice this epic a probe read a property that was
+  true while the element was invisible; the screenshot caught what the probe did not.
+- **A stub written from the calling code agrees with the calling code's bugs.** Write stubs from the
+  contract. One did not, and hid a real defect that was passing.
+- **One fact, several readers, only one taught** is still the shape of most bugs here.
+- Anything under `tests/` is a real assertion. Anything that writes files is not — the screenshot
+  harness lives in `tools/` and runs via `npx playwright test --config playwright.shots.js`.
 
 ## Where the phone rebuild stands (session 4, 2026-08-24)
 
