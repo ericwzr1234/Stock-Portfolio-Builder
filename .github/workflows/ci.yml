@@ -77,7 +77,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2           # enough to diff this push against its parent
+          # 0, not 2. A push of N commits sets github.event.before to N commits back, and a
+          # shallow clone of depth 2 does not contain it - `git diff $BEFORE $SHA` then fails with
+          # "unknown revision", the grep sees nothing, and the check concludes there is nothing to
+          # publish. The job still reports SUCCESS. Two pushes of two commits each deployed nothing
+          # and said nothing (2026-08-31). Full history is a couple of seconds; a silent no-op
+          # deploy costs however long it takes somebody to notice prod is stale.
+          fetch-depth: 0
 
       - name: Is there anything to publish?
         id: changed
@@ -91,7 +97,20 @@ jobs:
           # Docs-only commits move main without changing what is served. Publishing them would move
           # the build stamp for something nobody serves; the repo's convention is that this is
           # correct, not drift.
-          if git diff --name-only "$BEFORE" "${{ github.sha }}" | grep -qE '^(www/|functions/|worker/)'; then
+          # Fail SAFE, not silent: if the range cannot be resolved for any reason, publish rather
+          # than skip. Skipping on an error is indistinguishable from skipping on a docs-only
+          # commit, and one of those is a stale production site.
+          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "Cannot resolve $BEFORE in this checkout - publishing to be safe."
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED="$(git diff --name-only "$BEFORE" "${{ github.sha }}")" || {
+            echo "git diff failed - publishing to be safe."
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if printf '%s\n' "$CHANGED" | grep -qE '^(www/|functions/|worker/)'; then
             echo "yes=true" >> "$GITHUB_OUTPUT"
           else
             echo "Nothing under www/, functions/ or worker/ changed - nothing to publish."
