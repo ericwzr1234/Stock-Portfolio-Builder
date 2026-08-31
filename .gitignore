@@ -39,3 +39,8 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# The computed-style fingerprint (E12.8) is a 29 MB build artifact, not source. It is regenerated
+# by `npx playwright test --config playwright.styleprint.js` whenever a comparison is needed, and
+# committing it puts a blob that size in every clone and every CI checkout, forever.
+tools/styleprint.json
