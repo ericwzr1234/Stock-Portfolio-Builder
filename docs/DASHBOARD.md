@@ -2,19 +2,19 @@
 
 _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users · `E12` E12 · V3 UI
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 12 |
+| Design | 20 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 88 |
+| Done | 89 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (12)
+## Design  (20)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -101,6 +101,23 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
+- **E12.0b** · _E12 · V3 UI_ — **Sign-in gate** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.8. Markup and CSS only - every gate* element ID preserved, captcha mount unmoved, autocomplete attributes intact.
+- **E12.1** · _E12 · V3 UI_ — **Overview** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.2. 1D default, honest period return net of contributions, dashed ink invested line, scrub with number retarget, five-cell grid with the conditional accent action, allocation bar plus drift legend, holdings accordion. Donut deleted.
+  - OWNER DECISION on the 1D series: draw the real intraday line. /v8/finance/chart needs no cookie and no crumb (E11.0 measured it), so it is one call per holding once per session; the app already bursts 100 calls in 4 seconds with zero throttle signals. The live continuation costs nothing extra because it appends points from the 60s quote poll that already runs. A straight line from previous close to login value was rejected - it asserts prices that never happened.
+- **E12.2** · _E12 · V3 UI_ — **Model** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.3. Inline exception chips on each metric row, catalog modal, cap row, target/drift column, per-portfolio accordions with overrides and source tags, presets, portfolio editing.
+- **E12.3** · _E12 · V3 UI_ — **Trade** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.4. Cash input, three modes as radios with a consequence sentence each, plan table, where-it-lands, commit button outside every nested scroll, account-failure message in place.
+- **E12.4** · _E12 · V3 UI_ — **Research + stock panel** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Sections 4.4b and 4.6. Search line, watchlist with the 52-week track, add/swap flow, the 640px stock panel. Rows 45, 48 and 57 have no pixel in the mockup and are the likeliest features to be lost.
+- **E12.5** · _E12 · V3 UI_ — **History** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.5. Ledger with square markers, bar chart with dashed redoable futures, selected detail, revert, reset.
+- **E12.6** · _E12 · V3 UI_ — **First run** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 4.7. The accent poster, three numbered steps, starting capital, import.
+- **E12.7** · _E12 · V3 UI_ — **Dark as a true inversion** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 6. Same radius, density, type scale and numerals as light; only token values change. E12 ships light-only first, following the spec's own recommendation.
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -122,7 +139,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (88)
+## Done  (89)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -255,5 +272,10 @@ _Integrated into the product (on main)._
 - **E11.14** — Idle lock did not sign out; verification links landed in the cached account · [spec](features/E11_online-deployment.md)
 - **E11.15** — Deploy automatically on merge to main · [spec](features/E11_online-deployment.md)
 - **E11.16** — The dev server sends the same headers prod does · [spec](features/E11_online-deployment.md)
+
+</details>
+<details><summary><b>E12 · V3 UI</b> — 1 done</summary>
+
+- **E12.0** — Shell: token sheet, four text lanes, rail deleted · [spec](features/E12_v3-ui.md)
 
 </details>

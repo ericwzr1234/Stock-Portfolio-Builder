@@ -22,7 +22,8 @@
     { "key": "APP",  "name": "APP · iOS app",       "color": "#B0403A" },
     { "key": "E5",   "name": "E5 · Web UI overhaul",       "color": "#0E7C6B" },
     { "key": "E6",   "name": "E6 · Multi-user platform",   "color": "#5B6B8C" },
-    { "key": "E11",  "name": "E11 · Online, for invited users", "color": "#7A6BA8" }
+    { "key": "E11",  "name": "E11 · Online, for invited users", "color": "#7A6BA8" },
+    { "key": "E12",  "name": "E12 · V3 UI", "color": "#00A05C" }
   ],
   "items": [
     { "id": "E11.0", "epic": "E11", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E11_online-deployment.md",
@@ -812,6 +813,48 @@
       "The file is re-read when its mtime changes, so editing _headers takes effect without restarting the server - otherwise the mirror would drift from the thing it mirrors.",
       "OWNER QUESTION, answered by discarding the idea: adding localhost to the Turnstile hostname list was NOT worth it. It buys nothing automated (every test stubs the session), it would not even enable local sign-in because Supabase holds the real secret and will not validate a token issued for another hostname, and its one real motivation - catching CSP bugs locally - is what this ticket solves properly. The cost was weakening hostname binding on the LIVE key.",
       "Instead the widget is skipped where it cannot work, which also removed a recurring 400 from every harness run. That switch is a pure function captchaAvailableFor(host) with its own tests, because the same line decides whether PRODUCTION has any bot protection: answering wrongly on pages.dev would render no widget, Supabase would reject every sign-in for a missing token, and the app would be locked. Tests cover the live host, genuine local hosts, and lookalikes such as localhost.evil.com which must still require a captcha." ] },
+
+    { "id": "E12.0", "epic": "E12", "stage": "done", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Shell: token sheet, four text lanes, rail deleted", "notes": [
+      "Token sheet from section 2 installed as the single source of truth, with a clearly-marked COMPAT SHIM aliasing V2 token names onto V3 values. 6,118 lines of component CSS still name the old tokens; swapping the sheet without the shim would blank the app, and rewriting every component belongs to the cards that own those surfaces. The shim adds no new values, each card deletes the aliases its surface stops using, and it must be EMPTY when E12 closes - a leftover alias is an unmigrated surface.",
+      "Rail deleted - 212px of permanent chrome holding five labels. Four TEXT lanes (Overview, Model, Trade, History) with the active underline drawn as an inset shadow on the bar's own edge, so moving it shifts no layout. Zero icons in nav. Signal rule added. Keys 1-4.",
+      "An IA change card 0 had to absorb: V2 has FIVE views but V3 has FOUR lanes, Research being a sub-tab of Trade. Without the sub-tab strip, Research would have been unreachable for the rest of the epic. LANE_OF maps the five views onto four lanes in ONE place - a second copy of that mapping is exactly how V2's rail and tab strip drifted apart.",
+      "44 border-radius declarations stripped rather than overridden: zero radius is a permanent system rule, not scaffolding. Verified 0 elements with a computed radius at 1440 and 390. Shadows on content were already neutralised because the shim resolves --shadow and --shadow-lift to none.",
+      "A BUG THE SCREENSHOT CAUGHT AND MY PROBE DID NOT: the Trade sub-tabs rendered on Overview. display:flex on a class beats the UA rule for [hidden], so setting the attribute did nothing - and I had asserted on the .hidden PROPERTY rather than on whether the element painted. Identical mistake to the E5.8 sort arrow. Both new tests now assert offsetParent.",
+      "tests/mobileweb.spec.js rewritten: its old test asserted the tab strip matched the desktop RAIL, an invariant that existed only because V2 had two chromes onto one set of views. V3 has one. 78 tests pass; 3 of them fail without this card." ] },
+
+    { "id": "E12.0b", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Sign-in gate", "notes": [
+      "Section 4.8. Markup and CSS only - every gate* element ID preserved, captcha mount unmoved, autocomplete attributes intact." ] },
+
+    { "id": "E12.1", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Overview", "notes": [
+      "Section 4.2. 1D default, honest period return net of contributions, dashed ink invested line, scrub with number retarget, five-cell grid with the conditional accent action, allocation bar plus drift legend, holdings accordion. Donut deleted.",
+      "OWNER DECISION on the 1D series: draw the real intraday line. /v8/finance/chart needs no cookie and no crumb (E11.0 measured it), so it is one call per holding once per session; the app already bursts 100 calls in 4 seconds with zero throttle signals. The live continuation costs nothing extra because it appends points from the 60s quote poll that already runs. A straight line from previous close to login value was rejected - it asserts prices that never happened." ] },
+
+    { "id": "E12.2", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Model", "notes": [
+      "Section 4.3. Inline exception chips on each metric row, catalog modal, cap row, target/drift column, per-portfolio accordions with overrides and source tags, presets, portfolio editing." ] },
+
+    { "id": "E12.3", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Trade", "notes": [
+      "Section 4.4. Cash input, three modes as radios with a consequence sentence each, plan table, where-it-lands, commit button outside every nested scroll, account-failure message in place." ] },
+
+    { "id": "E12.4", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Research + stock panel", "notes": [
+      "Sections 4.4b and 4.6. Search line, watchlist with the 52-week track, add/swap flow, the 640px stock panel. Rows 45, 48 and 57 have no pixel in the mockup and are the likeliest features to be lost." ] },
+
+    { "id": "E12.5", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "History", "notes": [
+      "Section 4.5. Ledger with square markers, bar chart with dashed redoable futures, selected detail, revert, reset." ] },
+
+    { "id": "E12.6", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "First run", "notes": [
+      "Section 4.7. The accent poster, three numbered steps, starting capital, import." ] },
+
+    { "id": "E12.7", "epic": "E12", "stage": "design", "platform": "web", "depends": "E11.16", "spec": "docs/features/E12_v3-ui.md",
+      "title": "Dark as a true inversion", "notes": [
+      "Section 6. Same radius, density, type scale and numerals as light; only token values change. E12 ships light-only first, following the spec's own recommendation." ] },
 
     { "id": "E10.1", "epic": "E10", "stage": "done", "platform": "web", "depends": "E6.5", "spec": "docs/features/E10_history-retention.md",
       "title": "Keep only the last 10 checkpoints", "notes": [
