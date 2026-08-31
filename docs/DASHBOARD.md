@@ -2,14 +2,14 @@
 
 _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users · `E12` E12 · V3 UI
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users · `E12` E12 · V3 UI · `E13` E13 · Security & data review
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 13 |
+| Design | 24 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
@@ -29,7 +29,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
 - **E12.9** · _E12 · V3 UI_ — **IMPORT portfolio.json on the first-run poster - owner's call** _(depends E12.6, web)_ · [spec](features/E12_v3-ui.md)
   - Spec section 4.7 puts an IMPORT portfolio.json button beside BUILD INITIAL PORTFOLIO. Not built, deliberately. No import path exists anywhere in the app - the iOS LAN sync reads a portfolio.json but nothing user-facing accepts a file - so this is a NEW feature (file input, parse, validate a whole book, decide what happens to a conflicting existing account) rather than a migration of an existing one. It is worth building only if the owner actually wants to move a book in from a file; on a brand-new account there is nothing to import from.
 
-## Design  (13)
+## Design  (24)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -103,6 +103,28 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
+- **E13.1** · _E13 · Security & data review_ — **P0 Remove 'unsafe-inline' from script-src** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
+  - THE highest-value change in the epic: it converts every escaping bug from critical to cosmetic. 'unsafe-inline' is present because the whole app is one inline <script> block, so removing it is an architectural decision - extract to www/app.js and lose the single-file property, or keep one file and ship a sha256- hash of the block with a CI gate that fails when the hash goes stale. OWNER DECISION. Done when the live response has no 'unsafe-inline' in script-src and a test injects a script and proves the browser refuses to run it.
+- **E13.2** · _E13 · Security & data review_ — **P0 Prove Row Level Security with a test** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - RLS is what stops one signed-in user reading another's holdings, and it has NO automated test - the most important data control in the product is also the least verified. 2026-08-31 showed exactly what an unverified control is worth. Done when a test signs in as A, writes, signs in as B, and proves B's reads return nothing and B's writes to A's row are rejected against the real project with the policy FORCEd.
+- **E13.3** · _E13 · Security & data review_ — **P0 Escaping audit of all 94 innerHTML sites, plus a gate** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - The 2026-08-31 fix was reactive - it closed the sites one payload happened to reach. 94 innerHTML assignments exist and nothing stops the next one. Done when every interpolation is a number, a literal or wrapped in esc() with annotated exceptions, and check_syntax.py fails on an unescaped untrusted accessor - verified by reintroducing a real unescaped site and watching the gate exit non-zero, the way the div-balance gate was proved.
+- **E13.4** · _E13 · Security & data review_ — **P1 Decide who may call /api, and throttle it** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - /api/quotes|fundamentals|statements|search|peers are unauthenticated, unthrottled, and take up to 200 symbols per request (symbolsOf, worker/src/index.js:294). Anyone with the URL has a free anonymous Yahoo proxy running under our Cloudflare account and our outbound reputation. Three exposures that compound: cost, abuse, and the Yahoo relationship - a stranger's traffic is indistinguishable from ours and it is our endpoint that gets blocked. OWNER DECISION on requiring the Supabase session vs a signed same-origin token.
+- **E13.5** · _E13 · Security & data review_ — **P1 Validate what the proxy forwards upstream** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - symbolsOf() applies no character allowlist; /api/search forwards q with only .trim(). URLSearchParams SHOULD encode them - 'should' is the problem. Done when symbols match ^[A-Z0-9.-]{1,12}$ and anything else is refused rather than silently passed, with a test feeding 'A&crumb=x', '../', a 10KB symbol, 5000 symbols, unicode and null bytes, asserting the upstream URL is exactly what we intended.
+- **E13.6** · _E13 · Security & data review_ — **P1 Session token storage and lifetime** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - The Supabase session sits in localStorage under pb_sb_session, readable by any script that executes on the page; 5-minute idle sign-out limits the window without closing it. What is right DEPENDS ON E13.1 - with 'unsafe-inline' gone the risk drops sharply. Done when the decision and its reasoning are written down, not implied.
+- **E13.7** · _E13 · Security & data review_ — **P1 The auth token in the URL fragment** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - Recovery and signup links arrive as #access_token=...&type=recovery (www/index.html:2677). Fragments never reach a server, but they persist in history. Done when the fragment is consumed and cleared via history.replaceState, an unexpected type is refused rather than best-effort parsed, and a test asserts location.hash is empty afterwards.
+- **E13.8** · _E13 · Security & data review_ — **P2 Treat the ticker directory as untrusted input** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - www/data/tickers.json is generated from an external source, committed and shipped - so it LOOKS like our data while carrying someone else's, and a weekly bot refreshes it. It is the most plausible delivery route for exactly the hostile symbol that was exploitable until 2026-08-31. Done when the builder validates every symbol and name against an allowlist, the refresh fails loudly on a mismatch, and a poisoned directory is proved inert.
+- **E13.9** · _E13 · Security & data review_ — **P2 Make secret and dependency hygiene automatic** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - The 2026-08-31 history scan was manual: 781 blobs, nothing found, portfolio.json never committed in any variant. Manual means it will not happen again. Done when CI runs a secret scan on every push and fails on a match, proved by committing a fake key on a scratch branch. Also record the position worth preserving: NO runtime npm dependencies - Playwright is dev-only.
+- **E13.10** · _E13 · Security & data review_ — **P2 The Yahoo data posture - owner decision** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - Not a code ticket. The app reads Yahoo's free undocumented endpoints with no key and says so on screen. No usage agreement grants us access and availability can be withdrawn without notice; E13.4 compounds it because an open proxy puts someone else's volume under our name. A legal reading is not mine to give - if it matters commercially it wants a professional opinion, and the alternative is a licensed feed, which costs money and is therefore the owner's call. MEASURED: E12 changed almost nothing here - dsFundamentals/dsStatements/dsSearch/dsPeers call sites unchanged, dsQuotes 8 to 9, the one addition being a single batched lookup per SETTLED search behind a 250ms debounce. The 60s poll is unchanged. 1D was built from session ticks INSTEAD of a dsIntraday adapter precisely because the adapter would have roughly doubled the call rate.
+- **E13.11** · _E13 · Security & data review_ — **P2 Hostile-path review of the app logic** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
+  - Beyond injection: where does outside data decide control flow? E12 found several by accident - ovPeriodReturn read a missing 'invested' as 0 and printed -33.5% beside +28.5%; versionLabel printed '#undefined'; a checkpoint with no allocation drew a stub bar reading as 'everything in one portfolio'. Each was a DISPLAY consequence of trusting a shape; the same assumption on a WRITE path is how a book gets corrupted. Done when every ingest point validates shape and a fuzz test feeds null/NaN/Infinity/wrong types/missing fields/huge arrays and asserts the app degrades VISIBLY. Anything that would mis-state money is as severe as an injection.
 - **E12.7** · _E12 · V3 UI_ — **Dark as a true inversion** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
   - Section 6. Same radius, density, type scale and numerals as light; only token values change. E12 ships light-only first, following the spec's own recommendation.
 
