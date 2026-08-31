@@ -118,16 +118,12 @@
     --line:       rgba(32,30,29,.13);
     --line2:      rgba(32,30,29,.09);
     --teal:       var(--accent);
-    --teal-d:     var(--accent-700);
     --blue:       var(--portfolio-2);
-    --sage:       var(--portfolio-3);
-    --slate:      var(--portfolio-2);
     --gold:       var(--portfolio-4);
     --buy:        var(--ink);       /* §4.4: BUY chip is ink fill, SELL is --neg */
     --sell:       var(--neg);
     --chip:       var(--surface);
     --on-accent:  var(--bg);
-    --header-bg:  var(--bg);
     --tint:       14%;
     --shadow:     none;             /* §2 rule 1: content does not float */
     --shadow-lift:none;
@@ -5455,7 +5451,7 @@ function renderFundamentals(){
     };
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>${wCell(s)}${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${esc(t.name)}" aria-label="Remove ${s} from ${esc(t.name)}">×</button></td>${wCell(s)}${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
