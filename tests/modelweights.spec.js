@@ -39,7 +39,9 @@ const read = (page) => page.evaluate(() => {
   const col = head.indexOf("Target");
   return {
     col, head,
-    rows: [...t.tBodies[0].rows].map(r => ({ sym: r.cells[0].textContent.trim(),
+    /* Read the ticker from data-stock, not from the cell's text: the cell also carries the
+       per-name remove control (4.9 row 28), so its textContent is "AAA<remove glyph>". */
+    rows: [...t.tBodies[0].rows].map(r => ({ sym: r.cells[0].dataset.stock,
                                              txt: r.cells[col].textContent.trim() })),
     foot: t.tFoot.rows[0].cells[col].textContent.trim(),
     engine: computeAllocation().within.semi,

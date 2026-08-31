@@ -2,19 +2,19 @@
 
 _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/render_dashboard.py` — edit the JSON, not this file. Open [`../dashboard.html`](../dashboard.html) for the visual kanban._
 
-**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users
+**Epics:** `core` Core tool (shipped) · `E1` E1 · User-Defined Themes · `E2` E2 · User-Defined Metrics · `E3` E3 · Statement-Driven Data · `E4` E4 · Fundamentals & Screener workflow · `E7` E7 · First-run onboarding · `E10` E10 · History retention · `APP` APP · iOS app · `E5` E5 · Web UI overhaul · `E6` E6 · Multi-user platform · `E11` E11 · Online, for invited users · `E12` E12 · V3 UI
 
 **Pipeline:** Ideation → Design → Implementation → Testing → Refinement → Integration → Done
 
 | Stage | Count |
 |---|---:|
 | Ideation | 1 |
-| Design | 12 |
+| Design | 13 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 88 |
+| Done | 96 |
 
 ---
 
@@ -27,7 +27,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - Cheap do-now items that cost nothing and prevent rework: keep the storage seam pure (UI never touches localStorage/fetch directly - an E5 invariant); add schemaVersion; add a monotonic revision + updatedAt on save; keep the engine free of I/O.
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 
-## Design  (12)
+## Design  (13)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -101,6 +101,8 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
+- **E12.7** · _E12 · V3 UI_ — **Dark as a true inversion** _(depends E11.16, web)_ · [spec](features/E12_v3-ui.md)
+  - Section 6. Same radius, density, type scale and numerals as light; only token values change. E12 ships light-only first, following the spec's own recommendation.
 
 ## Implementation  (0)
 _Being built on the dev branch._
@@ -122,7 +124,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (88)
+## Done  (96)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -255,5 +257,17 @@ _Integrated into the product (on main)._
 - **E11.14** — Idle lock did not sign out; verification links landed in the cached account · [spec](features/E11_online-deployment.md)
 - **E11.15** — Deploy automatically on merge to main · [spec](features/E11_online-deployment.md)
 - **E11.16** — The dev server sends the same headers prod does · [spec](features/E11_online-deployment.md)
+
+</details>
+<details><summary><b>E12 · V3 UI</b> — 8 done</summary>
+
+- **E12.0** — Shell: token sheet, four text lanes, rail deleted · [spec](features/E12_v3-ui.md)
+- **E12.0b** — Sign-in gate · [spec](features/E12_v3-ui.md)
+- **E12.1** — Overview · [spec](features/E12_v3-ui.md)
+- **E12.2** — Model · [spec](features/E12_v3-ui.md)
+- **E12.3** — Trade · [spec](features/E12_v3-ui.md)
+- **E12.4** — Research + stock panel · [spec](features/E12_v3-ui.md)
+- **E12.5** — History · [spec](features/E12_v3-ui.md)
+- **E12.6** — First run · [spec](features/E12_v3-ui.md)
 
 </details>

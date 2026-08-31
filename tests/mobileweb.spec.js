@@ -54,13 +54,56 @@ for (const ph of PHONES) {
   });
 }
 
-test("the phone-browser tab strip uses the same names as the desktop rail", async ({ page }) => {
+/* E12.0 replaced this. The old test asserted the tab strip matched the desktop RAIL - an
+   invariant that existed because V2 had two chromes onto one set of views and they had already
+   drifted once. V3 deletes the rail (E12 §6), so there is only one set of nav labels and nothing
+   to keep in sync. What must hold now is that nav is TEXT and there are exactly FOUR lanes. */
+test("nav is four text lanes, and the rail is gone", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => typeof window.renderAll === "function");
   const r = await page.evaluate(() => ({
     tabs: [...document.querySelectorAll("nav.tabs button")].map(e => e.textContent.trim()),
-    rail: [...document.querySelectorAll("#rail .navlink")].map(e => e.textContent.trim().replace(/\s+\d$/, "")),
+    railGone: !document.querySelector("#rail, .rail, .navlink"),
+    iconsInNav: document.querySelectorAll("nav.tabs svg, nav.tabs img").length,
   }));
-  expect(r.tabs).toEqual(r.rail);          // one set of names for one set of views
-  expect(r.tabs).toEqual(["Overview", "Model", "Rebalance", "Research", "History"]);
+  expect(r.tabs).toEqual(["Overview", "Model", "Trade", "History"]);   // four, not five
+  expect(r.railGone).toBe(true);
+  expect(r.iconsInNav).toBe(0);            // E12 rule 4: nav is text, never an icon
+});
+
+test("Research is reachable as a sub-tab of Trade, not a fifth lane", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => typeof window.switchView === "function");
+  const r = await page.evaluate(() => {
+    /* offsetParent, NOT the .hidden property. display:flex on a class beats the UA rule for
+       [hidden], so the attribute can be set while the element still paints - which is exactly
+       what happened: the sub-tabs rendered on Overview and an attribute check passed. */
+    const paints = s => { const e = document.querySelector(s); return !!(e && e.offsetParent); };
+    switchView("calc");
+    const shownOnTrade = paints("#subtabs");
+    switchView("screener");
+    const laneStillTrade = document.querySelector('nav.tabs button[data-view="calc"]').classList.contains("active");
+    const researchVisible = document.getElementById("view-screener").classList.contains("active");
+    switchView("prices");
+    const hiddenElsewhere = !paints("#subtabs");
+    return { shownOnTrade, laneStillTrade, researchVisible, hiddenElsewhere };
+  });
+  expect(r.shownOnTrade).toBe(true);
+  expect(r.laneStillTrade).toBe(true);     // Research lights the TRADE lane
+  expect(r.researchVisible).toBe(true);
+  expect(r.hiddenElsewhere).toBe(true);
+});
+
+test("the context bar is absent on Overview and present elsewhere", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => typeof window.switchView === "function");
+  const r = await page.evaluate(() => {
+    const paints = s => { const e = document.querySelector(s); return !!(e && e.offsetParent); };
+    switchView("prices");       const onOverview = !paints("#ctxKpis");
+    switchView("fundamentals"); const onModel    = !paints("#ctxKpis");
+    return { onOverview, onModel };
+  });
+  // E12 section 3: on Overview the hero IS the context, so the total never renders twice.
+  expect(r.onOverview).toBe(true);
+  expect(r.onModel).toBe(false);
 });

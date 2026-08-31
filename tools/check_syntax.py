@@ -103,4 +103,24 @@ if _sbm and os.path.exists(_hdr):
     if _sb not in _csp[0]:
         sys.stderr.write('BROKEN: CSP connect-src does not allow %s - every sign-in would be blocked\n' % _sb)
         sys.exit(1)
-    print('csp         : connect-src allows', _sb)
+    
+# ---- HTML nesting -----------------------------------------------------------------------------
+# A single stray </div> in the Overview markup closed <main> early, which hoisted the other three
+# lanes out of it - and every delegated listener bound to main went dead on those lanes without a
+# single error anywhere. Nothing caught it; the sections still rendered. Count the tags.
+_html = io.open(TARGET, encoding="utf-8").read()
+_body = _html[_html.index('<main>'):_html.index('</main>')]
+_depth, _worst, _line = 0, 0, 0
+for _i, _l in enumerate(_body.split('\n'), 1):
+    _depth += len(re.findall(r'<div\b', _l)) - len(re.findall(r'</div>', _l))
+    if _depth < _worst:
+        _worst, _line = _depth, _i
+if _worst < 0:
+    print('div balance : FAIL - <div> underflow inside <main> at relative line %d (depth %d)' % (_line, _worst))
+    sys.exit(1)
+if _depth != 0:
+    print('div balance : FAIL - %d <div> left open inside <main>' % _depth)
+    sys.exit(1)
+print('div balance : <main> is balanced')
+
+print('csp         : connect-src allows', _sb)
