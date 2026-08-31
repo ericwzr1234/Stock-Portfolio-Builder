@@ -83,10 +83,11 @@ test("styleprint", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => typeof window.showGate === "function");
   await add("gate-signin");
-  for (const m of ["signup", "recover", "signin"]) {
-    await page.evaluate((x) => { if (typeof setMode === "function") setMode(x); }, m);
-    await add("gate-" + m);
-  }
+  /* setMode is module-scoped. The guarded call here silently did nothing, so this loop was
+     fingerprinting the sign-in screen three times and calling it three modes. Drive the controls. */
+  await page.click("#gateToggle");   await add("gate-signup");
+  await page.click("#gateToggle");   await add("gate-back-to-signin");
+  await page.click("#gateForgot");   await add("gate-recover");
 
   await seedBook(page);
   await page.evaluate(() => { window.savePortfolio = async () => true; });
