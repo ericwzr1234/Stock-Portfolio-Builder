@@ -30,7 +30,16 @@ async function seedBook(page) {
       state.fundamentals[s] = { peg:1+i*0.15, ev:9+i, dfcf:8+i*1.4, pe:18+i*2, marketCap:mc, name:n };
     });
     state.overrides = {}; state.metrics = null; state.metricCfg = null;
-    state.watchlist = ["AMD","TSM"]; state.cap = null;
+    /* Watchlist entries are objects, not bare symbols - renderWatchlist reads w.sym. Quotes and
+       fundamentals too, or the 52-week track and the P/E column have nothing to draw. */
+    state.watchlist = [{ sym:"AMD" }, { sym:"TSM", portfolio:"ai" }];
+    state.quotes.AMD = { price:164, prevClose:161, change:3, changePct:1.86, name:"Advanced Micro Devices",
+                         marketCap:2.6e11, marketState:"REGULAR", low52:94, high52:227, vol:41e6, avgVol:52e6 };
+    state.quotes.TSM = { price:181, prevClose:183, change:-2, changePct:-1.09, name:"Taiwan Semiconductor",
+                         marketCap:9.3e11, marketState:"REGULAR", low52:102, high52:212, vol:12e6, avgVol:15e6 };
+    state.fundamentals.AMD = { pe:41.2, peg:1.9, ev:34, dfcf:2.1, marketCap:2.6e11, name:"Advanced Micro Devices" };
+    state.fundamentals.TSM = { pe:26.8, peg:1.1, ev:14, dfcf:0.9, marketCap:9.3e11, name:"Taiwan Semiconductor" };
+    state.cap = null;
     state.weights = Object.assign({}, DEFAULT_CONFIG.weights);
     state.penalty = Object.assign({}, DEFAULT_CONFIG.penalty);
 
@@ -45,13 +54,13 @@ async function seedBook(page) {
       costBasis:H[s].costBasis*frac }); return o; };
     state.portfolio = { createdAt:"2024-11-04", holdings:H, totalContributed:inv,
       head:2, versions:[
-      { date:"2024-11-04", type:"INITIAL",    label:"Initial build", valueBefore:0,
+      { id:1, date:"2024-11-04", type:"INITIAL",    label:"Initial build", valueBefore:0,
         valueAfter:inv*0.62, cashIn:inv*0.62, trades:mk(all.slice(0,5),0.6),
         snapshot:{ holdings:snap(0.6),  totalContributed:inv*0.62 } },
-      { date:"2025-03-18", type:"CONTRIBUTE", label:"Added 40,000",  valueBefore:inv*0.70,
+      { id:2, date:"2025-03-18", type:"CONTRIBUTE", label:"Added 40,000",  valueBefore:inv*0.70,
         valueAfter:inv*0.88, cashIn:inv*0.24, trades:mk(all.slice(5),0.4),
         snapshot:{ holdings:snap(0.85), totalContributed:inv*0.86 } },
-      { date:"2025-07-22", type:"REBALANCE",  label:"Rebalance",     valueBefore:inv*0.96,
+      { id:3, date:"2025-07-22", type:"REBALANCE",  label:"Rebalance",     valueBefore:inv*0.96,
         valueAfter:inv, cashIn:inv*0.14, trades:mk(all,0.15),
         snapshot:{ holdings:H,          totalContributed:inv } }]};
     rebuildThemeOf(); renderAll();

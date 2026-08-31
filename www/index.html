@@ -908,6 +908,104 @@
     .md3-step{justify-content:flex-start}
   }
 
+  /* === E12 4.4b Research ==================================================== */
+  .rs3{padding:0}
+  .rs3-line{display:flex;align-items:center;gap:14px;padding:22px 28px;border-bottom:var(--rule-strong);
+    color:var(--ink-45)}
+  .rs3-line input{flex:1;min-width:0;font:inherit;font-size:26px;font-weight:600;letter-spacing:-.015em;
+    border:0;background:none;color:var(--ink);padding:0}
+  .rs3-line input::placeholder{color:var(--ink-45);font-weight:400}
+  .rs3-line input:focus{outline:0}
+  .rs3-hint{flex:none;font-weight:600;font-size:10px;letter-spacing:.14em;color:var(--ink-45)}
+  .rs3-clear{flex:none;width:26px;height:26px;border:1px solid rgba(32,30,29,.4);background:none;
+    cursor:pointer;font:inherit;font-size:15px;line-height:1;color:var(--ink);padding:0}
+  .rs3-note,.rs3-empty{font-size:12px;color:var(--ink-50);padding:14px 28px;margin:0}
+
+  .rs3-rhead,.rs3-row{display:grid;grid-template-columns:1fr 110px 90px 90px 96px 150px;gap:14px;
+    align-items:center;padding:0 28px}
+  .rs3-rhead{padding-top:12px;padding-bottom:10px;border-bottom:var(--rule-strong);font-weight:600;
+    font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .rs3-row{padding-top:11px;padding-bottom:11px;border-bottom:var(--rule-hair)}
+  .rs3-row:hover{background:rgba(32,30,29,.04)}
+  .rs3-open{display:block;text-align:left;border:0;background:none;cursor:pointer;font:inherit;
+    color:inherit;padding:0;min-width:0;width:100%}
+  .rs3-open .s{display:block;font-weight:800;font-size:14px}
+  .rs3-open .n{display:block;font-size:12px;color:var(--ink-50);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .rs3-open:hover .s{text-decoration:underline}
+  .rs3-row .x{font-size:11px;color:var(--ink-45)}
+  .rs3-rhead .num,.rs3-row .num,.rs3-whead .num,.rs3-w .num{text-align:right;
+    font-variant-numeric:tabular-nums;font-size:13px}
+  .rs3-tag{display:inline-block;font-weight:600;font-size:9px;letter-spacing:.12em;padding:3px 6px;
+    border:1px solid rgba(32,30,29,.4);color:var(--ink-50);justify-self:start;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:110px}
+  .rs3-tag.held{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+  .rs3-tag.none{border-style:dashed;color:var(--ink-45)}
+  .rs3-tag.mark{background:var(--accent-100);border-color:var(--accent-100);color:var(--accent-700)}
+  .rs3-add{border:1px solid rgba(32,30,29,.4);background:none;cursor:pointer;font:inherit;
+    font-weight:800;font-size:10px;letter-spacing:.08em;padding:7px 9px;color:var(--ink);white-space:nowrap}
+  .rs3-add:hover{background:var(--ink);color:var(--bg)}
+  .rs3-add:disabled{border-color:rgba(32,30,29,.18);color:var(--ink-45);cursor:default;background:none}
+
+  .rs3-sec{border-top:var(--rule-strong);margin-top:26px}
+  .rs3-shead{display:flex;align-items:baseline;gap:14px;padding:24px 28px 14px}
+  .rs3-shead h2{font-weight:800;font-size:21px;letter-spacing:-.015em;margin:0}
+  .rs3-shead span{font-size:12px;color:var(--ink-50)}
+  .rs3-whead,.rs3-w{display:grid;
+    grid-template-columns:1.4fr 82px 78px 128px 88px 88px 56px 258px 28px;gap:10px;align-items:center;
+    padding:0 28px}
+  .rs3-whead{padding-bottom:10px;border-bottom:var(--rule-strong);font-weight:600;font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .rs3-w{padding-top:12px;padding-bottom:12px;border-bottom:var(--rule-hair)}
+  .rs3-w:hover{background:rgba(32,30,29,.04)}
+  /* 52-week range: a position, not two numbers to subtract in your head. */
+  .rs3-52{display:block;min-width:0}
+  .rs3-52 .tr{display:block;position:relative;height:5px;background:rgba(32,30,29,.13)}
+  .rs3-52 .tr i{position:absolute;top:-1px;width:2px;height:7px;background:var(--ink);
+    transform:translateX(-1px)}
+  .rs3-52 .lh{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-45);margin-top:3px}
+  .rs3-52 .lh b{font-weight:400}
+  .rs3-then{display:flex;align-items:center;gap:8px;min-width:0}
+  .rs3-del{width:26px;height:26px;border:1px solid rgba(32,30,29,.4);background:none;cursor:pointer;
+    font:inherit;font-size:14px;line-height:1;color:var(--ink-50);padding:0}
+  .rs3-del:hover{background:var(--neg);border-color:var(--neg);color:#fff}
+
+  /* the add-to-portfolio dialog reuses the catalog's shell */
+  .ap-body{padding:18px 20px;overflow:auto}
+  .ap-l{display:block;font-weight:600;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-50);margin:14px 0 6px}
+  .ap-l:first-child{margin-top:0}
+  .ap-sel{width:100%;font:inherit;font-size:13px;border:1px solid rgba(32,30,29,.4);
+    background:var(--bg);color:var(--ink);padding:8px}
+  .ap-how{border-top:var(--rule-hair)}
+  .ap-opt{display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;border:0;
+    border-bottom:var(--rule-hair);background:none;cursor:pointer;font:inherit;color:inherit;
+    padding:11px 10px 11px 0}
+  .ap-opt.on{background:var(--accent-100);padding-left:10px}
+  .ap-opt:disabled{opacity:.45;cursor:default}
+  .ap-opt .mk{flex:none;width:14px;height:14px;border:1px solid rgba(32,30,29,.4);margin-top:2px}
+  .ap-opt.on .mk{background:var(--accent);border-color:var(--accent)}
+  .ap-opt b{display:block;font-weight:800;font-size:13px}
+  .ap-opt i{display:block;font-style:normal;font-size:11px;color:var(--ink-50);margin-top:3px}
+  .ap-list{max-height:210px;overflow:auto;border-top:var(--rule-hair)}
+  .ap-r{display:grid;grid-template-columns:16px 62px 1fr 84px;gap:9px;align-items:center;
+    padding:9px 0;border-bottom:var(--rule-hair);cursor:pointer;font-size:12px}
+  .ap-r:hover{background:rgba(32,30,29,.04)}
+  .ap-r .s{font-weight:800}
+  .ap-r .n{color:var(--ink-50);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ap-r .num{text-align:right;font-variant-numeric:tabular-nums}
+  .ap-note{font-size:11px;color:var(--ink-50);margin:14px 0 0}
+
+  @media(max-width:1100px){
+    .rs3-line{padding:18px 16px}
+    .rs3-line input{font-size:20px}
+    .rs3-hint{display:none}
+    .rs3-rhead,.rs3-whead{display:none}
+    .rs3-row,.rs3-w{grid-template-columns:1fr 1fr;gap:6px 12px;padding-left:16px;padding-right:16px}
+    .rs3-open,.rs3-52,.rs3-then{grid-column:1/-1}
+    .rs3-note,.rs3-empty,.rs3-shead{padding-left:16px;padding-right:16px}
+  }
+
   /* === E12 4.4 Trade ======================================================== */
   .tr3{display:grid;grid-template-columns:1.35fr 1fr;align-items:start}
   .tr3-l{padding:26px 28px 34px;border-right:var(--rule-strong);min-width:0}
@@ -1459,7 +1557,6 @@
       <p class="ov3-src">Prices via Yahoo Finance (free, delayed up to ~15 min for some tickers).
         Nothing here costs money and no key is used.</p>
     </div>
-    </div>
   </section>
 
   <!-- ============ FUNDAMENTALS & ALLOCATION ============ -->
@@ -1567,30 +1664,26 @@
   <!-- ============ SCREENER ============ -->
   <!-- ===== E5.4 Research — search on the left, watchlist on the right ===== -->
   <section id="view-screener" class="view">
-    <div class="res-layout">
-      <div class="card pad res-find">
-        <div class="ov-k">Find a stock</div>
-        <div class="res-searchbox">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="resQuery" placeholder="Ticker or company — e.g. AMD" autocomplete="off"
-                 aria-label="Search any ticker or company">
-          <button class="rmv-tkr" id="resClear" title="Clear search" hidden>✕</button>
-        </div>
-        <div id="resResults"></div>
-        <p class="xs muted" style="margin:10px 0 0">Anything you pick lands on the <b>watchlist</b> —
-          it <b>doesn't touch your portfolio</b>. You choose a portfolio for it later, and review the
-          rebalance before anything is saved.</p>
-        <div id="resStats" class="res-stats"></div>
-        <button id="screenerSearch" class="btn sm ghost" style="margin-top:10px;width:100%">🔍 Open search dialog</button>
+    <!-- ===== E12 4.4b Research. A search LINE, not a pill - this system has no radius. ===== -->
+    <div class="rs3">
+      <div class="rs3-line">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="resQuery" placeholder="Search any listed name" autocomplete="off"
+               aria-label="Search any ticker or company">
+        <button class="rs3-clear" id="resClear" title="Clear search" hidden>&times;</button>
+        <span class="rs3-hint">SYMBOL OR COMPANY</span>
       </div>
+      <div id="resResults"></div>
 
-      <div class="res-list">
+      <div class="rs3-sec">
+        <div class="rs3-shead"><h2>Watchlist</h2><span id="resStats"></span></div>
         <div id="watchlist"></div>
         <div id="screenerBody"></div>
       </div>
     </div>
   </section>
+
 </main>
 </div><!-- /.appmain -->
 </div><!-- /.app -->
@@ -5810,53 +5903,79 @@ function renderScreener(){
   if(accountUnreachable()){ unreachablePanel("view-screener"); return; }
   renderWatchlist();
   const wl=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);
-  const body=$("#screenerBody");
-  if(body) body.innerHTML = wl.length
-    ? `<p class="note">Pick a portfolio on a name to add it to your holdings — you'll confirm whether to add it
-       as a new name or swap it for a holding, then review the rebalance before anything is saved.</p>`
-    : `<div class="card pad" style="text-align:center;padding:34px 18px">
-         <div style="font-size:26px;opacity:.5;line-height:1">☆</div>
-         <div style="font-weight:620;margin-top:6px">Your watchlist is empty</div>
-         <p class="small muted" style="max-width:420px;margin:6px auto 0">Search on the left for any listed
-           name — including ones outside your portfolios. Picking a result parks it here so you can weigh it up
-           before it ever touches your portfolio.</p>
-       </div>`;
-  // E5.4: left-hand context
   const st=$("#resStats");
-  if(st){ const h=Object.keys(holdings()).length;
-    st.innerHTML=`<span><b>${wl.length}</b> on the watchlist</span>
-      <span><b>${h}</b> holdings across <b>${themes().length}</b> portfolios</span>
-      <span><b>${membership().length}</b> names in the model</span>`; }
+  if(st) st.textContent = wl.length
+    ? wl.length+" name"+(wl.length===1?"":"s")+" you are weighing up \u2014 none of them touch your portfolio"
+    : "nothing here yet";
+  const body=$("#screenerBody");
+  if(body) body.innerHTML = wl.length ? "" :
+    '<p class="rs3-empty">Search above for any listed name, including ones outside your portfolios. '+
+    'Adding one parks it here so you can weigh it up before it ever touches your book.</p>';
 }
 
-/* E5.4: inline search. Reuses dsSearch + addToWatchlist — no duplicated add logic.
-   Rows are .rs-row (NOT .ts-row) so openTickerSearch's global $$(".ts-row") can't grab them. */
-let _rsTimer=null;
+/* E12 4.4b. Four interactions hang off this lane and all four already existed in V2, so all four
+   have to survive: search, results, the watchlist, and the route into the book.
+   The row itself opens the stock panel; only the button adds to the watchlist. Reading a company's
+   financials must not require adding it to anything - the spec calls this the single most
+   droppable interaction in the migration, and V2 had it the other way round. */
+let _rsTimer=null, _rsSeq=0;
 function wireResearchSearch(){
   const q=$("#resQuery"), res=$("#resResults"), clr=$("#resClear");
   if(!q||!res) return;
-  const paint=html=>{ res.innerHTML=html; };
+  const rowHTML=function(r){
+    const sym=r.symbol, held=!!themeOf[sym];
+    const watched=(state.watchlist||[]).some(w=>w&&w.sym===sym);
+    const quote=state.quotes[sym]||{}, px=price(sym), cp=quote.changePct;
+    const tag = held ? '<span class="rs3-tag held">HELD</span>'
+              : watched ? '<span class="rs3-tag">WATCHING</span>' : "";
+    return '<div class="rs3-row" data-rssym="'+esc(sym)+'">'+
+      '<button type="button" class="rs3-open" data-stock="'+esc(sym)+'">'+
+        '<span class="s">'+esc(sym)+"</span><span class=\"n\">"+esc(r.name||nameOf(sym))+"</span></button>"+
+      '<span class="x">'+esc((r.type&&r.type!=="EQUITY")?r.type:(r.exchange||""))+"</span>"+
+      '<span class="num">'+(isNum(px)?money(px,2):"\u2014")+"</span>"+
+      '<span class="num '+(isNum(cp)?(cp>=0?"up":"down"):"")+'">'+
+        (isNum(cp)?signed(cp,2)+"%":"\u2014")+"</span>"+
+      tag+
+      '<button type="button" class="rs3-add" data-rsadd="'+esc(sym)+'"'+(held||watched?" disabled":"")+'>'+
+        (held?"IN YOUR BOOK":watched?"ON THE LIST":"ADD TO WATCHLIST")+"</button></div>";
+  };
   const run=()=>{
     clearTimeout(_rsTimer);
     const term=q.value.trim();
     if(clr) clr.hidden=!term;
-    if(!term){ paint(""); return; }
-    paint(`<div class="muted xs" style="padding:6px">Searching…</div>`);
+    if(!term){ res.innerHTML=""; return; }
+    res.innerHTML='<p class="rs3-note">Searching\u2026</p>';
     _rsTimer=setTimeout(async()=>{
+      const seq=++_rsSeq;
       let list=[]; try{ list=await dsSearch(term); }catch(e){}
-      if(q.value.trim()!==term) return;                       // a newer keystroke superseded this one
-      if(!list.length){ paint(`<div class="muted xs" style="padding:6px">No matches — try another symbol or name.</div>`); return; }
-      paint(list.slice(0,8).map(r=>`<button type="button" class="rs-row" data-rssym="${esc(r.symbol)}">
-        <span class="sym">${esc(r.symbol)}</span><span class="muted small ts-nm">${esc(r.name)}</span>
-        <span class="muted xs ts-ex">${(r.type&&r.type!=="EQUITY")?r.type:(r.exchange||"")}</span></button>`).join(""));
+      /* Stale-response guard. A slower earlier request must never overwrite a faster later one -
+         and the sequence number covers the case the text check misses, where the user types back
+         to a term they already searched. */
+      if(seq!==_rsSeq || q.value.trim()!==term) return;
+      if(!list.length){ res.innerHTML='<p class="rs3-note">No matches \u2014 try another symbol or name.</p>'; return; }
+      list=list.slice(0,8);
+      res.innerHTML='<div class="rs3-rhead"><span>Result</span><span>Listing</span><span class="num">Last</span>'+
+        '<span class="num">Today</span><span></span><span></span></div>'+list.map(rowHTML).join("");
+      /* ONE batched quote call per settled search - not one per keystroke, and not one per row.
+         The debounce means a completed search costs a single request, well under the 60s poll the
+         app already runs, so this cannot move the needle on rate limiting. */
+      const need=list.map(r=>r.symbol).filter(sym=>!isNum(price(sym)));
+      if(!need.length) return;
+      try{
+        const got=await dsQuotes(need);
+        if(seq!==_rsSeq) return;
+        Object.keys(got||{}).forEach(sym=>{ state.quotes[sym]=Object.assign(state.quotes[sym]||{},got[sym]); });
+        res.innerHTML='<div class="rs3-rhead"><span>Result</span><span>Listing</span><span class="num">Last</span>'+
+          '<span class="num">Today</span><span></span><span></span></div>'+list.map(rowHTML).join("");
+      }catch(e){}
     },250);
   };
   q.addEventListener("input",run);
   if(clr) clr.addEventListener("click",()=>{ q.value=""; run(); q.focus(); });
   res.addEventListener("click",e=>{
-    const b=e.target.closest("[data-rssym]"); if(!b) return;
-    q.value=""; paint(""); if(clr) clr.hidden=true;           // clear before the async add re-renders the view
-    addToWatchlist(b.dataset.rssym, null);
+    const add=e.target.closest("[data-rsadd]");
+    if(add){ addToWatchlist(add.dataset.rsadd, null); return; }
+    // the row itself is the panel; main's delegated handler catches button[data-stock]
   });
 }
 
@@ -5891,35 +6010,80 @@ function openStockActions(sym, themeKey){
 
 async function ensureScreener(){ renderScreener(); }   // E4.4: Screener = search box + watchlist (no recommendations)
 
+/* E12 4.4b item 4, and the E4.4 flow it replaces are the SAME dialog: pick a portfolio, then say
+   whether this is a new name or a swap for one already in it. themeKey may be null - the watchlist
+   route does not pre-pick a portfolio, so the dialog asks. Confirming does not trade: it stages the
+   change and leaves the resulting plan on Rebalance. */
 function openSwap(newSym, themeKey){
-  const t=themeByKey(themeKey); if(!t) return;
-  if(!isInit()){ toast("Build your portfolio first (Calculator tab)"); return; }
+  const T=themes();
+  if(!T.length){ toast("Create a portfolio first \u2014 there is nothing to add it to"); return; }
+  if(!isInit()){ toast("Build your portfolio first (Rebalance tab)"); return; }
   // Refuse here too, so the user is not walked through a whole modal for something setMembership
   // is going to reject anyway. setMembership stays the authority; this is only courtesy.
   if(!isEquity(newSym)){ toast(notEquityNote(newSym)); return; }
-  const current=tickersOf(themeKey);
-  if(current.includes(newSym)){ toast(newSym+" is already in "+t.name); return; }
-  const cv=curValueBySym();
-  const opts=current.map(s=>`<label class="swap-opt"><input type="radio" name="swapTarget" value="${s}">
-      <span class="sym">${s}</span><span class="muted small">${nameOf(s)}</span>
-      <span class="spacer"></span><span class="num small">${money(cv[s]||0,0)}</span></label>`).join("");
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="swapModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">Add ${newSym} to ${esc(t.name)}</h2>
-      <p class="small muted">Add <b>${newSym}</b> (${nameOf(newSym)}) to <b>${esc(t.name)}</b> — as a new name
-        (the portfolio grows to ${current.length+1}), or by replacing one current holding. Either way the book
-        rebalances to the model; review the plan, then Apply.</p>
-      <button class="btn primary" id="swapAdd" style="width:100%;margin:2px 0 12px">➕ Add as a new name</button>
-      <div class="small muted" style="text-align:center;margin:0 0 8px">— or replace one —</div>
-      <div class="swap-list">${opts}</div>
-      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px">
-        <button class="btn" id="swapCancel">Cancel</button>
-        <button class="btn primary" id="swapConfirm">Replace &amp; preview rebalance →</button>
-      </div></div></div>`;
+  let key = (themeKey && themeByKey(themeKey)) ? themeKey : T[0].key;
+  if(tickersOf(key).includes(newSym) && themeKey){
+    toast(newSym+" is already in "+themeByKey(key).name); return; }
+  const opts=T.map(function(t){ return '<option value="'+esc(t.key)+'"'+(t.key===key?" selected":"")+
+    ">"+esc(t.name)+"</option>"; }).join("");
+  $("#modalRoot").innerHTML=
+    '<div class="modal-backdrop mp-back" id="swapModal"><div class="mp-card" style="width:min(500px,94vw)">'+
+      '<div class="mp-head"><h2>Add '+esc(newSym)+'</h2><span class="mp-count">'+esc(nameOf(newSym))+"</span>"+
+        '<button class="mp-x" id="swapCancel" type="button" aria-label="Close">\u00d7</button></div>'+
+      '<div class="ap-body">'+
+        '<label class="ap-l">Portfolio</label>'+
+        '<select id="apTheme" class="ap-sel">'+opts+"</select>"+
+        '<label class="ap-l">How</label>'+
+        '<div class="ap-how" id="apHow">'+
+          '<button type="button" class="ap-opt on" data-how="new"><span class="mk"></span>'+
+            '<span><b>Add as a new name</b><i id="apNewSay"></i></span></button>'+
+          '<button type="button" class="ap-opt" data-how="swap"><span class="mk"></span>'+
+            "<span><b>Swap for a holding</b><i>Replaces one name with this one. The name you swap out is sold to zero on the next rebalance.</i></span></button>"+
+        "</div>"+
+        '<div id="apSwapWrap" hidden><label class="ap-l">Swap out</label>'+
+          '<div class="ap-list" id="apSwap"></div></div>'+
+        '<p class="ap-note">Confirming does not trade. It stages the change and shows you the '+
+          'resulting plan on Rebalance, where <b>Apply &amp; save</b> commits it as a normal checkpoint.</p>'+
+      "</div>"+
+      '<div class="mp-foot"><span>Nothing is sent to a broker, ever.</span>'+
+        '<button class="mp-done" id="apGo" type="button">CONFIRM</button></div>'+
+    "</div></div>";
+  let HOW="new";
+  const pick=function(h){ HOW=h;
+    $$("#apHow .ap-opt").forEach(function(b){ b.classList.toggle("on",b.dataset.how===h); });
+    const w=$("#apSwapWrap"); if(w) w.hidden=(h!=="swap"); };
+  const fill=function(){
+    key=$("#apTheme").value;
+    const cur=tickersOf(key), cv=curValueBySym();
+    $("#apNewSay").textContent="The portfolio grows to "+(cur.length+1)+
+      " names. Names inside a portfolio are equal-weighted, so each one's share falls a little.";
+    $("#apSwap").innerHTML = cur.length
+      ? cur.map(function(x){ return '<label class="ap-r"><input type="radio" name="swapTarget" value="'+esc(x)+
+          '"><span class="s">'+esc(x)+'</span><span class="n">'+esc(nameOf(x))+
+          '</span><span class="num">'+money(cv[x]||0,0)+"</span></label>"; }).join("")
+      : '<p class="ap-note">This portfolio has no names yet.</p>';
+    /* A portfolio with nothing in it has nothing to swap FOR, so the option cannot be offered - it
+       would confirm into a no-op and read as the app losing the request. */
+    const empty=!cur.length, sw=$('#apHow [data-how="swap"]');
+    if(sw) sw.disabled=empty;
+    if(empty && HOW==="swap") pick("new");
+    // already-in-this-portfolio is only reachable once the picker can change the portfolio
+    const dupe=cur.includes(newSym), go=$("#apGo");
+    if(go){ go.disabled=dupe; go.textContent=dupe?"ALREADY IN THIS PORTFOLIO":"CONFIRM"; }
+  };
+  $("#apTheme").addEventListener("change",fill);
+  $("#apHow").addEventListener("click",function(e){
+    const b=e.target.closest("[data-how]"); if(b&&!b.disabled) pick(b.dataset.how); });
   $("#swapCancel").addEventListener("click",closeModal);
-  $("#swapModal").addEventListener("click",e=>{ if(e.target.id==="swapModal")closeModal(); });
-  $("#swapAdd").addEventListener("click",()=>addTicker(themeKey, newSym));
-  $("#swapConfirm").addEventListener("click",()=>{ const sel=$("input[name=swapTarget]:checked");
-    if(!sel){ toast("Pick a holding to replace"); return; } doSwap(themeKey, sel.value, newSym); });
+  $("#swapModal").addEventListener("click",function(e){ if(e.target.id==="swapModal") closeModal(); });
+  $("#apGo").addEventListener("click",function(){
+    if(HOW==="swap"){
+      const sel=$("input[name=swapTarget]:checked");
+      if(!sel){ toast("Pick a holding to replace"); return; }
+      closeModal(); doSwap(key, sel.value, newSym);
+    } else { closeModal(); addTicker(key, newSym); }
+  });
+  fill();
 }
 /* ===== E7 - guided tour ===================================================================
    One short tour per view, shown the first time an account lands on that view, replayable from
@@ -5964,8 +6128,8 @@ const TOURS = {
       body:"Expand a theme for its names, day change, value and weight." } ] },
 
   screener: { name:"Research", steps:[
-    { sel:"#screenerSearch", title:"Look up any listed name",
-      body:"Search the whole market, not just what you hold. Results show the fundamentals the model cares about." },
+    { sel:"#resQuery", title:"Look up any listed name",
+      body:"Search the whole market by symbol or company name, not just what you hold. Clicking a result opens its financials - reading a company does not require adding it to anything." },
     { sel:"#watchlist", title:"Park candidates on the watchlist",
       body:"A staging area. Nothing here touches your portfolio until you deliberately add it to a theme." } ] },
 
@@ -6398,50 +6562,47 @@ async function removeFromWatchlist(sym){
   state.watchlist=(state.watchlist||[]).filter(w=>!(w&&w.sym===sym));
   await savePortfolio(); renderScreener();
 }
-function commitFromWatchlist(sym, themeKey){
-  if(!themeKey) return;
-  openSwap(sym, themeKey);   // E4.4: confirm — add as a new name OR swap for a holding, then rebalance. Watchlist self-heals once it's in a theme.
-}
 function renderWatchlist(){
   const el=$("#watchlist"); if(!el) return;
   let list=(state.watchlist||[]).filter(w=>w&&w.sym&&!themeOf[w.sym]);   // drop any that are now in a theme
   state.watchlist=list;                                                  // self-heal
   if(!list.length){ el.innerHTML=""; return; }
-  const opt=tk=>themes().map(t=>`<option value="${t.key}"${t.key===tk?" selected":""}>${esc(t.name)}</option>`).join("");
-  el.innerHTML=`<div class="card pad" style="margin-bottom:14px">
-    <h3 style="font-size:14px;margin:0 0 4px">⭐ Watchlist (${list.length})</h3>
-    <p class="small muted" style="margin:0 0 10px">Names you're considering — <b>not in your portfolio yet</b>. Swipe the table sideways for the full quote; pick a portfolio to add one (you'll review the rebalance first).</p>
-    <div class="tscroll wl-scroll"><table class="wl-table" style="width:100%">
-      <thead><tr>
-        <th style="text-align:left">Ticker</th>
-        <th style="text-align:left">Company</th>
-        <th class="num">Last</th>
-        <th class="num">Chg&nbsp;%</th>
-        <th class="num">52W&nbsp;High</th>
-        <th class="num">52W&nbsp;Low</th>
-        <th class="num">Volume</th>
-        <th class="num">Avg&nbsp;Vol</th>
-        <th class="num">Add&nbsp;to&nbsp;portfolio</th>
-        <th class="num"></th>
-      </tr></thead>
-      <tbody>
-    ${list.map(w=>{ const s=w.sym, q=state.quotes[s]||{}, p=price(s), ch=q.changePct;
-      const cls=isNum(ch)?(ch>=0?'up':'down'):'', arrow=isNum(ch)?(ch>=0?'▲':'▼'):'';
-      return `<tr class="wl-row">
-        <td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}</td>
-        <td class="wl-co" title="${nameOf(s)}">${nameOf(s)}</td>
-        <td class="num">${money(p,2)}</td>
-        <td class="num ${cls}">${isNum(ch)?arrow+" "+Math.abs(ch).toFixed(2)+"%":"—"}</td>
-        <td class="num">${money(q.high52,2)}</td>
-        <td class="num">${money(q.low52,2)}</td>
-        <td class="num">${volFmt(q.vol)}</td>
-        <td class="num">${volFmt(q.avgVol)}</td>
-        <td class="num"><select class="wl-add" data-sym="${s}"><option value="">＋ Add to portfolio…</option>${opt(w.portfolio)}</select></td>
-        <td class="num"><button class="rmv-tkr wl-del" data-wlsym="${s}" title="Remove ${s} from watchlist">✕</button></td>
-      </tr>`;}).join("")}
-      </tbody>
-    </table></div>
-  </div>`;
+  const head='<div class="rs3-whead"><span>Name</span><span class="num">Last</span><span class="num">Today</span>'+
+    '<span>52-week range</span><span class="num">Volume</span><span class="num">Avg volume</span>'+
+    '<span class="num">P/E</span><span>Then what</span><span></span></div>';
+  el.innerHTML=head+list.map(function(w){
+    const sym=w.sym, q=state.quotes[sym]||{}, px=price(sym), cp=q.changePct;
+    const lo=q.low52, hi=q.high52;
+    /* The 52-week range is a position, not two numbers to subtract in your head: a track with the
+       price's own tick on it. Only drawn when all three figures are real - a tick placed from a
+       missing low is a tick in the wrong place, which is worse than no tick. */
+    const range=(isNum(lo)&&isNum(hi)&&isNum(px)&&hi>lo)
+      ? '<span class="rs3-52"><span class="tr"><i style="left:'+
+        (Math.max(0,Math.min(1,(px-lo)/(hi-lo)))*100).toFixed(1)+'%"></i></span>'+
+        '<span class="lh">'+money(lo,2)+'<b>'+money(hi,2)+"</b></span></span>"
+      : '<span class="rs3-52 muted">\u2014</span>';
+    const pe=(state.fundamentals[sym]&&isNum(state.fundamentals[sym].pe))?num(state.fundamentals[sym].pe,1):"\u2014";
+    /* "Then what" states where this name stands relative to the book. A watchlisted name never
+       touches the portfolio - the watchlist is storage, not intent - so the only tag it can carry
+       here is the portfolio it is EARMARKED for, if the user picked one. */
+    const earmark=w.portfolio&&themeByKey(w.portfolio);
+    const tag = earmark ? '<span class="rs3-tag mark">'+esc(earmark.name)+"</span>"
+                        : '<span class="rs3-tag none">NO PORTFOLIO</span>';
+    return '<div class="rs3-w">'+
+      '<button type="button" class="rs3-open" data-stock="'+esc(sym)+'">'+
+        '<span class="s">'+esc(sym)+'</span><span class="n">'+esc(nameOf(sym))+"</span></button>"+
+      '<span class="num">'+(isNum(px)?money(px,2):"\u2014")+"</span>"+
+      '<span class="num '+(isNum(cp)?(cp>=0?"up":"down"):"")+'">'+
+        (isNum(cp)?signed(cp,2)+"%":"\u2014")+"</span>"+
+      range+
+      '<span class="num">'+volFmt(q.vol)+"</span>"+
+      '<span class="num">'+volFmt(q.avgVol)+"</span>"+
+      '<span class="num">'+pe+"</span>"+
+      '<span class="rs3-then">'+tag+
+        '<button type="button" class="rs3-add" data-wladd="'+esc(sym)+'">ADD TO PORTFOLIO</button></span>'+
+      '<button type="button" class="rs3-del" data-wlsym="'+esc(sym)+'" aria-label="Remove '+esc(sym)+
+        ' from the watchlist">\u00d7</button></div>';
+  }).join("");
 }
 
 /* ======================================================================
@@ -6861,7 +7022,7 @@ function setupEvents(){
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-addticker]"); if(b) openTickerSearch(b.dataset.addticker, true); });   // E4.3: '＋ ticker' in a theme section — add DIRECTLY (rebalance)
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-editth]"); if(b) openEditTheme(b.dataset.editth); });   // E1.5: rename / recolour a theme
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-delth]"); if(b) deleteTheme(b.dataset.delth); });   // E1.6: delete a theme
-  $("main").addEventListener("change",e=>{ const sel=e.target.closest("select.wl-add"); if(sel&&sel.value) commitFromWatchlist(sel.dataset.sym, sel.value); });   // E1.3: watchlist -> add to a theme (previews rebalance)
+  $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-wladd]"); if(b) openSwap(b.dataset.wladd, null); });   // E1.3 / E12 4.4b: watchlist -> into the book
   $("main").addEventListener("click",e=>{ const b=e.target.closest("button[data-wlsym]"); if(b) removeFromWatchlist(b.dataset.wlsym); });   // E1.3: drop from watchlist
   $("#refreshFundBtn").addEventListener("click",async()=>{ $("#refreshFundBtn").disabled=true;
     try{ await Promise.all([loadFundamentals(true), loadStatements(membership(),true)]); rebuildFundamentals(); renderFundamentals(); renderCalc(); toast("Fundamentals refreshed"); }
