@@ -320,7 +320,12 @@
   /* E5.2b: fill the window. The old 1180px cap left ~520px of dead margin on a 1920 screen.
      Content now spans the full width beside the rail; anything too wide scrolls inside its own
      container (.thm-body, tables) rather than stretching the page. */
-  main{max-width:none;margin:0;padding:16px 24px 24px}
+  /* The V3 lanes are full bleed and carry their own 28px gutters (4.1). main's own padding sat on
+     top of that, so every section rule stopped 24px short of the screen edge - the divider down the
+     middle of Model ran the full height while the rules crossing it did not reach either side.
+     The two lanes still on V2 cards keep the old inset until their cards land. */
+  main{max-width:none;margin:0;padding:0}
+  #view-history,#view-screener{padding:16px 24px 24px}
   .view{display:none}.view.active{display:block;animation:fade .18s ease}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -901,6 +906,94 @@
     .md3-r{padding:24px 16px 28px}
     .md3-m{grid-template-columns:1fr;gap:8px}
     .md3-step{justify-content:flex-start}
+  }
+
+  /* === E12 4.4 Trade ======================================================== */
+  .tr3{display:grid;grid-template-columns:1.35fr 1fr;align-items:start}
+  .tr3-l{padding:26px 28px 34px;border-right:var(--rule-strong);min-width:0}
+  .tr3-r{padding:26px 28px 34px;min-width:0}
+  .tr3-vbanner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;
+    color:var(--ink-50);border-bottom:var(--rule-hair);padding-bottom:12px;margin-bottom:22px}
+  .tr3-vbanner.warn{color:var(--neg)}
+  .tr3-undo{margin-left:auto;display:flex;gap:6px}
+  .tr3-lbl{font-weight:800;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-50);margin-bottom:10px}
+  .tr3-l .tr3-lbl{color:var(--accent-700)}
+  .tr3-cash{display:flex;align-items:center;gap:14px}
+  .tr3-amt{font-weight:800;font-size:62px;line-height:1;letter-spacing:-.035em;display:flex;
+    align-items:baseline}
+  .tr3-amt input{font:inherit;width:6ch;border:0;background:none;color:inherit;padding:0;
+    font-variant-numeric:tabular-nums}
+  .tr3-amt input::-webkit-outer-spin-button,.tr3-amt input::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0}
+  .tr3-amt input{-moz-appearance:textfield}
+  .tr3-cash button{width:34px;height:34px;border:1px solid rgba(32,30,29,.4);background:none;
+    cursor:pointer;font:inherit;font-weight:800;font-size:17px;line-height:1;color:var(--ink);padding:0}
+  .tr3-cash button:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tr3-modes{margin-top:22px;border-top:var(--rule-hair)}
+  .tr3-mode{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;border:0;
+    border-bottom:var(--rule-hair);background:none;cursor:pointer;font:inherit;color:inherit;
+    padding:13px 12px 13px 0}
+  .tr3-mode:hover{background:rgba(32,30,29,.04)}
+  .tr3-mode.on{background:var(--accent-100);padding-left:12px}
+  .tr3-mode .mk{flex:none;width:14px;height:14px;border:1px solid rgba(32,30,29,.4);margin-top:2px}
+  .tr3-mode.on .mk{background:var(--accent);border-color:var(--accent)}
+  .tr3-mode .mt{min-width:0}
+  .tr3-mode .mt b{display:block;font-weight:800;font-size:14px}
+  .tr3-mode .mt i{display:block;font-style:normal;font-size:12px;color:var(--ink-50);margin-top:3px}
+  .tr3-plan{margin-top:28px}
+  .tr3-phead{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
+  .tr3-phead h2{font-weight:800;font-size:19px;letter-spacing:-.015em;margin:0}
+  .tr3-phead span{font-size:12px;color:var(--ink-50)}
+  .tr3-thead,.tr3-t{display:grid;grid-template-columns:64px 1fr 90px 110px;gap:12px;align-items:center}
+  .tr3-thead{padding:0 0 9px;border-bottom:var(--rule-strong);font-weight:600;font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-50)}
+  .tr3-t{padding:11px 0;border-bottom:var(--rule-hair)}
+  .tr3-t .chip{font-weight:800;font-size:10px;letter-spacing:.1em;padding:3px 0;text-align:center;
+    color:var(--bg)}
+  .tr3-t .chip.b{background:var(--ink)} .tr3-t .chip.s{background:var(--neg)}
+  .tr3-t .tk{font-weight:800;font-size:13px;min-width:0}
+  .tr3-t .tk i{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--ink-50);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tr3-t .num{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .tr3-t .amt{font-weight:800;font-size:14px}
+  .tr3-t .amt.b{color:var(--ink)} .tr3-t .amt.s{color:var(--neg)}
+  .tr3-none{font-size:12px;color:var(--ink-50);margin:6px 0 0}
+  .tr3-warn{font-size:12px;color:var(--neg);margin:0 0 12px}
+
+  .tr3-lands{border-top:var(--rule-hair)}
+  .tr3-land{display:grid;grid-template-columns:1fr 96px 84px;gap:10px;align-items:center;
+    padding:9px 0;border-bottom:var(--rule-hair)}
+  .tr3-land .n{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13px;min-width:0}
+  .tr3-land .n span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tr3-land .sq{flex:none;width:9px;height:9px}
+  .tr3-land .num{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+  .tr3-cap{font-size:11px;color:var(--ink-45);margin:8px 0 26px;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase}
+  .tr3-book{display:grid;grid-template-columns:1fr 1fr;border-top:var(--rule-hair);margin-bottom:24px}
+  .tr3-book div{padding:11px 0;border-bottom:var(--rule-hair)}
+  .tr3-book i{display:block;font-style:normal;font-size:11px;color:var(--ink-50)}
+  .tr3-book b{display:block;font-weight:800;font-size:16px;margin-top:3px}
+  .tr3-commit{border-top:var(--rule-strong);padding-top:18px}
+  .tr3-apply{display:flex;align-items:baseline;gap:12px;width:100%;border:0;background:var(--accent);
+    color:#fff;cursor:pointer;font:inherit;padding:18px 20px;text-align:left}
+  .tr3-apply span{font-weight:800;font-size:14px;letter-spacing:.08em}
+  .tr3-apply i{margin-left:auto;font-style:normal;font-weight:600;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;opacity:.8}
+  .tr3-apply:hover{background:var(--accent-700)}
+  .tr3-apply:disabled{background:var(--ink-45);cursor:default}
+  .tr3-acct{font-size:11px;color:var(--ink-50);margin:10px 0 0}
+  .tr3-acct.bad{color:var(--neg);font-weight:600}
+  .tr3-hold{margin-top:28px;padding-top:20px;border-top:var(--rule-strong)}
+
+  @media(max-width:1000px){
+    .tr3{grid-template-columns:1fr}
+    .tr3-l{border-right:0;border-bottom:var(--rule-strong);padding:22px 16px 28px}
+    .tr3-r{padding:22px 16px 28px}
+    .tr3-amt{font-size:46px}
+    .tr3-thead{display:none}
+    .tr3-t{grid-template-columns:64px 1fr;gap:6px 12px}
+    .tr3-t .num{grid-column:2;text-align:left}
   }
 
   /* --- metric catalog (E12 4.3) --------------------------------------------- */
@@ -2080,7 +2173,11 @@ function timelineTrimmed(){
 }
 function canUndo(){ return head() > (timelineTrimmed() ? 0 : -1); }
 function canRedo(){ return head() < versions().length-1; }
-function versionLabel(v){ return v?("#"+v.id+" "+v.type+(v.cashIn?(" +"+money(v.cashIn,0)):"")):"—"; }
+/* A checkpoint restored from a payload that predates ids, or trimmed by E10.1, has no v.id - and
+   "#undefined REBALANCE" is what the user was shown. Name it by whatever it actually carries. */
+function versionLabel(v){ if(!v) return "—";
+  const who = v.label || (isNum(v.id)?("#"+v.id):"") || v.date || "";
+  return (who?who+" ":"")+(v.type||"CHECKPOINT")+(v.cashIn?(" +"+money(v.cashIn,0)):""); }
 function undoRedoButtons(){ return `<button class="btn sm" data-vaction="undo" ${canUndo()?"":"disabled"}>↶ Undo</button>`+
   `<button class="btn sm" data-vaction="redo" ${canRedo()?"":"disabled"}>↷ Redo</button>`; }
 /* E10.2 - a checkpoint records the TRANSACTION and the settings that produced it. It deliberately
@@ -5341,52 +5438,124 @@ function buildTxn(type,mode,cashIn,valueBefore,plan){
     weights:{peg:state.weights.peg, ev:state.weights.ev}, alloc:allocOut, trades};
 }
 
-function renderCalcMain(){
-  const total=curTotal(), A=computeAllocation();
-  // E5.3: plan on the left, holdings on the right. The old 4-tile stat band is gone — the
-  // context bar now keeps value / invested / gain on screen at all times, so it was duplication.
-  const cost=totalCostBasis(), unreal=total-cost;
-  const sgn=n=>(n>=0?"+":"−")+money(Math.abs(n),0);
-  $("#calcMain").innerHTML=`
-    <div class="vbanner ${canRedo()?'warn':''}" style="margin-bottom:12px">
-      <div>Last saved: <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' · '+currentVersion().date):''}${canRedo()?(' &nbsp;·&nbsp; <b>'+(versions().length-1-head())+'</b> newer version(s) redoable'):''}</div>
-      <div class="row" style="gap:8px">${undoRedoButtons()}</div>
-    </div>
+/* ===== E12 4.4 Trade =========================================================================
+   The mode is the thing V2 got wrong: three bare buttons ("Calculate", "Realign only", and a
+   two-option select) with no statement of what each one DOES. They are one radio list now, each
+   with the consequence written under it, because the consequence is the whole choice.
+   The plan is live - change the cash or the mode and it re-flows - so there is no "Calculate"
+   button to press and no state in which the screen shows a plan for inputs you have since changed. */
+const TRADE_MODES=[
+  { v:"full",    t:"Full rebalance",
+    d:"Move every position to its new model target. Buys and sells; the net is exactly your new cash." },
+  { v:"cash",    t:"Deploy new cash only",
+    d:"Steer the new money into the most underweight names. No sells, no tax events." },
+  { v:"realign", t:"Realign only \u00b7 no new money",
+    d:"Re-align the whole book to today's targets at the current value. Use it after you change the model." }];
+let TRADE_MODE="full", TRADE_CASH=4000;
 
-    <div class="calc-layout">
-      <div class="card pad calc-plan">
-        <div class="ov-k" style="margin-bottom:8px">Plan a rebalance</div>
-        <div class="calc-controls">
-          <div class="field"><label>Add capital (USD)</label>
-            <input type="number" id="addCash" value="4000" step="500"></div>
-          <div class="field"><label>Mode</label>
-            <select id="mode">
-              <option value="full">Full rebalance (buys &amp; sells)</option>
-              <option value="cash">Deploy new cash only (no sells)</option>
-            </select></div>
-          <button id="calcRebBtn" class="btn primary">Calculate →</button>
-          <button id="realignBtn" class="btn" title="Rebalance to today's target weights at the current value, adding no new capital">Realign only (no new $)</button>
+function tradePlan(){
+  /* "Realign" is a full rebalance with no new cash - one mode in the UI, the same two arguments
+     underneath. Keeping it as a third planTrades mode would mean a third code path computing the
+     same thing. */
+  const mode = TRADE_MODE==="realign" ? "full" : TRADE_MODE;
+  const cash = TRADE_MODE==="realign" ? 0 : TRADE_CASH;
+  return planTrades(cash, mode);
+}
+
+function renderCalcMain(){
+  const total=curTotal(), cost=totalCostBasis(), unreal=total-cost;
+  const sgn=n=>(n>=0?"+":"\u2212")+money(Math.abs(n),0);
+  const el=$("#calcMain"); if(!el) return;
+  el.innerHTML=`
+    <div class="tr3">
+      <div class="tr3-l">
+        <div class="tr3-vbanner ${canRedo()?'warn':''}">
+          <span>Last saved <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' \u00b7 '+currentVersion().date):''}${canRedo()?(' \u00b7 <b>'+(versions().length-1-head())+'</b> newer redoable'):''}</span>
+          <span class="tr3-undo">${undoRedoButtons()}</span>
         </div>
-        <p class="xs muted" style="margin:8px 0 0">A <b>full rebalance</b> moves every position to its model
-          target, so it tells you what to <b>sell</b> as well as buy. <b>Cash-only</b> just steers the new money
-          into the most underweight names. Nothing is saved until you press <b>Apply</b>.</p>
-        <div id="rebOut"></div>
+
+        <div class="tr3-lbl">CASH YOU&rsquo;RE ADDING</div>
+        <div class="tr3-cash">
+          <button type="button" id="cashDown" aria-label="One thousand less">\u2212</button>
+          <span class="tr3-amt">$<input type="number" id="addCash" step="500" min="0"
+            value="${Math.round(TRADE_CASH)}" aria-label="Cash you are adding"></span>
+          <button type="button" id="cashUp" aria-label="One thousand more">+</button>
+        </div>
+
+        <div class="tr3-modes" id="tradeModes" role="radiogroup" aria-label="Rebalance mode">
+          ${TRADE_MODES.map(m=>`<button type="button" class="tr3-mode${TRADE_MODE===m.v?' on':''}"
+             data-mode="${m.v}" role="radio" aria-checked="${TRADE_MODE===m.v}">
+             <span class="mk"></span><span class="mt"><b>${m.t}</b><i>${m.d}</i></span></button>`).join("")}
+        </div>
+
+        <div class="tr3-plan">
+          <div class="tr3-phead"><h2>The plan</h2><span id="planSay"></span></div>
+          <div class="tr3-prows" id="rebOut"></div>
+        </div>
       </div>
 
-      <div class="card pad calc-holdings">
-        <div class="calc-hhead">
-          <span class="ov-k">Current holdings</span>
-          <span class="xs muted">started ${state.portfolio.createdAt||"—"} · cost basis ${money(cost,0)} · unrealised
-            <span class="${unreal>=0?'up':'down'}">${sgn(unreal)}</span>
-            (${cost>0?pct(unreal/cost):"—"})</span>
+      <div class="tr3-r">
+        <div class="tr3-lbl">WHERE IT LANDS</div>
+        <div class="md3-stack" id="tradeAfterBar"></div>
+        <div class="tr3-lands" id="tradeLands"></div>
+        <p class="tr3-cap">Portfolio / now \u2192 after</p>
+
+        <div class="tr3-lbl">BOOK</div>
+        <div class="tr3-book">
+          <div><i>Book start date</i><b>${esc(String((state.portfolio&&state.portfolio.createdAt)||"\u2014"))}</b></div>
+          <div><i>Total invested</i><b>${money(totalContributed(),0)}</b></div>
+          <div><i>Unrealised gain</i><b class="${unreal>=0?'up':'down'}">${sgn(unreal)}</b></div>
+          <div><i>After this trade</i><b id="tradeAfterTotal">\u2014</b></div>
         </div>
+
+        <!-- The commit block sits at the top level of the column, outside every nested scroll
+             (E5's rule). It is the one button in this app you must never have to hunt for. -->
+        <div class="tr3-commit">
+          <button class="tr3-apply" id="applyBtn" type="button">
+            <span>APPLY &amp; SAVE CHECKPOINT</span><i>undoable</i></button>
+          <p class="tr3-acct" id="tradeAcct">Saving writes one checkpoint to your account. If it
+            can&rsquo;t reach your account it is not saved, and this screen tells you so.</p>
+        </div>
+
+        <div class="tr3-lbl tr3-hold">CURRENT HOLDINGS</div>
         ${holdingsTable()}
       </div>
     </div>`;
-  $("#calcRebBtn").addEventListener("click",doCalcRebalance);
-  $("#realignBtn").addEventListener("click",()=>{ $("#addCash").value="0"; $("#mode").value="full"; doCalcRebalance(); });
+
+  const cashIn=$("#addCash");
+  const reflow=()=>{ TRADE_CASH=Math.max(0,parseFloat(cashIn.value)||0); renderTradePlan(); };
+  cashIn.addEventListener("input",reflow);
+  /* The steppers are the coarse control and typing is the fine one - both must work, so the
+     stepper writes the field and the field is the single source of the number. */
+  $("#cashUp").addEventListener("click",()=>{ cashIn.value=String(Math.max(0,(parseFloat(cashIn.value)||0)+1000)); reflow(); });
+  $("#cashDown").addEventListener("click",()=>{ cashIn.value=String(Math.max(0,(parseFloat(cashIn.value)||0)-1000)); reflow(); });
+  $("#tradeModes").addEventListener("click",e=>{
+    const b=e.target.closest("[data-mode]"); if(!b) return;
+    TRADE_MODE=b.dataset.mode;
+    $$("#tradeModes .tr3-mode").forEach(x=>{ const on=x.dataset.mode===TRADE_MODE;
+      x.classList.toggle("on",on); x.setAttribute("aria-checked",String(on)); });
+    /* Realign means "no new money", so the cash figure has to go to zero on screen too - leaving
+       $4,000 sitting above a plan that spends none of it is the screen contradicting itself. */
+    if(TRADE_MODE==="realign") cashIn.value="0";
+    TRADE_CASH=Math.max(0,parseFloat(cashIn.value)||0);
+    renderTradePlan();
+  });
+  $("#applyBtn").addEventListener("click",()=>{ if(lastPlan) applyRebalance(lastPlan); });
+  renderTradePlan();
 }
 
+function renderTradePlan(){
+  if(!$("#rebOut")) return;
+  if(membership().some(s=>!isNum(price(s)))){
+    lastPlan=null;
+    $("#rebOut").innerHTML='<p class="tr3-none">Waiting for prices \u2014 press Refresh in the header.</p>';
+    const a=$("#applyBtn"); if(a) a.disabled=true;
+    return;
+  }
+  const plan=tradePlan(); lastPlan=plan;
+  const a=$("#applyBtn"); if(a) a.disabled=false;
+  renderRebalanceOutput(plan);
+}
 function holdingsTable(){
   const cv=curValueBySym(), total=curTotal(), h=holdings();
   const rows=themes().map(t=>{
@@ -5407,84 +5576,67 @@ function holdingsTable(){
 }
 
 let lastPlan=null;
-function doCalcRebalance(){
-  const add=parseFloat($("#addCash").value)||0;
-  const mode=$("#mode").value;
-  if(membership().some(s=>!isNum(price(s)))){ toast("Waiting for prices…"); return; }
-  const plan=planTrades(add,mode); lastPlan=plan;
-  renderRebalanceOutput(plan);
-}
-
 function renderRebalanceOutput(plan){
-  const out=$("#rebOut");
+  const out=$("#rebOut"); if(!out) return;
   const buys=[], sells=[];
   plan.universe.forEach(s=>{ const amt=plan.trade[s]||0; if(amt>0.005)buys.push(s); else if(amt<-0.005)sells.push(s); });
   const sumBuy=buys.reduce((a,s)=>a+plan.trade[s],0);
   const sumSell=sells.reduce((a,s)=>a+plan.trade[s],0);
-  // per theme breakdown
-  const themeRows=themes().map(t=>{
-    const before=tickersOf(t.key).reduce((a,s)=>a+(plan.cv[s]||0),0);
-    const after=tickersOf(t.key).reduce((a,s)=>a+(plan.target[s]||0),0);
-    const r=plan.alloc.byKey[t.key]; if(!r) return "";
-    const wB=plan.cur0>0?before/plan.cur0:0, wA=after/plan.newTotal;
-    return `<tr><td class="sym"><span class="swatch" style="display:inline-block;background:${t.color}"></span> ${esc(t.name)}</td>
-      <td class="num">${pct(r.alloc)}</td>
-      <td class="num">${money(before,0)} <span class="muted xs">(${pct(wB,0)})</span></td>
-      <td class="num">${money(after,0)} <span class="muted xs">(${pct(wA,0)})</span></td>
-      <td class="num ${after-before>=0?'trade-buy':'trade-sell'}">${signed(after-before,0).replace(/^([+-])/,'$1$')}</td></tr>`;
-  }).join("");
-  // per stock actions
-  const stockRows=plan.universe.map(s=>{
-    const amt=plan.trade[s], sh=plan.sharesD[s];
-    const act= amt>0.005?"BUY": amt<-0.005?"SELL":"HOLD";
-    const badge= act==="BUY"?'<span class="badge-action badge-buy">BUY</span>'
-      : act==="SELL"?'<span class="badge-action badge-sell">SELL</span>'
-      : '<span class="badge-action badge-hold">—</span>';
-    const cls= act==="BUY"?"trade-buy":act==="SELL"?"trade-sell":"trade-hold";
-    return `<tr>
-      <td class="sym">${s}<span class="co">${esc(themeOfSym(s).name)}</span></td>
-      <td class="center">${badge}</td>
-      <td class="num ${cls}">${act==="HOLD"?"—":(amt>0?"+":"")+money(amt,0).replace(/^\$/,"$").replace(/^-\$/,"-$")}</td>
-      <td class="num ${cls}">${act==="HOLD"||!isNum(sh)?"—":signed(sh,3)}</td>
-      <td class="num">${money(price(s),2)}</td>
-      <td class="num muted">${money(plan.cv[s],0)} → ${money(plan.target[s],0)}</td>
-    </tr>`;}).join("");
+  const n=buys.length+sells.length;
 
-  const M=membership();   // E1.6: warn before liquidating names that are no longer in any theme
+  const say=$("#planSay");
+  if(say) say.textContent = n
+    ? n+" trade"+(n===1?"":"s")+" \u00b7 net "+money(plan.addCash,0)+" \u00b7 nothing is sent to a broker"
+    : "Nothing to do \u2014 the book already sits on its targets.";
+
+  /* E1.6: a name that has left every portfolio is sold to zero. Say so before it happens, not in
+     the checkpoint afterwards. */
+  const M=membership();
   const exiting=plan.universe.filter(s=> !M.includes(s) && (plan.cv[s]||0)>0.5 && (plan.target[s]||0)<0.5);
-  const exitWarn = exiting.length ? `<div class="hint" style="margin:14px 0;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) var(--tint),var(--paper));color:var(--gold);padding:8px 12px">
-      ⚠ <b>${exiting.length} name${exiting.length>1?"s":""} will be sold to $0</b> — no longer in any portfolio (deleted portfolio, removed, or swapped out): <b>${exiting.join(", ")}</b>. Apply to liquidate.</div>` : "";
-  out.innerHTML=`
-    ${exitWarn}
-    <div class="hint" style="margin:14px 0">
-      Adding <b>${money(plan.addCash,0)}</b> → new book <b>${money(plan.newTotal,0)}</b>.
-      ${plan.mode==="full"
-        ? `Buy <b class="trade-buy">${money(sumBuy,0)}</b>, sell <b class="trade-sell">${money(-sumSell,0)}</b> (net ${money(plan.addCash,0)}).`
-        : `Deploy <b class="trade-buy">${money(sumBuy,0)}</b> of new cash into underweight names; no sells.`}
-      ${plan.missing.length?`<br><span class="down">No live price for ${plan.missing.join(", ")} — excluded.</span>`:""}
-    </div>
-    <div class="grid2">
-      <div>
-        <h3 style="font-size:13px;margin-bottom:6px">By portfolio</h3>
-        <div class="tscroll"><table><thead><tr><th>Portfolio</th><th>Target</th><th>Before</th><th>After</th><th>Δ$</th></tr></thead>
-          <tbody>${themeRows}</tbody></table></div>
-      </div>
-      <div>
-        <h3 style="font-size:13px;margin-bottom:6px">Actions this round</h3>
-        <div class="row small" style="gap:18px;margin-bottom:6px">
-          <span><b class="trade-buy">${buys.length}</b> buys</span>
-          <span><b class="trade-sell">${sells.length}</b> sells</span>
-        </div>
-      </div>
-    </div>
-    <h3 style="font-size:13px;margin:14px 0 6px">Per-stock instructions</h3>
-    <div class="tscroll"><table><thead><tr><th>Stock</th><th class="center">Action</th><th>Amount</th><th>Shares</th><th>Price</th><th>Value before → after</th></tr></thead>
-      <tbody>${stockRows}</tbody></table></div>
-    <div class="row" style="margin-top:14px;align-items:center">
-      <button id="applyBtn" class="btn primary">✓ Apply &amp; save this rebalance</button>
-      <span class="small muted">Updates your holdings, bumps total invested by ${money(plan.addCash,0)}, and logs it to History.</span>
-    </div>`;
-  $("#applyBtn").addEventListener("click",()=>applyRebalance(plan));
+  const warn = exiting.length
+    ? '<p class="tr3-warn"><b>'+exiting.length+" name"+(exiting.length>1?"s":"")+
+      " will be sold to $0</b> \u2014 no longer in any portfolio: "+esc(exiting.join(", "))+".</p>"
+    : "";
+  const miss = plan.missing.length
+    ? '<p class="tr3-warn">No live price for '+esc(plan.missing.join(", "))+" \u2014 excluded from this plan.</p>"
+    : "";
+
+  const rows=plan.universe.map(s=>{
+    const amt=plan.trade[s]||0, sh=plan.sharesD[s];
+    if(Math.abs(amt)<=0.005) return "";
+    const buy=amt>0;
+    return '<div class="tr3-t">'+
+      '<span class="chip '+(buy?"b":"s")+'">'+(buy?"BUY":"SELL")+"</span>"+
+      '<span class="tk">'+esc(s)+"<i>"+esc(themeOfSym(s).name||"no portfolio")+"</i></span>"+
+      '<span class="num">'+(isNum(sh)?signed(sh,3):"\u2014")+"</span>"+
+      '<span class="num amt '+(buy?"b":"s")+'">'+(buy?"+":"\u2212")+money(Math.abs(amt),0)+"</span></div>";
+  }).join("");
+
+  out.innerHTML = warn + miss + (rows
+    ? '<div class="tr3-thead"><span></span><span>Ticker</span><span class="num">Shares</span>'+
+      '<span class="num">Amount</span></div>'+rows
+    : '<p class="tr3-none">No trades in this plan.</p>');
+
+  // ---- right column: where it lands, and the resulting total
+  const bar=$("#tradeAfterBar"), lands=$("#tradeLands");
+  const T=themes();
+  if(bar){ bar.innerHTML=T.map((t,i)=>{
+      const after=tickersOf(t.key).reduce((a,x)=>a+(plan.target[x]||0),0);
+      const w=plan.newTotal>0?after/plan.newTotal:0;
+      return '<span title="'+esc(t.name)+' '+pct(w)+'" style="flex:'+Math.max(w,0.001)+
+             ';background:var(--portfolio-'+((i%5)+1)+')"></span>';
+    }).join(""); }
+  if(lands){ lands.innerHTML=T.map((t,i)=>{
+      const before=tickersOf(t.key).reduce((a,x)=>a+(plan.cv[x]||0),0);
+      const after=tickersOf(t.key).reduce((a,x)=>a+(plan.target[x]||0),0);
+      const wB=plan.cur0>0?before/plan.cur0:0, wA=plan.newTotal>0?after/plan.newTotal:0;
+      const d=after-before;
+      return '<div class="tr3-land"><span class="n"><span class="sq" style="background:var(--portfolio-'+
+        ((i%5)+1)+')"></span><span>'+esc(t.name)+'</span></span>'+
+        '<span class="num">'+pct(wB,0)+" \u2192 "+pct(wA,0)+"</span>"+
+        '<span class="num '+(d>=0?"up":"down")+'">'+(d>=0?"+":"\u2212")+money(Math.abs(d),0)+"</span></div>";
+    }).join(""); }
+  const at=$("#tradeAfterTotal"); if(at) at.textContent=money(plan.newTotal,0);
 }
 
 async function applyRebalance(plan){
@@ -5507,6 +5659,16 @@ async function applyRebalance(plan){
   toast(_saved ? "Rebalance applied & saved"
               : "Rebalance applied on screen - NOT saved to your account. See the sync badge in the header.");
   renderAll();
+  /* Baseline section 9 rule 1: when the save fails the sentence under the button is REPLACED by the
+     failure, in place, and the user's change stays on screen. A toast that fades is not a report -
+     the user can look away for two seconds and never learn their checkpoint did not persist.
+     Set after renderAll, which rebuilt the element this writes into. */
+  const acct=$("#tradeAcct");
+  if(acct && !_saved){
+    acct.classList.add("bad");
+    acct.textContent="This checkpoint was NOT saved to your account. It is applied on screen only \u2014 "+
+      "check the sync badge in the header and try again before you close this tab.";
+  }
 }
 
 /* ======================================================================
@@ -5786,12 +5948,10 @@ const TOURS = {
   calc: { name:"Rebalance", steps:[
     { sel:"#addCash", title:"How much are you adding?",
       body:"Enter the new money going in. Building the portfolio for the first time? Put the whole starting amount here." },
-    { sel:"#mode", title:"Full rebalance, or cash only",
+    { sel:"#tradeModes", title:"Full rebalance, or cash only",
       body:"Full rebalance buys AND sells to hit the targets, funding itself. Cash-only spends the new money on whatever is underweight and never sells." },
-    { sel:"#calcRebBtn", title:"Calculate, then review",
-      body:"Nothing is committed yet: you get a full trade list to look over first." },
-    { sel:"#realignBtn", title:"Or realign with no new money",
-      body:"Rebalances what you already hold back to the current targets." } ] },
+    { sel:"#applyBtn", title:"Nothing is committed until you press this",
+      body:"The plan above updates as you change the cash or the mode. Applying it writes one checkpoint to your account, and every checkpoint can be undone." } ] },
 
   prices: { name:"Overview", steps:[
     { sel:"#ovAlloc", title:"Where the money is",
@@ -6038,9 +6198,8 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
        renderAll() repaints every view including the hidden ones, so the plan is ready and correct
        whenever the user chooses to go and look at it. */
     renderAll();
-    const plan=planTrades(0,"full"); lastPlan=plan;
-    if($("#addCash")) $("#addCash").value="0";
-    renderRebalanceOutput(plan);
+    TRADE_MODE="realign"; TRADE_CASH=0;
+    renderCalcMain();
     toast(doneMsg+" · Rebalance updated");
   } else { renderAll(); toast(doneMsg+" · will apply on your next Build"); }
 }
