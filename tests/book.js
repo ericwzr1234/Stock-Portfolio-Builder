@@ -52,15 +52,18 @@ async function seedBook(page) {
     const inv = all.reduce((a,s)=>a+H[s].costBasis, 0);
     const snap = (frac) => { const o={}; all.forEach(s => o[s] = { shares:held[s]*frac,
       costBasis:H[s].costBasis*frac }); return o; };
+    /* buildTxn records the target allocation on every checkpoint, so the fixture has to as
+       well - without it History exercises only its empty-allocation path. */
+    const AL = { ai:0.324, rob:0.239, hc:0.232, el:0.205 };
     state.portfolio = { createdAt:"2024-11-04", holdings:H, totalContributed:inv,
       head:2, versions:[
-      { id:1, date:"2024-11-04", type:"INITIAL",    label:"Initial build", valueBefore:0,
+      { id:1, date:"2024-11-04", alloc:AL, mode:"full", type:"INITIAL",    label:"Initial build", valueBefore:0,
         valueAfter:inv*0.62, cashIn:inv*0.62, trades:mk(all.slice(0,5),0.6),
         snapshot:{ holdings:snap(0.6),  totalContributed:inv*0.62 } },
-      { id:2, date:"2025-03-18", type:"CONTRIBUTE", label:"Added 40,000",  valueBefore:inv*0.70,
+      { id:2, date:"2025-03-18", alloc:AL, mode:"full", type:"CONTRIBUTE", label:"Added 40,000",  valueBefore:inv*0.70,
         valueAfter:inv*0.88, cashIn:inv*0.24, trades:mk(all.slice(5),0.4),
         snapshot:{ holdings:snap(0.85), totalContributed:inv*0.86 } },
-      { id:3, date:"2025-07-22", type:"REBALANCE",  label:"Rebalance",     valueBefore:inv*0.96,
+      { id:3, date:"2025-07-22", alloc:AL, mode:"full", type:"REBALANCE",  label:"Rebalance",     valueBefore:inv*0.96,
         valueAfter:inv, cashIn:inv*0.14, trades:mk(all,0.15),
         snapshot:{ holdings:H,          totalContributed:inv } }]};
     rebuildThemeOf(); renderAll();

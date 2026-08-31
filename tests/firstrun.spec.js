@@ -105,7 +105,10 @@ async function withDoc(page, portfolio) {
     sbLoadSession(); appLocked = false; showGate(false);
     state.portfolio = doc;
     renderAll(); switchView("history");
-    return { danger: !!document.getElementById("dangerZone").offsetParent,
+    /* E12 4.5 folded the danger-zone card into the three-button group; the invariant is the same
+       (E7.4: never offer a destructive action that would do nothing) so this now asks whether the
+       reset PAINTS, which is what the user can actually reach. */
+    return { danger: !!document.getElementById("resetBtn").offsetParent,
              isInit: isInit(), versions: versions().length,
              histChartH: Math.round(document.getElementById("histChart").getBoundingClientRect().height) };
   }, portfolio);

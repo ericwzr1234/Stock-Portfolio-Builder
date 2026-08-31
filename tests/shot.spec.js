@@ -20,6 +20,9 @@ test("shots", async ({ page }) => {
   await page.evaluate(() => switchView("screener"));
   await page.waitForTimeout(200);
   await page.screenshot({ path: "docs/prototypes/shot-research-1440.png", fullPage: true });
+  await page.evaluate(() => switchView("history"));
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: "docs/prototypes/shot-history-1440.png", fullPage: true });
   await page.evaluate(() => switchView("prices"));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(200);
