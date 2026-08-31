@@ -14,7 +14,7 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 96 |
+| Done | 97 |
 
 ---
 
@@ -124,7 +124,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (96)
+## Done  (97)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -259,7 +259,7 @@ _Integrated into the product (on main)._
 - **E11.16** — The dev server sends the same headers prod does · [spec](features/E11_online-deployment.md)
 
 </details>
-<details><summary><b>E12 · V3 UI</b> — 8 done</summary>
+<details><summary><b>E12 · V3 UI</b> — 9 done</summary>
 
 - **E12.0** — Shell: token sheet, four text lanes, rail deleted · [spec](features/E12_v3-ui.md)
 - **E12.0b** — Sign-in gate · [spec](features/E12_v3-ui.md)
@@ -269,5 +269,6 @@ _Integrated into the product (on main)._
 - **E12.4** — Research + stock panel · [spec](features/E12_v3-ui.md)
 - **E12.5** — History · [spec](features/E12_v3-ui.md)
 - **E12.6** — First run · [spec](features/E12_v3-ui.md)
+- **E12.8** — Empty the V2 compat shim and delete the dead V2 CSS · [spec](features/E12_v3-ui.md)
 
 </details>

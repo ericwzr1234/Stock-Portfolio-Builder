@@ -123,4 +123,20 @@ if _depth != 0:
     sys.exit(1)
 print('div balance : <main> is balanced')
 
+# ---- the V2 compat shim -----------------------------------------------------------------------
+# E12 section 2: "This block must be empty when E12 closes; a leftover alias is an unmigrated
+# surface." It was emptied in E12.8 by rewriting all 160 uses to the V3 token each already
+# resolved to. Nothing stops someone adding one back except this.
+_V2 = ('cream', 'paper', 'surface2', 'muted', 'line', 'line2', 'teal', 'teal-d', 'blue', 'sage',
+       'slate', 'gold', 'buy', 'sell', 'chip', 'on-accent', 'header-bg', 'tint', 'shadow',
+       'shadow-lift')
+_back = sorted({m for m in _V2
+                if re.search(r'var\(--%s\)' % re.escape(m), _html)
+                or re.search(r'^\s*--%s\s*:' % re.escape(m), _html, re.M)})
+if _back:
+    print('compat shim : FAIL - V2 alias(es) are back: %s' % ', '.join('--' + x for x in _back))
+    print('              name the V3 token instead (--bg / --surface / --ink-50 / --accent / ...)')
+    sys.exit(1)
+print('compat shim : empty, as E12 section 2 requires')
+
 print('csp         : connect-src allows', _sb)
