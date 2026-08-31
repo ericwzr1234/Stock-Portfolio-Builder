@@ -64,6 +64,30 @@ test("styleprint", async ({ page }) => {
   const frames = [];
   const add = async (label) => { await page.waitForTimeout(120); frames.push(...await snap(page, label)); };
 
+  /* The gate first: seedBook dismisses it, and it is a whole surface of its own. Capture every
+     mode, because create-account and recovery show controls sign-in does not. */
+  /* Freeze motion. Entrance animations (fade, ctxIn, sdIn) mean two runs sample an element at
+     microscopically different points, which showed up as ~30 differences of a few ten-thousandths -
+     enough noise to hide a small REAL change. With motion off the comparison is exact, so any
+     non-zero diff is a genuine regression. */
+  await page.addInitScript(() => {
+    const kill = () => {
+      const st = document.createElement("style");
+      st.textContent = "*,*::before,*::after{animation:none!important;transition:none!important}";
+      document.documentElement.appendChild(st);
+    };
+    if (document.documentElement) kill();
+    else document.addEventListener("DOMContentLoaded", kill);
+  });
+
+  await page.goto("/");
+  await page.waitForFunction(() => typeof window.showGate === "function");
+  await add("gate-signin");
+  for (const m of ["signup", "recover", "signin"]) {
+    await page.evaluate((x) => { if (typeof setMode === "function") setMode(x); }, m);
+    await add("gate-" + m);
+  }
+
   await seedBook(page);
   await page.evaluate(() => { window.savePortfolio = async () => true; });
 
