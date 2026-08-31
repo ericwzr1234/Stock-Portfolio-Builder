@@ -5329,13 +5329,13 @@ function renderFundamentals(){
     exM.forEach(m=>{ const c=r[m.key]; if(!c)return;
       if((c.penalized||[]).length)bits.push(m.label+" penalized for "+c.penalized.join(", ")+" ("+effPenalty(m)+"×)");
       (c.excluded||[]).forEach(s=>exl.add(s)); });
-    if(exl.size)bits.push("excluded as N/A: "+[...exl].join(", "));
-    return "<b>"+r.theme.name+":</b> "+bits.join("; ")+".";
+    if(exl.size)bits.push("excluded as N/A: "+esc([...exl].join(", ")));
+    return "<b>"+esc(r.theme.name)+":</b> "+bits.join("; ")+".";
   });
   const cappedThemes=A.rows.filter(r=>isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6);
   const capNote=cappedThemes.length?(" Capped this run: "+cappedThemes.map(r=>r.theme.name+" "+pct(r.alloc)+" (from "+pct(r.allocRaw)+")").join(", ")+"."):"";
   const carried=Object.keys(A.carry||{});
-  const carryNote=carried.length?("<b>Quality carry-over:</b> "+carried.map(s=>{const c=A.carry[s],p=[];if(isNum(c.ev))p.push("EV/EBITDA≈"+num(c.ev,1));if(isNum(c.dfcf))p.push("Debt/FCF≈"+num(c.dfcf,2));return "<b>"+s+"</b> "+p.join(", ");}).join("; ")+" — imputed from each name's standing on the factors it does report (banks don't publish these)."):"";
+  const carryNote=carried.length?("<b>Quality carry-over:</b> "+carried.map(s=>{const c=A.carry[s],p=[];if(isNum(c.ev))p.push("EV/EBITDA≈"+num(c.ev,1));if(isNum(c.dfcf))p.push("Debt/FCF≈"+num(c.dfcf,2));return "<b>"+esc(s)+"</b> "+p.join(", ");}).join("; ")+" — imputed from each name's standing on the factors it does report (banks don't publish these)."):"";
   const dirWord=m=>effDirection(m)==='higher'?'higher ⇒ better':'cheaper / lower ⇒ better';
   $("#allocNotes").innerHTML=`
     <p>For each portfolio we take a <b>market-cap-weighted</b> value of every active metric across the portfolio's names. On a
@@ -5377,21 +5377,21 @@ function renderFundamentals(){
   const pen=ti=>`<span class="tag pen" title="${ti}">prem</span>`, na=ti=>`<span class="tag na" title="${ti}">n/a</span>`,
         calc=ti=>`<span class="tag calc" title="${ti}">calc</span>`, qual=ti=>`<span class="tag qual" title="${ti}">qual</span>`;
   const bodyCell=(m,s,f,o,cy)=>{
-    const rst=(field,live)=>isNum(o[field])?`<span class="reset" data-reset="${field}" data-sym="${s}" title="Reset to live (${live})">↺</span>`:'';
+    const rst=(field,live)=>isNum(o[field])?`<span class="reset" data-reset="${field}" data-sym="${esc(s)}" title="Reset to live (${live})">↺</span>`:'';
     if(m.key==='peg'){ const v=effPeg(s), tag=isNum(o.peg)?OVR:(!(isNum(v)&&v>0)?pen(`No/negative PEG → ${effPenalty(m)}×`):'');
-      return `<td class="num"><span class="editable" data-edit="peg" data-sym="${s}" title="Click to type your own PEG">${num(v,2)}</span>${tag}${rst('peg',num(f.peg,2))}</td>`; }
+      return `<td class="num"><span class="editable" data-edit="peg" data-sym="${esc(s)}" title="Click to type your own PEG">${num(v,2)}</span>${tag}${rst('peg',num(f.peg,2))}</td>`; }
     if(m.key==='ev'){ const v=effEv(s), evCarry=!isNum(v)&&isNum(cy.ev),
       tag=isNum(o.ev)?OVR:(isNum(v)&&v<=0?pen(`Negative EV/EBITDA → ${effPenalty(m)}×`):(evCarry?qual('EV/EBITDA carried over from this name’s standing on the factors it does report (banks don’t report it)'):(!isNum(v)?na('EV/EBITDA N/A → excluded'):(f.evCalc?calc('EV/EBITDA computed from TTM statements'):'')))),
       show=isNum(v)?num(v,1):(evCarry?num(cy.ev,1):'—');
-      return `<td class="num"><span class="editable" data-edit="ev" data-sym="${s}" title="Click to type your own EV/EBITDA">${show}</span>${tag}${rst('ev',isNum(f.ev)?num(f.ev,1):'NM')}</td>`; }
+      return `<td class="num"><span class="editable" data-edit="ev" data-sym="${esc(s)}" title="Click to type your own EV/EBITDA">${show}</span>${tag}${rst('ev',isNum(f.ev)?num(f.ev,1):'NM')}</td>`; }
     if(m.key==='dfcf'){ const v=effDfcf(s), dfCarry=!isNum(v)&&isNum(cy.dfcf),
       tag=isNum(o.dfcf)?OVR:(isNum(v)&&v<0?pen(`Negative FCF → ${effPenalty(m)}×`):(dfCarry?qual('Debt/FCF carried over from this name’s standing on the factors it does report'):(!isNum(v)?na('Debt/FCF N/A → excluded'):''))),
       show=isNum(v)?(v<0?'NM':num(v,2)):(dfCarry?num(cy.dfcf,2):'—');
-      return `<td class="num"><span class="editable" data-edit="dfcf" data-sym="${s}" title="Click to type your own Total Debt / FCF">${show}</span>${tag}${rst('dfcf',isNum(f.dfcf)?(f.dfcf<0?'NM':num(f.dfcf,2)):'—')}</td>`; }
+      return `<td class="num"><span class="editable" data-edit="dfcf" data-sym="${esc(s)}" title="Click to type your own Total Debt / FCF">${show}</span>${tag}${rst('dfcf',isNum(f.dfcf)?(f.dfcf<0?'NM':num(f.dfcf,2)):'—')}</td>`; }
     if(m.key==='pe'){ const v=effPe(s), tag=isNum(o.pe)?OVR:(!(isNum(v)&&v>0)?pen(`No/negative earnings → ${effPenalty(m)}×`):(f.peCalc?calc('P/E computed from TTM statements: market cap ÷ net income'):''));
-      return `<td class="num"><span class="editable" data-edit="pe" data-sym="${s}" title="Click to type your own P/E">${num(v,1)}</span>${tag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>`; }
+      return `<td class="num"><span class="editable" data-edit="pe" data-sym="${esc(s)}" title="Click to type your own P/E">${num(v,1)}</span>${tag}${rst('pe',isNum(f.pe)?num(f.pe,1):'NM')}</td>`; }
     if(m.key==='mom'){ const v=momOf(s), cls=isNum(v)?(v>=0?'up':'down'):''; return `<td class="num ${cls}">${isNum(v)?signed(v*100,1)+'%':'—'}</td>`; }
-    const v=m.getter(s), edit=m.overridable?`<span class="editable" data-edit="${m.overrideKey}" data-sym="${s}" title="Click to type your own ${esc(m.label)}">${isNum(v)?fmtVal(m,v):'—'}</span>`:(isNum(v)?fmtVal(m,v):'—');   // generic catalog cell
+    const v=m.getter(s), edit=m.overridable?`<span class="editable" data-edit="${esc(m.overrideKey)}" data-sym="${esc(s)}" title="Click to type your own ${esc(m.label)}">${isNum(v)?fmtVal(m,v):'—'}</span>`:(isNum(v)?fmtVal(m,v):'—');   // generic catalog cell
     return `<td class="num">${edit}${m.overridable?rst(m.overrideKey,''):''}</td>`;
   };
   const footCell=(m,r)=>{
@@ -5421,7 +5421,7 @@ function renderFundamentals(){
     };
     const body=tickersOf(t.key).map(s=>{
       const f=state.fundamentals[s]||{}, o=state.overrides[s]||{}, cy=(A.carry&&A.carry[s])||{};
-      return `<tr><td class="sym" data-stock="${s}" title="Open ${s} detail (statements + metrics)">${s}<button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${esc(t.name)}" aria-label="Remove ${s} from ${esc(t.name)}">×</button></td>${wCell(s)}${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
+      return `<tr><td class="sym" data-stock="${esc(s)}" title="Open ${esc(s)} detail (statements + metrics)">${esc(s)}<button class="rmv-tkr" data-rmvtkr="${esc(s)}" data-theme="${esc(t.key)}" title="Remove ${esc(s)} from ${esc(t.name)}" aria-label="Remove ${esc(s)} from ${esc(t.name)}">×</button></td>${wCell(s)}${mcapOn?`<td class="num">${bil(effMcap(s))}</td>`:''}${cols.map(m=>bodyCell(m,s,f,o,cy)).join("")}</tr>`;
     }).join("");
     const srcTag = tickersOf(t.key).every(s=>(state.fundamentals[s]||{}).source==="live") ? '<span class="tag live">live</span>'
                  : (tickersOf(t.key).some(s=>(state.fundamentals[s]||{}).source==="live")?'':'<span class="tag seed">seed</span>');
@@ -5854,7 +5854,7 @@ function holdingsTable(){
     const inner=tickersOf(t.key).map(s=>{
       const sh=h[s]?h[s].shares:0, p=price(s), v=cv[s], cb=h[s]?h[s].costBasis:0;
       const gl=v-cb;
-      return `<tr><td class="sym">${s} <button class="rmv-tkr" data-rmvtkr="${s}" data-theme="${t.key}" title="Remove ${s} from ${esc(t.name)}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
+      return `<tr><td class="sym">${esc(s)} <button class="rmv-tkr" data-rmvtkr="${esc(s)}" data-theme="${esc(t.key)}" title="Remove ${esc(s)} from ${esc(t.name)}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
         <td class="num">${money(v,0)}</td><td class="num">${total>0?pct(v/total):"—"}</td>
         <td class="num ${gl>=0?'up':'down'}">${signed(gl,0).replace(/^([+-])/,'$1$')}</td></tr>`;}).join("");
     return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${esc(t.name)}</b></td>
