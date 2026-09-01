@@ -3339,9 +3339,39 @@ async function dsPeers(sym){
   try{ const r=await api("/api/peers?symbol="+encodeURIComponent(sym)); return r.peers||[]; }catch(e){ return []; }
 }
 
-async function loadQuotes(){ const d=await dsQuotes(tradeUniverse()); state.quotes=Object.assign({}, state.quotes, d.quotes); state.asOf=d.asOf; }
-async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.pulled=Object.assign({}, state.pulled, f); rebuildFundamentals(); }   // E3: pulled base, then overlay computed
-async function loadStatements(syms,force){ const list=syms||membership(); if(!list.length) return {}; const s=await dsStatements(list,force); state.statements=Object.assign({}, state.statements, s); rebuildFundamentals(); return s; }   // E3
+/* ===== THE FEED TRUST BOUNDARY ==============================================================
+   Everything a data feed returns passes through here. Yahoo is an unauthenticated third party and
+   the proxy only relays it, so the SHAPE of a response is not ours to trust - only its origin is.
+
+   Object.assign was the wrong tool for this in three specific ways, each found by fuzzing the
+   loaders (tests/fuzzingest.spec.js), not by reading the code:
+
+     - over undefined or null it THROWS, which kills the 60-second refresh loop;
+     - over a STRING it spreads the characters into "0","1","2"... keys, inventing symbols that
+       never existed;
+     - over an object carrying "__proto__" it invokes a SETTER rather than creating a property, and
+       replaces the TARGET's prototype. After that, state.quotes["ANYTHING"] can return an object
+       the feed supplied - a price for a symbol nobody holds. That is a wrong number, silently.
+
+   So: copy only own, non-index, non-prototype keys whose value is a plain object. Anything else is
+   dropped rather than guessed at, because a dropped quote shows as "-" and a guessed one does not. */
+function mergeFeed(base, incoming){
+  const out = Object.assign({}, base || {});
+  if(!incoming || typeof incoming!=="object" || Array.isArray(incoming)) return out;
+  for(const k of Object.keys(incoming)){
+    if(k==="__proto__" || k==="constructor" || k==="prototype") continue;
+    if(/^\d+$/.test(k)) continue;
+    const v = incoming[k];
+    if(!v || typeof v!=="object" || Array.isArray(v)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+async function loadQuotes(){ const d=(await dsQuotes(tradeUniverse()))||{};
+  state.quotes=mergeFeed(state.quotes, d.quotes); if(d.asOf) state.asOf=d.asOf; }
+async function loadFundamentals(force){ const f=await dsFundamentals(membership(),force); state.pulled=mergeFeed(state.pulled, f); rebuildFundamentals(); }   // E3: pulled base, then overlay computed
+async function loadStatements(syms,force){ const list=syms||membership(); if(!list.length) return {}; const s=await dsStatements(list,force); state.statements=mergeFeed(state.statements, s); rebuildFundamentals(); return s; }   // E3
 
 /* ======================================================================
    E3.2 — Computed-metric engine. Assemble TTM from the loaded statements (sum the
@@ -3484,9 +3514,9 @@ async function openStockDetail(sym){
   const _x=$("#sdClose"); if(_x) _x.focus();
   // Screener/search names aren't preloaded -> fetch quote + PULLED fundamentals + statements on demand, then rebuild
   const jobs=[];
-  if(!state.quotes[sym]) jobs.push(dsQuotes([sym]).then(d=>{ if(d&&d.quotes) state.quotes=Object.assign({},state.quotes,d.quotes); }).catch(()=>{}));
-  if(!state.pulled[sym]) jobs.push(dsFundamentals([sym],false).then(f=>{ if(f) state.pulled=Object.assign({},state.pulled,f); }).catch(()=>{}));
-  if(!state.statements[sym]) jobs.push(dsStatements([sym]).then(s=>{ if(s) state.statements=Object.assign({},state.statements,s); }).catch(()=>{}));
+  if(!state.quotes[sym]) jobs.push(dsQuotes([sym]).then(d=>{ state.quotes=mergeFeed(state.quotes, d&&d.quotes); }).catch(()=>{}));
+  if(!state.pulled[sym]) jobs.push(dsFundamentals([sym],false).then(f=>{ state.pulled=mergeFeed(state.pulled, f); }).catch(()=>{}));
+  if(!state.statements[sym]) jobs.push(dsStatements([sym]).then(s=>{ state.statements=mergeFeed(state.statements, s); }).catch(()=>{}));
   if(jobs.length){ await Promise.all(jobs); rebuildFundamentals(); }
   const modal=$("#sdModal"); if(!modal || modal.dataset.sdSym!==sym) return;   // a newer detail opened while we awaited -> don't clobber it
   renderStockDetail(sym);
@@ -6144,9 +6174,9 @@ function wireResearchSearch(){
         /* dsQuotes returns {quotes, asOf} - NOT the map itself. Treating the envelope as the map
            writes state.quotes.quotes and state.quotes.asOf and leaves every price blank. Every
            other caller in this file reads d.quotes; this one has to as well. */
-        const got=(await dsQuotes(need)||{}).quotes||{};
+        const got=((await dsQuotes(need))||{}).quotes;
         if(seq!==_rsSeq) return;
-        Object.keys(got).forEach(sym=>{ state.quotes[sym]=Object.assign(state.quotes[sym]||{},got[sym]); });
+        state.quotes=mergeFeed(state.quotes, got);
         res.innerHTML='<div class="rs3-rhead"><span>Result</span><span>Listing</span><span class="num">Last</span>'+
           '<span class="num">Today</span><span></span><span></span></div>'+list.map(rowHTML).join("");
       }catch(e){}
@@ -6482,7 +6512,7 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
   if(incoming.length){
     const unknown=incoming.filter(s=>quoteTypeOf(s)===null);
     if(unknown.length){
-      try{ const d=await dsQuotes(unknown); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
+      try{ const d=await dsQuotes(unknown); state.quotes=mergeFeed(state.quotes, d&&d.quotes); }catch(e){}
     }
     const blocked=incoming.filter(s=>!isEquity(s));
     if(blocked.length){ toast(notEquityNote(blocked[0])); return; }
@@ -6496,8 +6526,8 @@ async function setMembership(themeKey, newArr, fetchSyms, doneMsg){
   closeModal();
   if(fetchSyms&&fetchSyms.length){
     toast("Fetching "+fetchSyms.join(", ")+"…");
-    try{ const d=await dsQuotes(fetchSyms); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
-    try{ const f=await dsFundamentals(fetchSyms,false); state.pulled=Object.assign({},state.pulled,f); }catch(e){}   // E3: pulled base (rebuildFundamentals derives state.fundamentals from it)
+    try{ const d=await dsQuotes(fetchSyms); state.quotes=mergeFeed(state.quotes, d&&d.quotes); }catch(e){}
+    try{ const f=await dsFundamentals(fetchSyms,false); state.pulled=mergeFeed(state.pulled, f); }catch(e){}   // E3: pulled base (rebuildFundamentals derives state.fundamentals from it)
     try{ await loadStatements(fetchSyms); }catch(e){}   // E3: load statements so the new names join the computed overlay
     rebuildFundamentals();
   }
@@ -6703,8 +6733,8 @@ async function addToWatchlist(sym, theme){
   state.watchlist.push({sym, theme: theme||null});
   closeModal();
   toast("Fetching "+sym+"…");
-  try{ const d=await dsQuotes([sym]); state.quotes=Object.assign({},state.quotes,d.quotes); }catch(e){}
-  try{ const f=await dsFundamentals([sym],false); state.pulled=Object.assign({},state.pulled,f); }catch(e){}   // E3: pulled base, not the derived state.fundamentals
+  try{ const d=await dsQuotes([sym]); state.quotes=mergeFeed(state.quotes, d&&d.quotes); }catch(e){}
+  try{ const f=await dsFundamentals([sym],false); state.pulled=mergeFeed(state.pulled, f); }catch(e){}   // E3: pulled base, not the derived state.fundamentals
   try{ await loadStatements([sym]); }catch(e){}   // E3: statements so a watchlisted name can be computed too
   rebuildFundamentals();
   await savePortfolio();

@@ -32,6 +32,45 @@ Two supporting facts, both established 2026-08-31:
 
 ---
 
+## 0b. The owner's three objectives (2026-09-01)
+
+He reframed this epic into three workstreams. They are broader than the security-only shape it was
+opened with, and the shape is better: two of the three were missing.
+
+**W1 — dead and stale code.** Find code that is completely not needed any more, remove it, and prove
+CI is still green. *Started 2026-09-01: 7 dead declarations removed, and a control that rendered
+and did nothing (`#ovAllHistory`) found and fixed. See `E13.12`, `E13.13`.*
+
+**W2 — scan for critical security issues and fix them.** The original eleven tickets, now with two
+decisions taken (§0c).
+
+**W3 — pressure-test robustness** from five standpoints: the **user story**, **core functions**,
+**core calculation methods**, **data quality**, and **cybersecurity**. Scan for potential issues and
+fix them. *The engine already has strong invariant coverage — allocation sums to 1, bounds respected,
+cash conserved exactly, no zero-sum fallback. The gap is adversarial input to those same functions:
+`NaN`, `null` prices, wrong types, 5,000 tickers. That is where a number gets mis-stated silently,
+which is worse than a crash because the user acts on it.* See `E13.14`–`E13.16`.
+
+## 0c. Decisions taken
+
+**CSP (`E13.1`) — split approach.** The owner delegated the call with four constraints: must keep
+working, lose no capability, stay fast, stay free. Chosen: **extract the 373 KB app block to
+`www/app.js`, and fingerprint the three small pre-paint blocks in the CSP.**
+*Why not pure hashing:* a hash on the block that changes every edit turns a stale hash into a
+**blank app**, which violates "must keep working" outright. *Why not pure extraction:* the three
+small blocks (Turnstile callback, native check, gate-visible fix) exist to run **before first
+paint** — the gate-visible one is what stops the sign-in screen flashing — and putting network
+round-trips in front of that is a real regression. The split has no staleness on the volatile part
+and no extra requests before paint, and is *faster* on repeat visits: `index.html` drops to ~120 KB
+and `app.js` caches separately. The app already loads `data/universe.js` externally, so this is not
+a new pattern.
+
+**`/api` (`E13.4`) — require sign-in plus a rate limit.** Confirmed with the owner that this costs
+the *user* nothing: the browser already holds the Supabase session and the app already sends it on
+portfolio calls. **It costs him one action:** the Supabase JWT secret must be set as a Cloudflare
+environment variable so the Worker can verify a token's signature. Without it the Worker could only
+check that a token *looks* right, which anyone can forge.
+
 ## 1. Scope
 
 **In scope**
