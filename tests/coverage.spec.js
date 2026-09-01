@@ -19,7 +19,7 @@ test("Overview — rows 1 to 13", async ({ page }) => {
   const need = {
     "1 hero value": "#ovValue", "1 hero slots": "#ovSub",
     "2 value chart": "#ovChart", "4 scrub marker": "#ovScrubRule",
-    "5 equal-weight toggle": "#ovEwToggle", "6 return $/% toggle": "#retPct",
+    "5 equal-weight toggle": "#ovEwToggle", "6 benchmark range chip": '[data-range="6M"]',
     "7 allocation bar": "#ovAlloc", "7 drift legend": "#ovAllocLegend",
     "9 holdings row": ".ov3-hrow[data-thmtoggle]", "11 live prices block": "#ovLiveToggle",
     "12 refresh interval": "#refreshSel", "12 manual refresh": "#refreshBtn",

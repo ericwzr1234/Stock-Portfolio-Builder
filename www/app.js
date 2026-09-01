@@ -2264,7 +2264,8 @@ async function checkSplits(){
       .filter(s=>{ const h=state.portfolio.holdings[s]; return h&&isNum(h.shares)&&h.shares>0; });
     if(!held.length) return;
     const hist=await dsHistory(held,"max");
-    state.history=Object.assign({}, state.history||{}, hist);   // E14 reuses the same fetch
+    state.history=state.history||{};
+    state.history.max=hist;                    // E14 reads the same fetch for its long ranges
     const touched=reconcileSplits(hist);
     if(!touched.length) return;
     await savePortfolio();
@@ -2367,19 +2368,13 @@ function ovSegApply(){
     b.classList.toggle('on',on); b.setAttribute('aria-selected',String(on));
   });
 }
+/* E14 dropped the %/$ switch - this chart is absolute dollars only, because the two strategies
+   share no comparable percentage basis. The phone's segmented control therefore has two positions
+   rather than three: the value chart, or the benchmark. */
 function ovSegSet(v){
-  if(v!=='value'&&v!=='pct'&&v!=='dol') return;
+  if(v!=='value'&&v!=='ret') return;
   _ovSeg=v; ovSegApply();
-  /* setReturnUnit redraws the return chart AND keeps the hidden %/$ switch in step, so the two
-     controls can never disagree about which unit is showing. */
-  if(v!=='value') setReturnUnit(v==='dol'?'dol':'pct');
-}
-function setReturnUnit(u){
-  RET_UNIT=(u==="dol")?"dol":"pct";
-  const pc=$("#retPct"), dl=$("#retDol");
-  if(pc){ pc.classList.toggle("on",RET_UNIT==="pct"); pc.setAttribute("aria-pressed",String(RET_UNIT==="pct")); }
-  if(dl){ dl.classList.toggle("on",RET_UNIT==="dol"); dl.setAttribute("aria-pressed",String(RET_UNIT==="dol")); }
-  try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
+  if(v==='ret') refreshBenchmark();
 }
 /* ===== E6.4 - account UI ==============================================================
    Deliberately additive: signed out, the app behaves exactly as before and keeps using
@@ -2952,7 +2947,7 @@ function ovIntraday(){
   return [{ label:"OPEN", value:open, invested:inv, type:"" }].concat(OV_TICKS);
 }
 
-const OV_RANGE_DAYS={"1D":1,"1W":7,"1M":31,"3M":93,"1Y":366,"ALL":null};
+const OV_RANGE_DAYS={"1D":1,"1W":7,"1M":31,"3M":93,"6M":184,"1Y":366,"5Y":1827,"ALL":null};
 
 function ovSeries(){
   if(OV_RANGE==="1D") return ovIntraday();
@@ -3140,6 +3135,11 @@ function wireOvRange(){
     OV_RANGE=b.dataset.range;
     [].forEach.call(r.querySelectorAll("button"), function(x){ x.classList.toggle("on", x===b); });
     renderPrices();
+    /* E14 - the benchmark honours the chips too. It used to be handed the WHOLE history while the
+       value chart directly above it obeyed the range, so the two charts on one screen covered
+       different periods with nothing saying so. A new range may need a different series, hence the
+       fetch rather than a redraw. */
+    refreshBenchmark();
   });
 }
 
@@ -3166,7 +3166,7 @@ function renderOverview(){
     /* Render the return chart HERE too. This early return used to skip it entirely, so on a
        brand-new account it kept its full CSS height with nothing drawn in it - a tall empty card
        on the first screen anyone sees. Its own empty branch collapses it. */
-    try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
+    refreshBenchmark();
     renderAllocationBar(); return;
   }
   svg.classList.remove("is-empty");
@@ -3273,13 +3273,13 @@ function renderOverview(){
     heroDefault();
   };
   wireScrub(svg, svg.onmousemove, svg.onmouseleave);
-  try{ renderReturnChart(valueHistory()); }catch(e){ console.error("return chart",e); }
+  refreshBenchmark();
   renderAllocationBar();
 }
 /* E5.6: return vs invested — our strategy against the equal-weight counterfactual.
    Toggle shows either % of invested capital or absolute dollars. Both series use identical
    cash flows on identical dates, so they are directly comparable. */
-let RET_UNIT="pct";
+
 /* APP2.11 - the charts were mouse-only (onmousemove / onmouseleave), and the scrub is the ONLY
    way to read any checkpoint but the last. On a phone that made every earlier checkpoint
    unreachable. These wire the same handlers to pointer events.
@@ -3303,51 +3303,219 @@ function clearScrub(svg){
   svg.onpointerdown=svg.onpointermove=svg.onpointerup=svg.onpointercancel=null;
 }
 
-function renderReturnChart(H){
-  const svg=$("#ovRetChart"), leg=$("#ovRetLegend"), head=$("#ovRetHead"); if(!svg) return;
-  const pts=(H||[]).filter(p=>isNum(p.invested)&&p.invested>0);
-  const val=(p,k)=>{ const v=p[k]; if(!isNum(v)) return null;
-    return RET_UNIT==="pct" ? (v-p.invested)/p.invested*100 : (v-p.invested); };
-  if(pts.length<2){ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);
-    svg.classList.add("is-empty");
-    if(leg)leg.innerHTML=""; if(head)head.textContent="Needs at least two checkpoints."; return; }
+/* ===== E14 - the equal-weight benchmark =======================================================
+ *
+ * THE QUESTION THIS CHART ANSWERS. Not "what did I earn" - the value chart above already says
+ * that. It asks: had the user simply split their money equally across the very same names they
+ * picked, what would they have earned, against what the optimiser actually earned them? Same
+ * names, same capital, same dates; only the WEIGHTING differs, so the gap between the two lines
+ * is the value the model added, isolated from stock selection and from cash-flow timing.
+ *
+ * THE METHOD, per the owner, 2026-09-01. At every rebalancing checkpoint the equal-weight basket
+ * is thrown away and rebuilt: the capital at that checkpoint is split equally across the names
+ * held then, at that checkpoint's prices. Its return is measured over that segment ALONE, and the
+ * line is the running SUM of those per-segment returns.
+ *
+ * It is deliberately NON-COMPOUNDING. Each segment restarts from the same capital base as the real
+ * book, so neither side can compound a lucky early segment into a bigger base for the next one.
+ * Every segment is an independent head-to-head and the sum is the total edge from weighting alone.
+ * This is NOT "what if I had equal-weighted on day one and held" - a different and much less
+ * useful chart, which is why the legend says which one this is.
+ *
+ * ABSOLUTE DOLLARS, NEVER PERCENT. The two strategies share no comparable percentage basis, so a
+ * percentage would invite a comparison that does not mean anything. The old %/$ switch is gone.
+ *
+ * WHY THE TWO SUMS ARE COMPARABLE AT ALL. Sum(segment returns) = final value - total
+ * contributions, exactly: cash injections cancel because each segment starts AFTER its own cash is
+ * added. So both lines are the same kind of number - a sum of segment dollar P&L - and the real
+ * book's line also happens to equal its lifetime P&L. benchmark.spec.js asserts that identity.
+ *
+ * WHAT THIS REPLACES. The old series carried ONE continuously-compounding equal-weight book whose
+ * value at each checkpoint depended on every segment before it, and it priced that book only from
+ * trades recorded AT each checkpoint. A rebalance trades deltas, so a name whose weight did not
+ * change generated no trade, kept a stale price and earned exactly zero forever - which is why the
+ * line sat pinned to the zero axis across all of history. Marking against a real price series
+ * removes that whole class of failure rather than patching it.
+ */
+
+/* Chip -> the Worker's history key. 1W is a slice of the one-month daily series and 3M/6M/1Y/5Y
+   are slices of the five-year weekly one, so eight chips need four fetches. */
+const HISTORY_KEY={ "1D":"1d","1W":"1mo","1M":"1mo","3M":"5y","6M":"5y","1Y":"5y","5Y":"5y","ALL":"max" };
+
+/* The last close at or before t. Binary search: this runs once per symbol per bar per segment. */
+function closeAt(d,t){
+  if(!d||!d.t||!d.t.length||d.t[0]>t) return null;
+  let lo=0,hi=d.t.length-1;
+  while(lo<hi){ const m=(lo+hi+1)>>1; if(d.t[m]<=t) lo=m; else hi=m-1; }
+  return isNum(d.c[lo])?d.c[lo]:null;
+}
+
+/* E15 again, but inside the walk. A basket established at t0 and marked at t must own the shares a
+   split handed it in between, because the close series is RAW - it shows the price actually traded,
+   which halves on a 2:1. Without this a split reads as a crash the holder never suffered. */
+function splitMul(d,t0,t){
+  let f=1;
+  ((d&&d.splits)||[]).forEach(sp=>{
+    if(isNum(sp.date)&&isNum(sp.num)&&isNum(sp.den)&&sp.num>0&&sp.den>0&&sp.date>t0&&sp.date<=t) f*=sp.num/sp.den;
+  });
+  return f;
+}
+
+/* Every name the book has EVER held, not just today's: a segment in the past must be priced with
+   the names that were in it then. */
+function benchmarkSymbols(){
+  const out=new Set();
+  Object.keys((state.portfolio&&state.portfolio.holdings)||{}).forEach(s=>out.add(s));
+  (versions()||[]).forEach(v=>Object.keys((v.snapshot&&v.snapshot.holdings)||{}).forEach(s=>out.add(s)));
+  return Array.from(out);
+}
+
+/* The full series since inception, in absolute dollars. `hist` is symbol -> {t, c, splits}. Pure
+   apart from reading the book and live quotes, so the tests drive it directly. */
+function benchmarkSeries(hist, nowS){
+  if(!hist) return [];
+  const vs=(versions()||[]).slice(0, (typeof head==="function"?head():-1)+1);
+  if(!vs.length) return [];
+  const now=isNum(nowS)?nowS:Math.floor(Date.now()/1000);
+
+  const tset=new Set();
+  Object.keys(hist).forEach(s=>((hist[s]&&hist[s].t)||[]).forEach(t=>{ if(t<=now) tset.add(t); }));
+  tset.add(now);
+  const times=Array.from(tset).sort((a,b)=>a-b);
+
+  const out=[];
+  let carryReal=0, carryEw=0;
+  vs.forEach((v,k)=>{
+    const d0=Math.floor(Date.parse(v.date)/1000);
+    if(!isFinite(d0)) return;
+    const nxt=vs[k+1];
+    const d1=nxt?Math.floor(Date.parse(nxt.date)/1000):Infinity;
+    const h=(v.snapshot&&v.snapshot.holdings)||{};
+    /* A name with no price at the checkpoint cannot start a segment, and including it would make
+       the equal slice wrong for every other name in the basket too. */
+    const names=Object.keys(h).filter(s=>{
+      const sh=h[s]&&h[s].shares;
+      return isNum(sh)&&sh>0&&closeAt(hist[s],d0)!=null;
+    });
+    if(!names.length) return;
+
+    /* The shared base: what the REAL book was worth at this checkpoint. Both strategies begin the
+       segment from it, which is the whole reason their segment returns can be compared. */
+    let capital=0;
+    names.forEach(s=>{ capital+=h[s].shares*closeAt(hist[s],d0); });
+    if(!(capital>0)) return;
+
+    const slice=capital/names.length, ewSh={}, reSh={};
+    names.forEach(s=>{ ewSh[s]=slice/closeAt(hist[s],d0); reSh[s]=h[s].shares; });
+
+    /* Mark this segment's basket at t. The last point of the OPEN segment uses the live quote, so
+       this chart cannot disagree with the value the rest of the app shows for the same instant. */
+    const markAt=(t)=>{
+      let rv=0, ev=0;
+      for(const s of names){
+        const p=(t===now&&isNum(price(s)))?price(s):closeAt(hist[s],t);
+        if(p==null) return null;
+        const f=splitMul(hist[s],d0,t);
+        rv+=reSh[s]*f*p; ev+=ewSh[s]*f*p;
+      }
+      return { rv:rv, ev:ev };
+    };
+
+    /* Points are emitted up to but NOT INCLUDING the next checkpoint's date, because that instant
+       belongs to the next segment - it is where the basket is rebuilt. */
+    const seg=times.filter(t=>t>=d0&&t<d1);
+    if(!nxt&&seg[seg.length-1]!==now) seg.push(now);
+    seg.forEach(t=>{
+      const m=markAt(t);
+      if(m) out.push({ t:t, real:carryReal+(m.rv-capital), ew:carryEw+(m.ev-capital) });
+    });
+
+    /* THE SHARED BOUNDARY. The segment CLOSES at the next checkpoint's own price - the price the
+       rebalance actually executed at - and the next segment opens from the same instant. Closing
+       at the last bar BEFORE it instead would drop the move in between: overnight, or across a
+       weekend, or across however long separates the two. That gap belongs to somebody, and losing
+       it silently breaks the identity that makes the two lines comparable at all. */
+    const close=markAt(nxt?d1:seg[seg.length-1]);
+    if(close){ carryReal+=close.rv-capital; carryEw+=close.ev-capital; }
+  });
+  return out;
+}
+
+/* The slice the chips ask for. Both lines are re-based to zero at the window's first point: inside
+   a window the question is what THAT window contributed, and a line opening at some inherited
+   figure would read as if the period had earned it. */
+function benchmarkWindow(chip, hist, nowS){
+  const all=benchmarkSeries(hist, nowS);
+  if(all.length<2) return [];
+  const days=OV_RANGE_DAYS[chip];
+  const now=isNum(nowS)?nowS:Math.floor(Date.now()/1000);
+  let pts=days?all.filter(p=>p.t>=now-days*86400):all;
+  if(pts.length<2) pts=all.slice(-2);
+  const b=pts[0];
+  return pts.map(p=>({ t:p.t, real:p.real-b.real, ew:p.ew-b.ew }));
+}
+
+let _histPending={};
+/* One fetch per range key, cached on state.history. Never throws: no series means the chart says
+   so, and nothing else in the app is affected. */
+async function ensureHistory(chip){
+  const key=HISTORY_KEY[chip]||"max";
+  state.history=state.history||{};
+  if(state.history[key]) return state.history[key];
+  if(_histPending[key]) return _histPending[key];
+  const syms=benchmarkSymbols();
+  if(!syms.length) return null;
+  _histPending[key]=dsHistory(syms,key)
+    .then(h=>{ state.history[key]=h||{}; delete _histPending[key]; return state.history[key]; })
+    .catch(e=>{ console.error("history",e); delete _histPending[key]; return null; });
+  return _histPending[key];
+}
+
+/* Fetch if needed, then draw. The chip handler and the refresh path both call this. */
+async function refreshBenchmark(){
+  try{ await ensureHistory(OV_RANGE); }catch(e){}
+  try{ renderReturnChart(); }catch(e){ console.error("return chart",e); }
+}
+
+function renderReturnChart(){
+  const svg=$("#ovRetChart"), leg=$("#ovRetLegend"), hd=$("#ovRetHead"); if(!svg) return;
+  const hist=(state.history||{})[HISTORY_KEY[OV_RANGE]||"max"];
+  const pts=hist?benchmarkWindow(OV_RANGE,hist):[];
+  const say=(m)=>{ svg.innerHTML=""; svg.onmousemove=null; svg.onmouseleave=null; clearScrub(svg);
+    svg.classList.add("is-empty"); if(leg)leg.innerHTML=""; if(hd)hd.textContent=m; };
+  if(!hist){ say("Loading price history…"); return; }
+  if(pts.length<2){ say("Not enough price history for this range."); return; }
   svg.classList.remove("is-empty");
+
   const W=Math.max(240,Math.round(svg.clientWidth||520)), Ht=Math.max(70,Math.round(svg.clientHeight||96));
   const PB=Math.max(8,Math.round(Ht*0.12)), PT=Math.max(5,Math.round(Ht*0.08));
   svg.setAttribute("viewBox",`0 0 ${W} ${Ht}`);
-  const series=["value","ew"];
-  const all=pts.flatMap(p=>series.map(k=>val(p,k))).filter(isNum);
+  const all=pts.flatMap(p=>[p.real,p.ew]).filter(isNum);
   let lo=Math.min(0,...all), hi=Math.max(0,...all);
-  if(hi<=lo){ hi=lo+1; }
+  if(hi<=lo) hi=lo+1;
   const pad=(hi-lo)*0.15||1; lo-=pad; hi+=pad;
   const X=i=>pts.length<2?4:(i/(pts.length-1))*(W-8)+4;
   const Y=v=>Ht-PB-((v-lo)/(hi-lo))*(Ht-PB-PT);
-  const path=k=>{ let d="",pen=false;
-    pts.forEach((p,i)=>{ const v=val(p,k); if(!isNum(v)){ pen=false; return; }
-      d+=(pen?"L":"M")+X(i).toFixed(1)+","+Y(v).toFixed(1)+" "; pen=true; });
-    return d.trim(); };
+  const path=k=>pts.map((p,i)=>(i?"L":"M")+X(i).toFixed(1)+","+Y(p[k]).toFixed(1)).join(" ");
   const zeroY=Y(0);
   svg.innerHTML=
     `<line class="zero" x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke-width="1" stroke-dasharray="3 3"/>`+
-    (path("ew")?`<path d="${path("ew")}" fill="none" stroke="var(--portfolio-2)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"/>`:"")+
-    (path("value")?`<path d="${path("value")}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`:"")+
+    /* Wider and long-dashed. Pinned to the axis, the old 2px dash was indistinguishable from the
+       zero gridline, which is itself dashed - so the line looked absent rather than flat. */
+    `<path d="${path("ew")}" fill="none" stroke="var(--portfolio-2)" stroke-width="2.4" stroke-dasharray="8 5" stroke-linejoin="round"/>`+
+    `<path d="${path("real")}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`+
     `<rect x="0" y="0" width="${W}" height="${Ht}" fill="transparent"/>`;
   if(leg) leg.innerHTML=
-    `<span><i style="border-top:2.4px solid var(--accent)"></i>Our strategy</span>`+
-    `<span><i style="border-top:2px dashed var(--portfolio-2)"></i>Equal weight</span>`;
-  const fmt=v=>!isNum(v)?"—":(RET_UNIT==="pct"?signed(v,2)+"%":(v>=0?"+":"−")+money(Math.abs(v),0));
-  const last=pts[pts.length-1], a=val(last,"value"), e=val(last,"ew");
-  const setHead=(p)=>{ if(!head) return;
-    const av=val(p,"value"), ev=val(p,"ew"), d=(isNum(av)&&isNum(ev))?av-ev:null;
-    head.innerHTML=`<b class="${isNum(av)&&av>=0?'up':'down'}">${fmt(av)}</b> vs equal weight ${fmt(ev)}`+
-      (d!=null?` · <span class="${d>=0?'up':'down'}">${d>=0?"ahead":"behind"} by ${RET_UNIT==="pct"?Math.abs(d).toFixed(2)+"pp":money(Math.abs(d),0)}</span>`:"")+
-      /* Same re-anchoring as the value chart: once history has been trimmed the equal-weight figure
-         covers the kept window, not the whole life of the book, and must not read as the latter.
-         The value chart discloses it; printing the number here without the same note was the fix
-         landing in one place and not the other. */
-      (timelineTrimmed()?`<span class="muted"> · equal weight over the kept checkpoints</span>`:"")+
-      `<span class="muted"> · ${p.live?"today":esc(p.label)}</span>`; };
-  setHead(last);
+    `<span><i style="border-top:2.4px solid var(--accent)"></i>Our weighting</span>`+
+    `<span><i style="border-top:2.4px dashed var(--portfolio-2)"></i>Equal weight, rebuilt at each rebalance</span>`;
+
+  const fmt=v=>!isNum(v)?"—":(v>=0?"+":"−")+money(Math.abs(v),0);
+  const setHead=(p)=>{ if(!hd) return;
+    const d=(isNum(p.real)&&isNum(p.ew))?p.real-p.ew:null;
+    hd.innerHTML=`<b class="${p.real>=0?'up':'down'}">${fmt(p.real)}</b> vs equal weight ${fmt(p.ew)}`+
+      (d!=null?` · <span class="${d>=0?'up':'down'}">${d>=0?"ahead":"behind"} by ${money(Math.abs(d),0)}</span>`:"")+
+      `<span class="muted"> · ${OV_RANGE==="ALL"?"since inception":"over "+esc(OV_RANGE)}</span>`; };
+  setHead(pts[pts.length-1]);
   svg.onmousemove=ev2=>{
     const r=svg.getBoundingClientRect(); if(!r.width) return;
     let ux=null;
@@ -3355,13 +3523,11 @@ function renderReturnChart(H){
       const m=svg.getScreenCTM(); if(m) ux=pt.matrixTransform(m.inverse()).x; }catch(err){}
     let i=(ux!=null&&W>8)?Math.round(((ux-4)/(W-8))*(pts.length-1))
                          :Math.round(((ev2.clientX-r.left)/r.width)*(pts.length-1));
-    i=Math.max(0,Math.min(pts.length-1,i));
-    setHead(pts[i]);
+    setHead(pts[Math.max(0,Math.min(pts.length-1,i))]);
   };
-  svg.onmouseleave=()=>setHead(last);
-  wireScrub(svg, svg.onmousemove, ()=>setHead(last));
+  svg.onmouseleave=()=>setHead(pts[pts.length-1]);
+  wireScrub(svg, svg.onmousemove, ()=>setHead(pts[pts.length-1]));
 }
-
 function renderPrices(){
   const cvt=curValueByTheme(), total=curTotal(), init=isInit();
   ovTick();                       // seed the session view; ovTick collapses repeats within a minute
@@ -5569,8 +5735,6 @@ function setupEvents(){
   if(_st) _st.addEventListener("click",e=>{ const b=e.target.closest("button[data-sub]"); if(b)switchView(b.dataset.sub); });
   if($("#acctBtn")) $("#acctBtn").addEventListener("click",openAccount);
   if($("#tourBtn")) $("#tourBtn").addEventListener("click",()=>coachStart(curView,true));   // replay, any time
-  if($("#retPct")) $("#retPct").addEventListener("click",()=>setReturnUnit("pct"));
-  if($("#retDol")) $("#retDol").addEventListener("click",()=>setReturnUnit("dol"));
   $$('.ovseg button[data-ovseg]').forEach(b=>b.addEventListener("click",()=>ovSegSet(b.dataset.ovseg)));  // APP2.6
   if($("#tLight")) $("#tLight").addEventListener("click",()=>setTheme("light",true));
   if($("#tDark"))  $("#tDark").addEventListener("click",()=>setTheme("dark",true));

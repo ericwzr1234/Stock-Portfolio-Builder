@@ -50,7 +50,11 @@ test("nothing throws on any screen of a populated account", async ({ page }) => 
     await page.evaluate((x) => document.querySelector(`#ovRange button[data-range="${x}"]`).click(), r);
   }
   await page.evaluate(() => { themes().forEach(t => toggleTheme(t.key)); toggleLive(); });
-  await page.evaluate(() => { document.querySelector("#retDol").click(); document.querySelector("#retPct").click(); });
+  /* E14 removed the %/$ switch - this chart is absolute dollars only. Exercise the range chips
+     instead, which is the control that now changes what the benchmark draws. */
+  await page.evaluate(() => { document.querySelector('[data-range="1M"]').click(); });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { document.querySelector('[data-range="ALL"]').click(); });
   await page.evaluate(() => { const b = document.querySelector("#ovEwToggle"); if (b) b.click(); });
 
   // the chart scrub, which threw on every mousemove for one commit
