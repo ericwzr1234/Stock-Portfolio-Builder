@@ -197,3 +197,36 @@ test("a name added from Research reaches the book through a normal rebalance", a
   expect(end.invested).toBe(20000);                    // a realign adds no money
   expect(Math.abs(end.total - 20000)).toBeLessThan(1); // and loses none
 });
+
+/* The CI flake of 2026-09-01, made deterministic.
+ *
+ * journey.spec.js:105 failed on a CI runner with invested 80,000 where the test had typed 50,000.
+ * It was not a slow-machine artifact: renderCalcInit() rewrote #calcUninit wholesale and the input
+ * carried a hardcoded value="80000", so ANY renderAll() between typing and clicking Build restored
+ * the default. On CI a background render lands mid-test; for a real user a live quote refresh lands
+ * mid-typing and they buy 80,000 of stock having asked for 50,000.
+ *
+ * The race is removed rather than waited out: the figure now lives in state, so the test forces the
+ * re-render explicitly instead of hoping one does or does not occur.
+ */
+test("a typed starting capital survives a re-render, and is what actually gets spent", async ({ page }) => {
+  await freshAccount(page);
+  await page.evaluate(() => switchView("fundamentals"));
+  await createPortfolio(page, "AI");
+  const key = await page.evaluate(() => themes()[0].key);
+  await addTicker(page, key, "NVDA");
+
+  await page.evaluate(() => switchView("calc"));
+  await page.waitForSelector("#initCapital");
+  await page.fill("#initCapital", "50000");
+
+  // The preview must follow the typed figure — it was hardcoded to $80,000 and never moved.
+  await expect(page.locator("#calcInitPreview")).toContainText("50,000");
+
+  await page.evaluate(() => renderAll());        // exactly what a live quote refresh does
+  expect(await page.inputValue("#initCapital")).toBe("50000");
+
+  await page.click("#buildBtn");
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => Math.round(totalContributed()))).toBe(50000);
+});

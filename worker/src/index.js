@@ -261,6 +261,88 @@ async function statements(syms) {
   return out;
 }
 
+/* ---------------------------------------------------------------- history */
+
+/* One upstream shape per chip group. The client sends a KEY from this table, never a raw
+   range/interval pair. That is deliberate: this endpoint interpolates the symbol into a URL PATH,
+   so everything that reaches Yahoo is chosen HERE rather than forwarded from the query string.
+   1W is a slice of the 1mo daily series and 3M/6M/1Y are slices of the 5y weekly one - the slicing
+   is the client's job, so four upstream shapes cover eight chips. */
+const HISTORY_SHAPE = {
+  "1d":  { range: "1d",  interval: "5m"  },   // intraday bars, for the 1D chip
+  "1mo": { range: "1mo", interval: "1d"  },   // daily closes, for 1W and 1M
+  "5y":  { range: "5y",  interval: "1wk" },   // weekly closes, for 3M through 5Y
+  "max": { range: "max", interval: "1wk" },
+};
+
+/* A Yahoo symbol is letters, digits and a little punctuation: BRK-B, ^GSPC, EURUSD=X, 7203.T.
+   Nothing else may reach a URL path. Without this a crafted symbol walks out of the path with ../
+   and points this proxy - authenticated, on the owner's reputation - at an endpoint of the
+   caller's choosing. (E13.5.) */
+const SYM_OK = /^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$/;
+
+let _histCache = new Map();
+const HIST_TTL_MS = 10 * 60 * 1000;
+/* Workers allow 50 subrequests per request on the free plan and each symbol costs one, so the cap
+   is well under it with room for the handshake. The client chunks; it is not a silent truncation. */
+const HIST_MAX_SYMBOLS = 25;
+
+async function historyOne(sym, key) {
+  const ck = sym + "|" + key;
+  const hit = _histCache.get(ck);
+  if (hit && Date.now() - hit.at < HIST_TTL_MS) return hit.data;
+
+  const shape = HISTORY_SHAPE[key];
+  const s = await ensureSession();
+  const r = await yGet("https://query2.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(sym),
+    { range: shape.range, interval: shape.interval, events: "split" }, s.cookie);
+
+  let res = null;
+  try { res = ((((JSON.parse(r.text) || {}).chart) || {}).result || [])[0] || null; } catch (e) {}
+  if (!res) return null;
+
+  const t = res.timestamp || [];
+  const close = (((res.indicators || {}).quote || [])[0] || {}).close || [];
+  /* Yahoo pads these arrays with nulls on halted or untraded bars. Carrying the last known close
+     forward is what marking to market does; DROPPING the bar would shorten this symbol's series
+     and silently misalign it against every other symbol's, which is how a portfolio total ends up
+     summing different dates per name. Bars before the first real price are skipped - there is
+     nothing to carry yet. */
+  const times = [], closes = [];
+  let last = null;
+  for (let i = 0; i < t.length; i++) {
+    const v = num(close[i]);
+    if (v != null) last = v;
+    if (last == null) continue;
+    times.push(t[i]); closes.push(last);
+  }
+
+  /* Exact ratios, from the same response. E15 applies them; nothing here infers a split from a
+     price move. */
+  const splits = Object.keys(((res.events || {}).splits) || {})
+    .map((k) => res.events.splits[k])
+    .map((x) => ({ date: num(x.date), num: num(x.numerator), den: num(x.denominator) }))
+    .filter((x) => x.date && x.num > 0 && x.den > 0)
+    .sort((a, b) => a.date - b.date);
+
+  /* Only timestamps, closes and splits cross the wire. Yahoo's payload is OHLC + volume + adjclose
+     for every bar; the chart needs none of it, and stripping cuts a 5-year series several-fold. */
+  const data = { t: times, c: closes, splits: splits };
+  _histCache.set(ck, { at: Date.now(), data });
+  return data;
+}
+
+async function history(syms, key) {
+  const out = {};
+  for (let i = 0; i < syms.length; i += 6) {
+    const chunk = syms.slice(i, i + 6);
+    /* One bad symbol must not empty the whole chart, so a failure drops that name and no other. */
+    const got = await Promise.all(chunk.map((sym) => historyOne(sym, key).catch(() => null)));
+    chunk.forEach((sym, k) => { if (got[k]) out[sym] = got[k]; });
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------ search, peers */
 
 async function search(q) {
@@ -293,7 +375,11 @@ async function peers(sym) {
 
 function symbolsOf(url) {
   return (url.searchParams.get("symbols") || "")
-    .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 200);
+    .split(",").map((s) => s.trim().toUpperCase())
+    /* E13.5 - what this proxy forwards upstream is now validated, not merely non-empty. Yahoo
+       tolerates junk on the query-string routes, but "tolerated by the upstream" is not the test;
+       the test is whether WE chose what we sent. */
+    .filter((s) => SYM_OK.test(s)).slice(0, 200);
 }
 
 
@@ -419,6 +505,13 @@ export default {
       if (path === "/api/statements")   return j({ statements: await statements(symbolsOf(url)), asOf: asOf() });
       if (path === "/api/search")       return j({ results: await search((url.searchParams.get("q") || "").trim()) });
       if (path === "/api/peers")        return j({ peers: await peers((url.searchParams.get("symbol") || "").trim()) });
+      if (path === "/api/history") {
+        const key = (url.searchParams.get("range") || "").toLowerCase();
+        if (!HISTORY_SHAPE[key]) return j({ error: "unknown range" }, 400);
+        const syms = symbolsOf(url).slice(0, HIST_MAX_SYMBOLS);
+        if (!syms.length) return j({ error: "no valid symbols" }, 400);
+        return j({ history: await history(syms, key), range: key, asOf: asOf() });
+      }
       return j({ error: "not found" }, 404);
     } catch (e) {
       return j({ error: String((e && e.message) || e) }, 500);

@@ -24,6 +24,7 @@ Free-data notes / cadence:
 
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -270,6 +271,83 @@ def peers_yahoo(symbol):
     except Exception as e:
         sys.stderr.write(f"[peers {sym}] {e}\n")
         return []
+
+
+# --- history -----------------------------------------------------------------------------------
+# Mirrors worker/src/index.js exactly: same shapes, same response contract, same forward-fill and
+# split extraction. The two are interchangeable by design and the diff harness checks it.
+
+HISTORY_SHAPE = {
+    "1d":  ("1d",  "5m"),     # intraday bars, for the 1D chip
+    "1mo": ("1mo", "1d"),     # daily closes, for 1W and 1M
+    "5y":  ("5y",  "1wk"),    # weekly closes, for 3M through 5Y
+    "max": ("max", "1wk"),
+}
+
+# Letters, digits and a little punctuation: BRK-B, ^GSPC, EURUSD=X, 7203.T. Nothing else reaches a
+# URL path. Same expression as the Worker's SYM_OK.
+SYM_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$")
+
+HIST_TTL_S = 600
+HIST_MAX_SYMBOLS = 25
+_hist_cache = {}
+
+
+def history_one(sym, key):
+    """{t: [...], c: [...], splits: [...]} for one symbol, or None."""
+    ck = (sym, key)
+    hit = _hist_cache.get(ck)
+    if hit and time.time() - hit[0] < HIST_TTL_S:
+        return hit[1]
+    rng, interval = HISTORY_SHAPE[key]
+    ensure_session()
+    try:
+        raw = _http_get(
+            "https://query2.finance.yahoo.com/v8/finance/chart/"
+            + urllib.parse.quote(sym)
+            + f"?range={rng}&interval={interval}&events=split", timeout=15)
+        res = (json.loads(raw).get("chart", {}).get("result") or [None])[0]
+    except Exception as e:
+        sys.stderr.write("[history %s] %s\n" % (sym, e))
+        return None
+    if not res:
+        return None
+
+    ts = res.get("timestamp") or []
+    quote = ((res.get("indicators") or {}).get("quote") or [{}])[0] or {}
+    close = quote.get("close") or []
+    # Yahoo pads with nulls on halted or untraded bars. Carry the last known close forward - that is
+    # what marking to market does. Dropping the bar would shorten this symbol's series and misalign
+    # it against every other symbol's.
+    times, closes, last = [], [], None
+    for i, t in enumerate(ts):
+        v = close[i] if i < len(close) else None
+        if isinstance(v, (int, float)):
+            last = float(v)
+        if last is None:
+            continue
+        times.append(t)
+        closes.append(last)
+
+    splits = []
+    for x in ((res.get("events") or {}).get("splits") or {}).values():
+        d, n, dd = x.get("date"), x.get("numerator"), x.get("denominator")
+        if d and isinstance(n, (int, float)) and isinstance(dd, (int, float)) and n > 0 and dd > 0:
+            splits.append({"date": d, "num": n, "den": dd})
+    splits.sort(key=lambda x: x["date"])
+
+    data = {"t": times, "c": closes, "splits": splits}
+    _hist_cache[ck] = (time.time(), data)
+    return data
+
+
+def get_history(syms, key):
+    out = {}
+    for sym in syms:
+        d = history_one(sym, key)
+        if d:
+            out[sym] = d
+    return out
 
 
 def search_directory(q):
@@ -815,6 +893,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"results": search_directory(qs.get("q", [""])[0])})
             elif path == "/api/peers":
                 self._send(200, {"peers": peers_yahoo(qs.get("symbol", [""])[0])})
+            elif path == "/api/history":
+                key = (qs.get("range", [""])[0] or "").lower()
+                if key not in HISTORY_SHAPE:
+                    self._send(400, {"error": "unknown range"})
+                else:
+                    # Deliberately NOT self._symbols(): that falls back to ALL_TICKERS when the
+                    # parameter is empty, which here would mean fetching a chart for every ticker
+                    # in the directory.
+                    raw = qs.get("symbols", [""])[0]
+                    syms = [x.strip().upper() for x in raw.split(",") if x.strip()]
+                    syms = [x for x in syms if SYM_OK.match(x)][:HIST_MAX_SYMBOLS]
+                    if not syms:
+                        self._send(400, {"error": "no valid symbols"})
+                    else:
+                        self._send(200, {"history": get_history(syms, key), "range": key,
+                                         "asOf": int(time.time())})
             elif path == "/api/portfolio":
                 self._send(200, {"portfolio": read_db()})
             elif not path.startswith("/api/"):

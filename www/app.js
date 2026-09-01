@@ -3859,13 +3859,30 @@ function perNameRange(A, row, book){
   const lo=Math.min(...vals), hi=Math.max(...vals);
   return (hi-lo < 1) ? money(hi,0) : money(lo,0)+" – "+money(hi,0);
 }
-function renderCalcInit(){
+/* The starting capital the user has TYPED but not yet built with.
+   It lives here rather than only in the DOM because renderCalcInit() rewrites #calcUninit wholesale
+   and the input carried a hardcoded value="80000". Any renderAll() - a live quote refresh is enough -
+   therefore destroyed the input and silently restored the default, so a user who typed 50,000 and was
+   refreshed before clicking Build spent 80,000 instead. CI caught it as a flake in journey.spec.js;
+   on a slow machine the refresh lands mid-test, and on a slow connection it lands mid-user. */
+let initCapitalDraft=80000;
+
+/* Only the preview half, so typing can refresh the numbers WITHOUT rebuilding the input and taking
+   the caret with it. */
+function calcInitPreview(cap){
   const A=computeAllocation();
-  const preview=A.rows.map(r=>`<tr>
+  const rows=A.rows.map(r=>`<tr>
       <td class="sym"><span class="swatch" style="display:inline-block;background:${esc(r.theme.color)}"></span> ${esc(r.theme.name)}</td>
       <td class="num">${pct(r.alloc)}</td>
-      <td class="num">${money(r.alloc*80000,0)}</td>
-      <td class="num muted">${perNameRange(A, r, 80000)}</td></tr>`).join("");
+      <td class="num">${money(r.alloc*cap,0)}</td>
+      <td class="num muted">${perNameRange(A, r, cap)}</td></tr>`).join("");
+  return `<h3 style="font-size:14px">Preview @ ${money(cap,0)}</h3>
+        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Portfolio</th><th>Weight</th><th>Capital</th><th>Per name</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`;
+}
+
+function renderCalcInit(){
+  const cap=(isNum(initCapitalDraft)&&initCapitalDraft>0)?initCapitalDraft:80000;
   if(!themes().length){                        // nothing to allocate between yet
     $("#calcUninit").innerHTML=`<div class="empty-note">
       <h3>Build your portfolios first</h3>
@@ -3888,19 +3905,24 @@ function renderCalcInit(){
           inside each theme, and convert to share counts at live prices.</p>
         <div class="row" style="align-items:flex-end;margin-top:8px">
           <div class="field"><label>Starting capital (USD)</label>
-            <input type="number" id="initCapital" value="80000" step="1000" style="width:160px"></div>
+            <input type="number" id="initCapital" value="${cap}" step="1000" style="width:160px"></div>
           <button id="buildBtn" class="btn primary">Build initial portfolio →</button>
         </div>
         <p class="note">This is saved to your account and is the starting point
           for every future rebalance.</p>
       </div>
-      <div class="card pad">
-        <h3 style="font-size:14px">Preview @ $80,000</h3>
-        <div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Portfolio</th><th>Weight</th><th>Capital</th><th>Per name</th></tr></thead>
-          <tbody>${preview}</tbody></table></div>
-      </div>
+      <div class="card pad" id="calcInitPreview">${calcInitPreview(cap)}</div>
     </div>`;
   $("#buildBtn").addEventListener("click",doBuildInitial);
+  const inp=$("#initCapital");
+  if(inp) inp.addEventListener("input",()=>{
+    const v=parseFloat(inp.value);
+    /* Remember only a usable figure. A half-typed "5" must not overwrite the draft with 5 and then
+       have a re-render put 5 back into the box under the user's cursor. */
+    if(isNum(v)&&v>0) initCapitalDraft=v;
+    const pv=$("#calcInitPreview");
+    if(pv) pv.innerHTML=calcInitPreview((isNum(v)&&v>0)?v:0);
+  });
 }
 
 async function doBuildInitial(){
