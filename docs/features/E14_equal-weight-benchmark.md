@@ -167,3 +167,18 @@ caching consequences, and would be its own ticket.
   indistinguishable from "the tool exactly matched equal weight."
 - A test asserts the segment sum equals the sum of the individually computed segments, so the
   discrete line cannot silently drift from its own definition.
+
+
+---
+
+## SHIPPED 2026-09-01
+
+Implemented as specified. The segment boundary is the checkpoint's own price, shared by the
+closing and opening segment - my first pass closed at the last bar BEFORE the next checkpoint and
+the "line moves when prices move" test failed with the equal-weight line reading exactly zero, the
+very symptom this ticket exists to fix.
+
+10 tests in `tests/benchmark.spec.js`, opening with the owner's worked example verbatim (+$40 on
+five names) and his second scenario ($1,040 split six ways at $173.33). Percent is gone from the
+markup, the chips are honoured, 6M and 5Y added, splits applied inside the walk, and the benchmark
+line is dashed 8-5 against the gridline's 3-3.

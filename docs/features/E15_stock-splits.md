@@ -67,3 +67,19 @@ model. Splits are corrected explicitly; dividends are left alone.
 - The invariant is asserted: portfolio value is **continuous** across a split event.
 - Historical checkpoints are corrected too, or the board records explicitly why they are not.
 - No heuristic and no news scraping anywhere in the implementation.
+
+
+---
+
+## SHIPPED 2026-09-01
+
+Current holdings are reconciled from Yahoo's exact split events on boot, after first paint. Each
+holding records `splitsThrough`; before it exists the basis is the END OF THE DAY of the most
+recent recorded trade in that name, so a split effective the morning of a trade is correctly
+treated as already inside that trade's price.
+
+11 tests in `tests/splits.spec.js`. The one that matters most runs the check three times and
+asserts 1,000 shares rather than 1,000,000 - the failure mode here is multiplying a real position
+by ten on every app load. Another round-trips the payload through JSON to prove the mark persists.
+
+Historical snapshots are deliberately untouched; the reasoning is in the code and in this ticket.
