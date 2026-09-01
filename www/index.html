@@ -223,7 +223,6 @@
   .ov-k{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-50);font-weight:600}
 
   
-  
   /* donut: bigger, with the legend laid out horizontally UNDER it so names never truncate */
   
   .ov-dlegend .r{display:flex;align-items:center;gap:7px;font-size:12px}
@@ -251,7 +250,6 @@
   .thm-head .sw{width:9px;height:9px;flex:none}
   .thm-head .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  
   
   /* E5.2: Model-tab variant — header is a div (it contains buttons), so restate the basics */
   .fund-gridhead{display:flex;align-items:center;gap:8px;margin:4px 0 9px;flex-wrap:wrap}
@@ -376,8 +374,6 @@
   /* E4.5: aligned metric (①) + exception-handling (②) grids */
 
   
-
-  
   
   .cfg-row{display:contents}
   .cfg-row .cfg-name{white-space:nowrap}
@@ -404,8 +400,6 @@
 
   
 
-  
-
   /* E11.13 - above the coach bubble (301) so it is never buried, below the gate (400) because once
      the gate is up there is nothing left to warn about. */
   .idle-warn{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:390;
@@ -419,14 +413,12 @@
   .drift{display:inline-block;min-width:46px}
 
   
-  
   .right{text-align:right}.center{text-align:center}
   .empty{padding:40px;text-align:center;color:var(--ink-50)}
   code.mono{background:var(--surface);padding:1px 5px;font-size:12px}
 
   /* screener + swap modal */
 
-  
   .rmv-tkr{ border:1px solid rgba(32,30,29,.13); background:transparent; color:#9AA3A1; width:19px; height:19px; line-height:1; font-size:11px; cursor:pointer; padding:0; margin-left:6px; vertical-align:middle; }
   .rmv-tkr:hover{ border-color:var(--portfolio-4); color:var(--portfolio-4); }
   .ct-swatches{display:flex;flex-wrap:wrap;gap:7px}
@@ -445,7 +437,6 @@
   .ts-row .ts-nm,.rs-row .ts-nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
   .ts-row .ts-ex,.rs-row .ts-ex{ flex:0 0 auto }
 
-  
      /* the wide watchlist scrolls sideways on web too (theme tables unchanged) */
 
   .modal-backdrop{position:fixed;inset:0;background:rgba(30,42,42,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px}
@@ -454,8 +445,6 @@
      reachable before signing in carry this. */
   .modal-backdrop.over-gate{ z-index:500 }
   .modal-card{max-width:480px;width:100%;max-height:86vh;overflow:auto}
-
-  
 
   /* ====================================================================
      APP2.2 - iOS / native app shell. Applied ONLY inside Capacitor
@@ -1375,7 +1364,6 @@
   @media(max-width:1040px){ .res-layout{grid-template-columns:1fr} }
 
   
-  
   #resResults{margin-top:9px;display:flex;flex-direction:column;gap:5px;max-height:44vh;overflow:auto}
 
   /* keep the wide watchlist quote table inside its own scroller instead of stretching the page */
@@ -1807,7 +1795,6 @@
       </div>
     </div>
   </section>
-
 
   <!-- ============ SCREENER ============ -->
   <!-- ===== E5.4 Research — search on the left, watchlist on the right ===== -->
@@ -2282,7 +2269,6 @@ function computeAllocation(){
   return Object.assign({rows:allRows, byKey, cap:capEff, carry, wByKey:wN, within}, aliasWeights(wN));
 }
 
-
 /* ======================================================================
    Bounded weights - owner's formula, 2026-08-27. Used at BOTH levels: between themes, and
    between the tickers inside one theme. Same scoring, same bounds, one implementation.
@@ -2584,7 +2570,6 @@ function nativeSavePortfolio(p){
   catch(e){ console.error("save failed",e); throw new Error("this device's storage is full - the change was not saved"); }
 }
 
-
 /* iOS LAN sync: when serverUrl is set, the app reads/writes the SAME portfolio.json the web
    version uses (via the home computer's server over Wi-Fi). Falls back to on-device storage. */
 const SRV_KEY="pb_server_url";
@@ -2644,12 +2629,6 @@ function stampPortfolioMeta(p){
   p.revision=(isNum(p.revision)?p.revision:0)+1;
   p.updatedAt=new Date().toISOString();
   return p;
-}
-function portfolioMeta(){                      // read-only view, for E6.5 and for diagnostics
-  const p=state.portfolio||{};
-  return { schemaVersion:isNum(p.schemaVersion)?p.schemaVersion:null,
-           revision:isNum(p.revision)?p.revision:null,
-           updatedAt:p.updatedAt||null, adapter:storageAdapter().name };
 }
 
 /* ===== E6.4 - accounts (Supabase Auth over plain fetch) ================================
@@ -3375,7 +3354,7 @@ async function loadStatements(syms,force){ const list=syms||membership(); if(!li
    ====================================================================== */
 const STMT_COMPUTED_FIELDS = ['pe','ev','evRev','ps','pb','dfcf','debtToEquity','currentRatio','quickRatio',
   'grossMargin','opMargin','netMargin','roe','roa','payout','revGrowth','earnGrowth','fcf','ebitda','revenue','cash','debt'];
-const STMT_PULLED_FIELDS = ['marketCap','price','mom','peg','forwardPE','beta','divYield'];   // market / forward-looking: never computed from trailing statements
+   // market / forward-looking: never computed from trailing statements
 
 function stmtTTM(sym){
   const st=state.statements[sym]; if(!st||!st.quarters||!st.quarters.length) return null;
@@ -3608,13 +3587,7 @@ function openSourceCompare(){
   $("#scClose").addEventListener("click",closeModal);
   $("#scModal").addEventListener("click",e=>{ if(e.target.id==="scModal")closeModal(); });
 }
-async function loadScreenerQuotes(){
-  if(!state.universe) return;
-  const syms=[...new Set(state.universe.themes.flatMap(t=>t.stocks.map(s=>s.ticker)))];
-  const out={};
-  for(let i=0;i<syms.length;i+=45){ const chunk=syms.slice(i,i+45); try{ const d=await dsQuotes(chunk); Object.assign(out, d.quotes); }catch(e){ console.error(e); } }
-  state.screenerQuotes=Object.assign({}, state.screenerQuotes, out);
-}
+
 /* ===== E8 - the persistence contract =====================================================
    These functions coordinate shared state across network calls. For seven review rounds each
    new guard was itself state-dependent and grew the same blind spot as the bug it fixed, so the
@@ -5561,8 +5534,6 @@ function sanitizePreset(p){
     metricCfg: (c.metricCfg&&typeof c.metricCfg==='object'&&!Array.isArray(c.metricCfg))?c.metricCfg:null } };
 }
 
-/* ---- E2.3: metric picker (catalog grouped by category; toggle active metrics) ---- */
-const METRIC_GROUP_LABELS = {value:'Valuation', quality:'Profitability & margins', growth:'Growth', income:'Dividends', risk:'Financial health / risk', size:'Size', momentum:'Momentum'};
 function metricDataCoverage(m){
   const syms=new Set(); themes().forEach(t=>tickersOf(t.key).forEach(s=>syms.add(s)));
   let have=0, total=0; syms.forEach(s=>{ total++; if(isNum(m.getter(s)))have++; });
@@ -6090,11 +6061,6 @@ function renderHistChart(){
     (futures>0?` · ${futures} dashed = redoable future`:"");
 }
 
-/* ======================================================================
-   Render: SCREENER  +  swap-into-portfolio
-   ====================================================================== */
-function screenerMcap(s){ const q=state.screenerQuotes[s.ticker]||state.quotes[s.ticker]||{}; return isNum(q.marketCap)?q.marketCap:(isNum(s.mcapB)?s.mcapB*1e9:null); }
-
 /* ---- recommendations for the flat Screener (E1.9): curated universe for the original themes; live
         keyword (theme name) + peers (of the theme's current picks) for custom themes. ---- */
 function isCuratedTheme(key){ return !!((state.universe&&state.universe.themes||[]).some(u=>u.key===key)); }
@@ -6110,20 +6076,6 @@ async function buildThemeRecos(theme){
   const seen=new Set(), out=[];
   for(const s of cands){ if(!s||seen.has(s)||exclude.has(s))continue; seen.add(s); out.push(s); if(out.length>=15)break; }
   return out;
-}
-async function loadThemeRecos(){
-  if(!state.themeRecos)state.themeRecos={};
-  let changed=false;
-  for(const t of themes()){
-    if(isCuratedTheme(t.key)) continue;
-    const sig=tickersOf(t.key).join(",")+"|"+t.name;
-    if((state.themeRecos[t.key]||{}).sig===sig) continue;                                  // cached for this membership + name
-    const syms=await buildThemeRecos(t);
-    state.themeRecos[t.key]={syms, sig};
-    if(syms.length){ try{ const d=await dsQuotes(syms); state.screenerQuotes=Object.assign({},state.screenerQuotes,d.quotes); }catch(e){} }
-    changed=true;
-  }
-  if(changed) renderScreener();
 }
 
 function renderScreener(){
@@ -6207,35 +6159,6 @@ function wireResearchSearch(){
     if(add){ addToWatchlist(add.dataset.rsadd, null); return; }
     // the row itself is the panel; main's delegated handler catches button[data-stock]
   });
-}
-
-/* ---- per-stock action sheet from the flat Screener (E1.9): add / swap / remove / watchlist ---- */
-function openStockActions(sym, themeKey){
-  const heldT=themeOf[sym];                                  // theme object if it's currently in a theme
-  const sel=(heldT&&heldT.key) || themeKey || (themes()[0]&&themes()[0].key);
-  const opts=themes().map(t=>`<option value="${t.key}"${t.key===sel?" selected":""}>${esc(t.name)}</option>`).join("");
-  const removeRow=heldT?`<button class="btn" id="saRemove" style="width:100%;margin:2px 0 10px">✕ Remove ${esc(sym)} from ${esc(heldT.name)}</button>
-      <div class="small muted" style="text-align:center;margin:0 0 8px">— or move / swap it —</div>`:"";
-  $("#modalRoot").innerHTML=`<div class="modal-backdrop" id="saModal"><div class="modal-card card pad">
-      <h2 style="font-size:16px">${esc(sym)} <span class="muted small">${esc(nameOf(sym))}</span></h2>
-      <p class="small muted">${heldT?("In <b>"+heldT.name+"</b> now."):"Not in your portfolio yet."} Add it to a portfolio (the book rebalances to the model), swap it for a holding, or just watchlist it.</p>
-      ${removeRow}
-      <label class="small" style="display:block;margin:2px 0 4px">Portfolio</label>
-      <select id="saTheme" style="width:100%;padding:8px;border:1px solid rgba(32,30,29,.13);border-radius:8px">${opts}</select>
-      <div class="row" style="gap:8px;margin-top:12px">
-        <button class="btn primary" id="saAdd" style="flex:1">➕ Add to portfolio</button>
-        <button class="btn" id="saSwap" style="flex:1">⇄ Swap in…</button>
-      </div>
-      <div class="row" style="justify-content:space-between;margin-top:12px">
-        <button class="btn ghost" id="saWatch">☆ Watchlist</button>
-        <button class="btn" id="saCancel">Close</button>
-      </div></div></div>`;
-  $("#saCancel").addEventListener("click",closeModal);
-  $("#saModal").addEventListener("click",e=>{ if(e.target.id==="saModal")closeModal(); });
-  if(heldT)$("#saRemove").addEventListener("click",()=>{ closeModal(); removeTicker(heldT.key, sym); });
-  $("#saAdd").addEventListener("click",()=>{ const tk=$("#saTheme").value; closeModal(); addTicker(tk, sym); });
-  $("#saSwap").addEventListener("click",()=>{ const tk=$("#saTheme").value; closeModal(); openSwap(sym, tk); });
-  $("#saWatch").addEventListener("click",()=>addToWatchlist(sym, $("#saTheme").value));
 }
 
 async function ensureScreener(){ renderScreener(); }   // E4.4: Screener = search box + watchlist (no recommendations)
@@ -7371,6 +7294,10 @@ function setupEvents(){
     if(e.target.closest("button,select,input,a,.editable,.reset,.swatch"))return;
     const c=e.target.closest("td.sym[data-stock]"); if(c) openStockDetail(c.dataset.stock); });
   if($("#ovLiveToggle")) $("#ovLiveToggle").addEventListener("click",toggleLive);
+  /* 4.2 item 6: "a flush-right ALL HISTORY - UNDO -> that switches to lane 4". The button was
+     built and never wired, so it rendered, invited a click and did nothing - a control that lies
+     about being a control. Found 2026-09-01 by scanning for element ids nothing references. */
+  if($("#ovAllHistory")) $("#ovAllHistory").addEventListener("click",()=>switchView("history"));
   $("#capPct").addEventListener("change",async()=>{ const v=parseFloat($("#capPct").value); if(isNum(v)&&v>0)state.cap=clamp(v,1,100)/100; renderFundamentals(); renderCalc(); await savePortfolio(); });
   $("#resetBtn").addEventListener("click",async()=>{
     /* The refusal comes FIRST. It sat below the assignment, so "try again in a moment"

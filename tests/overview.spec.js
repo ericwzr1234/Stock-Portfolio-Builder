@@ -126,3 +126,13 @@ test("Overview carries no donut, and the tour step that pointed at one has a tar
   expect(r.donut).toBe(false);
   expect(r.steps).toEqual([]);   // a tour step whose anchor is gone is silently skipped
 });
+
+test("every control on this lane actually does something", async ({ page }) => {
+  await seedBook(page);
+  /* ALL HISTORY - UNDO -> rendered and invited a click while having no handler at all (spec 4.2
+     item 6 says it switches to lane 4). Found by scanning for element ids nothing references.
+     A control that does nothing is worse than a missing one: it teaches the user the app is broken. */
+  await page.click("#ovAllHistory");
+  await expect(page.locator("#view-history")).toBeVisible();
+  expect(await page.evaluate(() => curView)).toBe("history");
+});
