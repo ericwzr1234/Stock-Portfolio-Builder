@@ -140,6 +140,26 @@ that B's reads return nothing and B's writes to A's row are rejected — against
 project, with the policy `FORCE`d. It runs on demand (it needs two real accounts), and its result is
 recorded in the board with a date.
 
+**2026-09-01 — owner ran it manually, both directions. PARTIAL PASS.** Signed into account A, made
+changes, signed out; signed into B and A's portfolios were absent. Reversed it: B's changes were
+absent from A. Two accounts, both directions, against the real project.
+
+**What that proves, and what it does not.** It proves the app never shows one account's book to
+another, which was the user-facing worry, and it rules out the class of bugs where a stale cache or
+a shared key leaks a book across a sign-out. It does **not** prove RLS is the thing stopping it.
+Every read in the client is already scoped client-side —
+`/rest/v1/portfolios?user_id=eq.<uid>` at `www/app.js:1288`, `:1317`, `:1327` — so an
+RLS-disabled database and a correctly-enforcing one produce **identical** results through the UI.
+The manual test cannot separate them. If RLS were off, a request that simply omits that filter
+would return every user's holdings, and nothing in the app or in its tests would notice.
+
+**Remaining gap, and the cheapest way to close it.** One look in the Supabase dashboard settles it:
+Table Editor → `portfolios` → the row-level-security badge, and the policies listed against it.
+Definitive for *is it on*, under a minute, no credentials anywhere near this repo. The automated
+version — issuing a deliberately UNFILTERED read with a real session token and asserting it returns
+only that user's row — is what turns a one-off observation into a regression test; it needs two sets
+of credentials supplied through the environment, never committed.
+
 ---
 
 #### E13.3 · Escaping audit of all 94 `innerHTML` sites, plus a gate
