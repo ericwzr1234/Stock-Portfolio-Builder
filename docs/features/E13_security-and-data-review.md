@@ -153,6 +153,32 @@ RLS-disabled database and a correctly-enforcing one produce **identical** result
 The manual test cannot separate them. If RLS were off, a request that simply omits that filter
 would return every user's holdings, and nothing in the app or in its tests would notice.
 
+**2026-09-01, dashboard checked. RLS IS ENABLED**, with four policies on `portfolios`, one per
+operation — `portfolios_select_own` (SELECT), `_insert_own` (INSERT), `_update_own` (UPDATE),
+`_delete_own` (DELETE) — every one of them applied to **`authenticated`** and none to `anon`. So an
+anonymous request matches no policy and returns nothing, which is the probe that would otherwise
+have needed running against the live project.
+
+The table also carries an **`API DISABLED`** badge and "custom Data API permissions", meaning its
+grants have been narrowed independently of RLS: `anon` is refused at the grant layer before a
+policy is consulted at all. Two independent layers, which is the right shape — a misconfigured
+policy alone would not open the table to the internet.
+
+**Still unverified: the policy EXPRESSIONS.** The names say `_own` and the roles are right, but
+names are not enforcement. `portfolios_select_own` applied to `authenticated` with `USING (true)`
+would let any signed-in user read every row and would look identical on that screen. The owner's
+two-account test cannot catch it either, for the same reason it could not settle RLS: the client
+always sends `user_id=eq.<uid>`, so it never asks for another user's rows whatever the policy says.
+Closing it is one click — the policy's Edit view — and the expression wanted is
+`auth.uid() = user_id`.
+
+This is judged low risk, since the policies were named deliberately. It is written down anyway
+because this epic exists precisely because two XSS tests passed vacuously for weeks while a live
+hole sat behind them; "the name says so" is the class of evidence that turned out to be worth
+nothing.
+
+**Superseded, kept for the record — the dashboard check this called for has now been done:**
+
 **Remaining gap, and the cheapest way to close it.** One look in the Supabase dashboard settles it:
 Table Editor → `portfolios` → the row-level-security badge, and the policies listed against it.
 Definitive for *is it on*, under a minute, no credentials anywhere near this repo. The automated
