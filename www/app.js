@@ -3248,7 +3248,7 @@ function renderReturnChart(H){
          The value chart discloses it; printing the number here without the same note was the fix
          landing in one place and not the other. */
       (timelineTrimmed()?`<span class="muted"> · equal weight over the kept checkpoints</span>`:"")+
-      `<span class="muted"> · ${p.live?"today":p.label}</span>`; };
+      `<span class="muted"> · ${p.live?"today":esc(p.label)}</span>`; };
   setHead(last);
   svg.onmousemove=ev2=>{
     const r=svg.getBoundingClientRect(); if(!r.width) return;
@@ -3510,7 +3510,7 @@ function renderFundamentals(){
     sp.style.flex=Math.max(r.alloc,0.001); sp.style.background="var(--portfolio-"+((i%5)+1)+")";
     sp.title=r.theme.name+" "+pct(r.alloc); bar.appendChild(sp); });
   $("#allocLegend").innerHTML=A.rows.map(r=>{ const cap=isNum(r.allocRaw)&&r.allocRaw>r.alloc+1e-6;
-    return `<div class="it"><span class="swatch" style="background:${r.theme.color}"></span>
+    return `<div class="it"><span class="swatch" style="background:${esc(r.theme.color)}"></span>
     ${esc(r.theme.name)} <b>${pct(r.alloc)}</b>${cap?` <span class="muted xs">(cap; raw ${pct(r.allocRaw)})</span>`:''}</div>`;}).join("");
 
   // drift table
@@ -3550,8 +3550,8 @@ function renderFundamentals(){
     by <b>quality carry-over</b> — inheriting the name's standing on the factors it <i>does</i> report — or <b>excluded</b>.
     A Debt/FCF of <b>0</b> = debt-free = best.</p>
     <p>Each portfolio gets <b>${metrics().length}</b> scores, each normalized so the themes sum to 100%:
-    ${metrics().map(m=>"<b>"+m.label+"</b> ("+dirWord(m)+")").join(", ")}. Blended by your weights
-    (${metrics().map(m=>m.label+" "+Math.round((A.wByKey[m.key]||0)*100)).join(" / ")}%).</p>
+    ${metrics().map(m=>"<b>"+esc(m.label)+"</b> ("+dirWord(m)+")").join(", ")}. Blended by your weights
+    (${metrics().map(m=>esc(m.label)+" "+Math.round((A.wByKey[m.key]||0)*100)).join(" / ")}%).</p>
     <p>Finally, <b>no portfolio may exceed ${Math.round((state.cap!=null?state.cap:defaultCap())*100)}%</b> — excess from a
     leading portfolio is spread across the others in proportion to their weights, repeated until every portfolio fits.${capNote}</p>
     <p><b>Per-portfolio tables (below):</b> each portfolio's names with their metrics. <b>Click any editable value</b>
@@ -3641,12 +3641,12 @@ function renderFundamentals(){
       <div class="thm ${fopen?"open":""}" data-fthmkey="${t.key}">
         <div class="thm-head" data-fthmtoggle="${t.key}" role="button" tabindex="0"
              aria-expanded="${fopen}" title="Show / hide ${esc(t.name)}'s metric table">
-          <span class="chev">▶</span><span class="sw" style="background:${t.color}"></span>
+          <span class="chev">▶</span><span class="sw" style="background:${esc(t.color)}"></span>
           <span class="nm">${esc(t.name)}</span>${srcTag}
           <span class="theme-acts"><button class="addname-btn" data-addticker="${t.key}" data-lbl="Add ticker" title="Add a ticker to ${esc(t.name)}">＋<span class="lbl"> ticker</span></button>
           <button class="addname-btn" data-editth="${t.key}" data-lbl="Edit name" title="Rename / recolour ${esc(t.name)}">✎</button>
           <button class="addname-btn" data-delth="${t.key}" data-lbl="Delete" title="Delete ${esc(t.name)}">✕</button></span>
-          <span class="pill" style="background:color-mix(in srgb,${t.color} 18%,var(--bg));color:color-mix(in srgb,${t.color} 50%,var(--ink))">target ${pct(r.alloc)}</span></div>
+          <span class="pill" style="background:color-mix(in srgb,${esc(t.color)} 18%,var(--bg));color:color-mix(in srgb,${esc(t.color)} 50%,var(--ink))">target ${pct(r.alloc)}</span></div>
         <div class="thm-body" ${fopen?"":"hidden"}>
           <table><thead>${thead}</thead>
           <tbody>${body}</tbody>
@@ -3862,7 +3862,7 @@ function perNameRange(A, row, book){
 function renderCalcInit(){
   const A=computeAllocation();
   const preview=A.rows.map(r=>`<tr>
-      <td class="sym"><span class="swatch" style="display:inline-block;background:${r.theme.color}"></span> ${esc(r.theme.name)}</td>
+      <td class="sym"><span class="swatch" style="display:inline-block;background:${esc(r.theme.color)}"></span> ${esc(r.theme.name)}</td>
       <td class="num">${pct(r.alloc)}</td>
       <td class="num">${money(r.alloc*80000,0)}</td>
       <td class="num muted">${perNameRange(A, r, 80000)}</td></tr>`).join("");
@@ -3965,7 +3965,7 @@ function renderCalcMain(){
     <div class="tr3">
       <div class="tr3-l">
         <div class="tr3-vbanner ${canRedo()?'warn':''}">
-          <span>Last saved <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' \u00b7 '+currentVersion().date):''}${canRedo()?(' \u00b7 <b>'+(versions().length-1-head())+'</b> newer redoable'):''}</span>
+          <span>Last saved <b>${versionLabel(currentVersion())}</b>${currentVersion()?(' \u00b7 '+esc(currentVersion().date)):''}${canRedo()?(' \u00b7 <b>'+(versions().length-1-head())+'</b> newer redoable'):''}</span>
           <span class="tr3-undo">${undoRedoButtons()}</span>
         </div>
 
@@ -4061,7 +4061,7 @@ function holdingsTable(){
       return `<tr><td class="sym">${esc(s)} <button class="rmv-tkr" data-rmvtkr="${esc(s)}" data-theme="${esc(t.key)}" title="Remove ${esc(s)} from ${esc(t.name)}">✕</button></td><td class="num">${num(sh,3)}</td><td class="num">${money(p,2)}</td>
         <td class="num">${money(v,0)}</td><td class="num">${total>0?pct(v/total):"—"}</td>
         <td class="num ${gl>=0?'up':'down'}">${signed(gl,0).replace(/^([+-])/,'$1$')}</td></tr>`;}).join("");
-    return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${t.color}"></span> <b>${esc(t.name)}</b></td>
+    return `<tr class="theme-row"><td class="sym" colspan="3"><span class="swatch" style="display:inline-block;background:${esc(t.color)}"></span> <b>${esc(t.name)}</b></td>
       <td class="num"><b>${money(tv,0)}</b></td><td class="num"><b>${total>0?pct(tv/total):"—"}</b></td><td></td></tr>${inner}`;
   }).join("");
   return `<div class="tscroll"><table style="margin-top:6px"><thead><tr><th>Holding</th><th>Shares</th><th>Price</th><th>Value</th><th>Weight</th><th>Gain</th></tr></thead>
@@ -4920,7 +4920,7 @@ function openTickerSearch(themeKey, direct){
       if(!list.length){ res.innerHTML=`<div class="muted xs" style="padding:7px">No matches — try a different symbol or name.</div>`; return; }
       res.innerHTML=list.slice(0,8).map(r=>`<button type="button" class="ts-row" data-sym="${esc(r.symbol)}">
         <span class="sym">${esc(r.symbol)}</span><span class="muted small ts-nm">${esc(r.name)}</span>
-        <span class="muted xs ts-ex">${r.exchange||r.type||""}</span></button>`).join("");
+        <span class="muted xs ts-ex">${esc(r.exchange||r.type||"")}</span></button>`).join("");
       $$(".ts-row").forEach(b=>b.addEventListener("click",()=> direct ? addTicker(themeKey, b.dataset.sym) : addToWatchlist(b.dataset.sym, themeKey||null)));
     },250);
   });

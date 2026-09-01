@@ -190,5 +190,20 @@ try:
 except ImportError:
     print('csp hashes  : SKIP - tools/csp_hashes.py not importable')
 
+# ---- every untrusted value reaching markup goes through esc() ----------------------------------
+# The 2026-08-31 XSS was a symbol reaching innerHTML unescaped. The fix closed the sites one
+# payload happened to reach; this closes the class. Kept at ZERO with no allowlist.
+try:
+    import escaping as _escg
+    _bad = _escg.findings()
+    if _bad:
+        print('escaping    : FAIL - %d untrusted interpolation(s) not passed through esc()' % len(_bad))
+        for _n, _l, _e in _bad[:10]:
+            print('  %s:%d  %s' % (_n, _l, _e))
+        sys.exit(1)
+    print('escaping    : no untrusted value reaches markup unescaped')
+except ImportError:
+    print('escaping    : SKIP - tools/escaping.py not importable')
+
 
 print('csp         : connect-src allows', _sb)
