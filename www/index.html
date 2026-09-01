@@ -6943,22 +6943,28 @@ let lastTradeView="calc";
    a portfolio exists the poster stops applying, with no flag to get out of step. */
 function isFirstRun(){ return !themes().length && !isInit(); }
 
+/* USER-FOUND CLASS, 2026-09-01. This wrote its markup on EVERY render, including renders where the
+   poster is not the screen anyone is looking at. It also carried a "ready" branch offering
+   #initCapital and #buildBtn - the same two ids renderCalcInit puts on the Trade lane.
+
+   In the state "portfolios exist with names, nothing funded yet" BOTH rendered, so those two ids
+   existed TWICE. $("#x") returns the first in document order, and #view-first precedes #view-calc,
+   so every lookup resolved to the HIDDEN poster. Measured consequence: a user on Trade typed 50,000
+   into the field in front of them, pressed the button in front of them, and got a portfolio funded
+   with 80,000 - the hidden field's default. Their stated starting capital was silently discarded at
+   the single most consequential action in the app.
+
+   The "ready" branch was also unreachable by construction: isFirstRun() requires zero portfolios,
+   zero portfolios means zero membership, so ready could never be true while the poster was the
+   screen. It is gone. Funding lives on Trade, in one place, with one pair of ids. */
 function renderFirstRun(){
   const go=$("#frGo"); if(!go) return;
-  const ready=membership().length>0;
-  /* The capital field is only offered once there is something to buy with it. A brand-new account
-     pressing Build would be told "add some tickers first", which is a button that cannot work. */
-  go.innerHTML = ready
-    ? '<div class="fr3-cap"><span class="fr3-lbl">STARTING CAPITAL</span>'+
-      '<span class="fr3-amt">$<input type="number" id="initCapital" value="80000" step="1000"'+
-      ' aria-label="Starting capital"></span></div>'+
-      '<button class="fr3-primary" id="buildBtn" type="button">BUILD INITIAL PORTFOLIO</button>'
-    : '<button class="fr3-primary" id="frCreate" type="button">CREATE YOUR FIRST PORTFOLIO</button>'+
-      '<p class="fr3-hint">Name a thesis and add a few tickers, then come back here to fund it.</p>';
+  if(!isFirstRun()){ go.innerHTML=""; return; }   // never leave ids behind on a screen nobody is on
+  go.innerHTML =
+    '<button class="fr3-primary" id="frCreate" type="button">CREATE YOUR FIRST PORTFOLIO</button>'+
+    '<p class="fr3-hint">Name a thesis and add a few tickers, then fund it on the Trade lane.</p>';
   const c=$("#frCreate");
   if(c) c.addEventListener("click",function(){ switchView("fundamentals"); openCreateTheme(); });
-  const b=$("#buildBtn");
-  if(b) b.addEventListener("click",doBuildInitial);
 }
 
 function switchView(v){

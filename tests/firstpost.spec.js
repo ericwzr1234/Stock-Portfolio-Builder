@@ -49,17 +49,50 @@ test("the poster offers the button that can actually work", async ({ page }) => 
   expect(await page.locator("#initCapital").count()).toBe(0);
 });
 
-test("once a portfolio has names, the poster asks for capital instead", async ({ page }) => {
+test("the poster never carries the funding controls - they live on Trade, once", async ({ page }) => {
   await emptyAccount(page);
   await page.evaluate(() => {
     state.themes = [{ key: "t", name: "Thesis", color: "#2f9e8f" }];
     state.themeTickers = { t: ["X"] };
     state.quotes = { X: { price: 10, prevClose: 10, marketCap: 1e11, marketState: "REGULAR" } };
     state.fundamentals = { X: { peg: 1, ev: 10, dfcf: 10, pe: 10, marketCap: 1e11 } };
-    rebuildThemeOf(); renderFirstRun();
+    rebuildThemeOf(); renderAll();
   });
-  await expect(page.locator("#initCapital")).toHaveValue("80000");
-  await expect(page.locator("#buildBtn")).toBeVisible();
+  /* This replaced a test asserting the poster shows a capital field "once a portfolio has names".
+     That branch was unreachable by construction - isFirstRun() requires zero portfolios, and zero
+     portfolios means zero names - and worse, rendering it put #initCapital and #buildBtn into the
+     DOM a SECOND time alongside Trade's. $("#x") returns the first, #view-first precedes
+     #view-calc, so a user typing 50,000 on Trade got a book funded with the hidden poster's
+     80,000. One funding surface, one pair of ids. */
+  const n = await page.evaluate(() => ({
+    cap: document.querySelectorAll("#initCapital").length,
+    build: document.querySelectorAll("#buildBtn").length,
+    inPoster: !!document.querySelector("#view-first #initCapital"),
+  }));
+  expect(n.cap).toBe(1);
+  expect(n.build).toBe(1);
+  expect(n.inPoster).toBe(false);
+});
+
+test("the starting capital the user types is the capital that gets built", async ({ page }) => {
+  await emptyAccount(page);
+  await page.evaluate(() => {
+    window.savePortfolio = async () => true;
+    state.themes = [{ key: "t", name: "Thesis", color: "#2f9e8f" }];
+    state.themeTickers = { t: ["X"] };
+    state.quotes = { X: { price: 100, prevClose: 99, marketCap: 1e11, marketState: "REGULAR" } };
+    state.fundamentals = { X: { peg: 1, ev: 10, dfcf: 10, pe: 10, marketCap: 1e11 } };
+    rebuildThemeOf(); renderAll(); switchView("calc");
+  });
+  await page.waitForTimeout(150);
+  await page.fill("#initCapital", "50000");
+  await page.click("#buildBtn");
+  await page.waitForTimeout(500);
+  /* The defect this guards: 50,000 typed, 80,000 built. Money mis-stated at the most consequential
+     action in the app, silently, because a hidden duplicate won the id lookup. */
+  const r = await page.evaluate(() => ({ init: isInit(), contributed: Math.round(totalContributed()) }));
+  expect(r.init).toBe(true);
+  expect(r.contributed).toBe(50000);
 });
 
 test("the poster stops applying the moment there is a book, and moves you along", async ({ page }) => {
