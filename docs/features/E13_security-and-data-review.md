@@ -164,6 +164,35 @@ grants have been narrowed independently of RLS: `anon` is refused at the grant l
 policy is consulted at all. Two independent layers, which is the right shape — a misconfigured
 policy alone would not open the table to the internet.
 
+**2026-09-01 — CLOSED. The SELECT policy expression was read and is correct:**
+
+```sql
+alter policy "portfolios_select_own" on "public"."portfolios" to authenticated
+using ( (((SELECT auth.uid() AS uid) IS NOT NULL) AND ((SELECT auth.uid() AS uid) = user_id)) );
+```
+
+`auth.uid() = user_id` is the control. The `IS NOT NULL` conjunct is redundant in strict SQL terms —
+`NULL = anything` evaluates to NULL, not true, so a null session matches nothing regardless — but
+stating it makes the intent unarguable and costs nothing.
+
+So the read path is verified end to end: the grant layer refuses `anon` outright, RLS is enabled,
+the SELECT policy is scoped to `authenticated`, and its expression compares the caller's own uid to
+the row's owner. **E13.2 is done, and with it every P0 in this epic.**
+
+**Residual, low priority.** Only the SELECT expression has been read. `portfolios_insert_own`,
+`_update_own` and `_delete_own` are named to the same convention and written by the same hand, and
+the owner's two-account test exercised writes in both directions without crossover — but their
+`WITH CHECK` clauses have not literally been looked at. SELECT is the confidentiality control and
+is the one that mattered; the others are integrity, and a click each would close them if anyone
+wants the set complete.
+
+**One thing to watch if policies are ever added.** These are PERMISSIVE, which means multiple
+policies on the same command are OR-ed together. With one policy per command that is irrelevant.
+Add a second permissive SELECT policy later and it would WIDEN access, not narrow it — the opposite
+of what "adding a security policy" sounds like it does.
+
+**Superseded, kept for the record:**
+
 **Still unverified: the policy EXPRESSIONS.** The names say `_own` and the roles are right, but
 names are not enforcement. `portfolios_select_own` applied to `authenticated` with `USING (true)`
 would let any signed-in user read every row and would look identical on that screen. The owner's
