@@ -388,3 +388,24 @@ Dev server port **8766** (`PB_DB=portfolio.dev.json`); tests use **8767** and `p
 so a run can never collide with it. The proxy in prod is the Pages Function at
 `/api/*`, which imports `worker/src/index.js`; the standalone `pb-proxy` Worker was deleted
 2026-08-27 and there is no second public proxy any more.
+
+---
+
+## Open loose end, 2026-09-01: one unreproduced test failure
+
+During the end-of-day sweep the suite reported **1 failed / 288 passed** on a single run. Six
+consecutive runs before and after it were clean at 289, and the failure's name was not captured —
+so there is a roughly 1-in-7 intermittent somewhere in the suite and **we do not know which test
+it is.**
+
+Recorded rather than dismissed, because a flake nobody wrote down is a morning lost the next time
+it appears. Two candidates worth looking at first, both timing-shaped and both touched today:
+
+- anything that renders the Overview, since `refreshBenchmark()` is now async and fires from
+  `renderPrices()`; a test asserting on `#ovRetHead` immediately after a render could catch it
+  mid-fetch showing "Loading price history…".
+- `journey.spec.js`, which had a genuine race earlier today (the `#initCapital` default). That one
+  is fixed and its regression test is deterministic, but the lane has form.
+
+**How to catch it:** `npx playwright test --repeat-each=5 --reporter=line` and read the `1)` block,
+which names the test. Do that before assuming it has gone away.
