@@ -286,7 +286,7 @@ HISTORY_SHAPE = {
 
 # Letters, digits and a little punctuation: BRK-B, ^GSPC, EURUSD=X, 7203.T. Nothing else reaches a
 # URL path. Same expression as the Worker's SYM_OK.
-SYM_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$")
+SYM_OK = re.compile(r"^\^?[A-Za-z0-9][A-Za-z0-9.\-=]{0,19}$")
 
 HIST_TTL_S = 600
 HIST_MAX_SYMBOLS = 25

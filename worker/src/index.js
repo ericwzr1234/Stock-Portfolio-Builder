@@ -278,8 +278,11 @@ const HISTORY_SHAPE = {
 /* A Yahoo symbol is letters, digits and a little punctuation: BRK-B, ^GSPC, EURUSD=X, 7203.T.
    Nothing else may reach a URL path. Without this a crafted symbol walks out of the path with ../
    and points this proxy - authenticated, on the owner's reputation - at an endpoint of the
-   caller's choosing. (E13.5.) */
-const SYM_OK = /^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$/;
+   caller's choosing. (E13.5.)
+   The caret is allowed ONLY as the first character, because that is where index symbols carry it
+   (^GSPC) and nowhere else. Leading dots and slashes are what a traversal needs, and neither can
+   start a symbol here. */
+const SYM_OK = /^\^?[A-Za-z0-9][A-Za-z0-9.\-=]{0,19}$/;
 
 let _histCache = new Map();
 const HIST_TTL_MS = 10 * 60 * 1000;
