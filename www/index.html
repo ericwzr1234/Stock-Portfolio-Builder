@@ -2539,7 +2539,14 @@ function planTrades(addCash, mode){
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 function capHttp(){ return window.CapacitorHttp || (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) || null; }
 const MARKET_TIMEOUT_MS=45000;   // market data via the proxy; the account read uses CLOUD_TIMEOUT_MS
-async function api(path, opts){
+/* E13.4: the proxy requires the session now, so every /api call carries it. This is invisible to
+   the user - they sign in exactly as before and the token rides along - and it was verified before
+   shipping that a signed-out page makes ZERO /api calls, so nothing depends on anonymous access.
+
+   The retry matters as much as the header. An access token expires while the app sits open, and
+   the 60-second poll would otherwise start 401ing forever with nothing on screen to explain it -
+   prices would simply stop being true. So a 401 refreshes ONCE and retries, mirroring sbApi. */
+async function api(path, opts, _retried){
   // A wedged proxy request must not hang the whole boot: bootSignedIn awaits market data before it
   // paints, so an unanswered /api/quotes left the user staring at empty chrome indefinitely.
   let ctl=null, timer=null;
@@ -2548,7 +2555,14 @@ async function api(path, opts){
   try{ if("AbortController" in window){ ctl=new AbortController();
         timer=setTimeout(()=>{ try{ ctl.abort(); }catch(e){} },MARKET_TIMEOUT_MS); } }catch(e){}
   try{
-    const r=await fetch(path, Object.assign({},opts,{signal:ctl?ctl.signal:undefined}));
+    const tok=(typeof sbSession==="object" && sbSession && sbSession.access_token) || null;
+    const o=Object.assign({},opts,{signal:ctl?ctl.signal:undefined});
+    if(tok) o.headers=Object.assign({}, o.headers||{}, {"Authorization":"Bearer "+tok});
+    const r=await fetch(path, o);
+    if(r.status===401 && !_retried && typeof sbRefresh==="function"){
+      const rr=await sbRefresh();
+      if(rr){ if(timer) clearTimeout(timer); return api(path, opts, true); }
+    }
     if(!r.ok)throw new Error(path+" "+r.status);
     return await r.json();
   } finally { if(timer) clearTimeout(timer); }

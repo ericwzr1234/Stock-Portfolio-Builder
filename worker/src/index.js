@@ -27,10 +27,10 @@ const SESSION_TTL_MS = 20 * 60 * 1000;
 let _quoteCache = { at: 0, data: {} };
 const QUOTE_TTL_MS = 60 * 1000;
 
-const j = (obj, status) =>
+const j = (obj, status, extraHeaders) =>
   new Response(JSON.stringify(obj), {
     status: status || 200,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: Object.assign({ "content-type": "application/json; charset=utf-8" }, extraHeaders || {}),
   });
 
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
@@ -296,12 +296,124 @@ function symbolsOf(url) {
     .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 200);
 }
 
+
+/* ===== E13.4 - who may call this proxy =======================================================
+ *
+ * Until 2026-09-01 every route here answered anybody. The page is unlisted, but an unlisted URL is
+ * not a control: whoever had it had a free, anonymous Yahoo proxy running on this Cloudflare
+ * account and this outbound reputation. Three exposures that compound - the daily request quota
+ * (which is the OWNER's app going dark), the Yahoo relationship (a stranger's volume is
+ * indistinguishable from ours, and it is our endpoint that gets blocked), and simply being
+ * somebody else's infrastructure.
+ *
+ * So the data routes now require the Supabase session the app already holds. This costs the user
+ * nothing - they sign in exactly as before, and the token rides along automatically. Verified
+ * BEFORE this shipped: a signed-out page makes ZERO /api calls, so nothing user-facing depends on
+ * anonymous access.
+ *
+ * WHY THERE IS NO SECRET HERE. This project signs tokens with ES256 - asymmetric - and publishes
+ * the PUBLIC verification key at a well-known JWKS endpoint. So this verifies a signature with a
+ * public key it fetches itself. Nothing to configure, nothing to leak. (A project on the older
+ * symmetric HS256 setup would have needed its JWT secret in the environment; this one does not.)
+ *
+ * server.py deliberately does NOT do this. It binds 0.0.0.0 so the iPhone can reach it over the
+ * home LAN, it is not on the internet, and the test suite drives it without a real session. The
+ * Worker is the internet-facing surface, so the Worker is where this belongs. tests assert the
+ * project URL below still matches the client's SB_URL, so the two cannot drift apart silently.
+ */
+const SUPABASE_URL = "https://uvzxdeiiwswhthfaqhtb.supabase.co";   // must equal SB_URL in www/index.html
+const JWKS_URL = SUPABASE_URL + "/auth/v1/.well-known/jwks.json";
+const JWKS_TTL_MS = 10 * 60 * 1000;      // a key rotation is picked up within ten minutes
+const CLOCK_SKEW_S = 60;                 // a minute of tolerance, not more
+
+let _jwks = null, _jwksAt = 0;
+
+async function jwks() {
+  const now = Date.now();
+  if (_jwks && now - _jwksAt < JWKS_TTL_MS) return _jwks;
+  const r = await fetch(JWKS_URL, { cf: { cacheTtl: 600 } });
+  if (!r.ok) throw new Error("jwks " + r.status);
+  const d = await r.json();
+  _jwks = (d && d.keys) || [];
+  _jwksAt = now;
+  return _jwks;
+}
+
+function b64urlToBytes(x) {
+  const p = x.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((x.length + 3) % 4);
+  const raw = atob(p);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+function b64urlToJson(x) {
+  return JSON.parse(new TextDecoder().decode(b64urlToBytes(x)));
+}
+
+/* Returns the user id on success, or null. Never throws to the caller: a JWKS outage must fail
+   CLOSED (401) rather than open, because failing open here is the whole vulnerability. */
+let lastAuthFailure = "none";
+function fail(reason) { lastAuthFailure = reason; return null; }
+
+async function verifyUser(request) {
+  lastAuthFailure = "none";
+  try {
+    const hdr = request.headers.get("Authorization") || "";
+    const m = /^Bearer\s+(.+)$/i.exec(hdr.trim());
+    if (!m) return fail("no-bearer");
+    const parts = m[1].split(".");
+    if (parts.length !== 3) return fail("not-a-jwt");
+
+    const head = b64urlToJson(parts[0]);
+    if (head.alg !== "ES256") return fail("alg");     // only the algorithm this project actually uses
+    const keys = await jwks();
+    const jwk = keys.find((k) => !head.kid || k.kid === head.kid);
+    if (!jwk) return fail("no-key-for-kid");
+
+    const key = await crypto.subtle.importKey(
+      "jwk", { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, ext: true },
+      { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    const ok = await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" }, key,
+      b64urlToBytes(parts[2]),
+      new TextEncoder().encode(parts[0] + "." + parts[1]));
+    if (!ok) return fail("signature");
+
+    const claims = b64urlToJson(parts[1]);
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof claims.exp !== "number" || claims.exp + CLOCK_SKEW_S < now) return fail("expired");
+    if (claims.nbf && claims.nbf - CLOCK_SKEW_S > now) return fail("not-yet-valid");
+    if (typeof claims.iss !== "string" || claims.iss.indexOf(SUPABASE_URL) !== 0) return fail("iss");
+    /* A DENYLIST, not an allowlist, and deliberately so. The SIGNATURE is the real control here -
+       only this project's private key can mint a token at all - so this check is belt and braces.
+       Requiring role==="authenticated" exactly would lock every real user out if Supabase ever
+       used another value for a normal session, and I cannot test the accept path without an
+       account. Refusing the two roles that must never drive this proxy costs nothing and cannot
+       cause a lockout. */
+    if (claims.role === "anon" || claims.role === "service_role") return fail("role");
+    return claims.sub ? { sub: claims.sub } : fail("no-sub");
+  } catch (e) {
+    return fail("verify-threw");                        // fail closed, always
+  }
+}
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
     const asOf = () => Math.floor(Date.now() / 1000);
     try {
+      /* Every data route, without exception. A route added later that forgets this line is the
+         failure mode, so there is exactly one gate and it sits above all of them. */
+      if (path.startsWith("/api/") && path !== "/api/health") {
+        if (!(await verifyUser(request))) {
+          /* The reason is here because the ACCEPT path cannot be tested without a real account:
+             if a genuine sign-in is ever refused, this turns an opaque 401 into a one-look
+             diagnosis in the network tab. It reveals only what trial and error would. */
+          return j({ error: "sign-in required", reason: lastAuthFailure }, 401,
+                   { "WWW-Authenticate": 'Bearer realm="portfolio-builder"' });
+        }
+      }
       if (path === "/api/quotes")       return j({ quotes: await getQuotes(symbolsOf(url)), asOf: asOf() });
       if (path === "/api/fundamentals") return j({ fundamentals: await fundamentals(symbolsOf(url)), asOf: asOf() });
       if (path === "/api/statements")   return j({ statements: await statements(symbolsOf(url)), asOf: asOf() });

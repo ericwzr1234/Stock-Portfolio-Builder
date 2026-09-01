@@ -8,17 +8,17 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 
 | Stage | Count |
 |---|---:|
-| Ideation | 2 |
-| Design | 24 |
+| Ideation | 3 |
+| Design | 23 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 102 |
+| Done | 103 |
 
 ---
 
-## Ideation  (2)
+## Ideation  (3)
 _A half-baked idea; can be pushed further down once fleshed out._
 
 - **E6.0** · _E6 · Multi-user platform_ — **Keep Phase 1 on the multi-user path (no build)** _(web + ios)_ · [spec](features/E6_multi-user-platform.md)
@@ -28,8 +28,10 @@ _A half-baked idea; can be pushed further down once fleshed out._
   - NOT being built now. No accounts, no backend, no database, no paid services in Phase 1.
 - **E12.9** · _E12 · V3 UI_ — **IMPORT portfolio.json on the first-run poster - owner's call** _(depends E12.6, web)_ · [spec](features/E12_v3-ui.md)
   - Spec section 4.7 puts an IMPORT portfolio.json button beside BUILD INITIAL PORTFOLIO. Not built, deliberately. No import path exists anywhere in the app - the iOS LAN sync reads a portfolio.json but nothing user-facing accepts a file - so this is a NEW feature (file input, parse, validate a whole book, decide what happens to a conflicting existing account) rather than a migration of an existing one. It is worth building only if the owner actually wants to move a book in from a file; on a brand-new account there is nothing to import from.
+- **E13.17** · _E13 · Security & data review_ — **Edge rate limiting - needs a custom domain, owner's call** _(depends E13.4, web)_ · [spec](features/E13_security-and-data-review.md)
+  - Cloudflare's rate-limiting rules apply to ZONES, and portfolio-builder-esb.pages.dev is Cloudflare's domain, not the owner's, so there is no panel for it. Inside the Worker, KV's free write allowance is nowhere near per-request volume and Durable Objects is paid. A custom domain on the Pages project would unlock proper edge rate limiting on the free plan, but requires owning a domain, which costs money and is therefore the owner's decision. E13.4 (requiring sign-in) is what actually closed the abuse exposure: an abuser now needs a real account, and signup is behind Turnstile and email confirmation. Revisit only if abuse from a signed-in account ever appears.
 
-## Design  (24)
+## Design  (23)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -109,8 +111,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - RLS is what stops one signed-in user reading another's holdings, and it has NO automated test - the most important data control in the product is also the least verified. 2026-08-31 showed exactly what an unverified control is worth. Done when a test signs in as A, writes, signs in as B, and proves B's reads return nothing and B's writes to A's row are rejected against the real project with the policy FORCEd.
 - **E13.3** · _E13 · Security & data review_ — **P0 Escaping audit of all 94 innerHTML sites, plus a gate** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
   - The 2026-08-31 fix was reactive - it closed the sites one payload happened to reach. 94 innerHTML assignments exist and nothing stops the next one. Done when every interpolation is a number, a literal or wrapped in esc() with annotated exceptions, and check_syntax.py fails on an unescaped untrusted accessor - verified by reintroducing a real unescaped site and watching the gate exit non-zero, the way the div-balance gate was proved.
-- **E13.4** · _E13 · Security & data review_ — **P1 Decide who may call /api, and throttle it** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
-  - /api/quotes|fundamentals|statements|search|peers are unauthenticated, unthrottled, and take up to 200 symbols per request (symbolsOf, worker/src/index.js:294). Anyone with the URL has a free anonymous Yahoo proxy running under our Cloudflare account and our outbound reputation. Three exposures that compound: cost, abuse, and the Yahoo relationship - a stranger's traffic is indistinguishable from ours and it is our endpoint that gets blocked. OWNER DECISION on requiring the Supabase session vs a signed same-origin token.
 - **E13.5** · _E13 · Security & data review_ — **P1 Validate what the proxy forwards upstream** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
   - symbolsOf() applies no character allowlist; /api/search forwards q with only .trim(). URLSearchParams SHOULD encode them - 'should' is the problem. Done when symbols match ^[A-Z0-9.-]{1,12}$ and anything else is refused rather than silently passed, with a test feeding 'A&crumb=x', '../', a 10KB symbol, 5000 symbols, unicode and null bytes, asserting the upstream URL is exactly what we intended.
 - **E13.6** · _E13 · Security & data review_ — **P1 Session token storage and lifetime** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
@@ -148,7 +148,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (102)
+## Done  (103)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -296,12 +296,13 @@ _Integrated into the product (on main)._
 - **E12.8** — Empty the V2 compat shim and delete the dead V2 CSS · [spec](features/E12_v3-ui.md)
 
 </details>
-<details><summary><b>E13 · Security & data review</b> — 5 done</summary>
+<details><summary><b>E13 · Security & data review</b> — 6 done</summary>
 
 - **E13.12** — W1 Remove dead code left by the V3 revamp · [spec](features/E13_security-and-data-review.md)
 - **E13.13** — W1 A button that rendered and did nothing · [spec](features/E13_security-and-data-review.md)
 - **E13.14** — W3 Fuzz the calculation engine with adversarial input · [spec](features/E13_security-and-data-review.md)
 - **E13.15** — W3 Walk the whole user story end to end · [spec](features/E13_security-and-data-review.md)
 - **E13.16** — W3 Data-quality guards on everything Yahoo returns · [spec](features/E13_security-and-data-review.md)
+- **E13.4** — P1 Decide who may call /api, and throttle it · [spec](features/E13_security-and-data-review.md)
 
 </details>
