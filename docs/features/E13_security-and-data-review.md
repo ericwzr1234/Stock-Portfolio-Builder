@@ -204,9 +204,29 @@ which *should* encode them, so this is probably safe — **"probably" is the pro
 that escapes encoding could inject query parameters into the upstream Yahoo request, or be used to
 reach a different upstream path.
 
-**Done when.** Symbols match a strict allowlist (`^[A-Z0-9.\-]{1,12}$`) and anything else is
-rejected rather than silently passed; a test feeds `A&crumb=x`, `../`, a 10 KB symbol, 5,000
-symbols, unicode and null bytes, and asserts the upstream URL is exactly what we intended.
+**Done when.** Symbols match a strict allowlist and anything else is rejected rather than silently
+passed; a test feeds `A&crumb=x`, `../`, a 10 KB symbol, 5,000 symbols, unicode and null bytes, and
+asserts the upstream URL is exactly what we intended.
+
+**DONE 2026-09-01**, alongside `/api/history`. That route made it mechanically necessary rather
+than merely prudent: unlike every other route it interpolates the symbol into a URL **path**, where
+`../` walks out of it and points this proxy — authenticated, on the owner's Cloudflare reputation —
+wherever the caller likes.
+
+`SYM_OK = /^\^?[A-Za-z0-9][A-Za-z0-9.\-=]{0,19}$/`, applied in `symbolsOf()` so it covers **every**
+route, not only the new one. Mirrored byte-for-byte in `server.py`.
+
+The allowlist proposed above (`^[A-Z0-9.\-]{1,12}$`) would have been a **live outage**: it refuses
+`^GSPC` and every other index, and `EURUSD=X`. My own first implementation made the same mistake in
+a subtler way — it required the first character to be alphanumeric, which silently 400s every index
+symbol. `tests/apihistory.spec.js` caught it, and now covers `BRK-B`, `^GSPC`, `7203.T` and
+`EURUSD=X` so the next tightening cannot quietly break them either. The caret is permitted **only**
+as the first character; a leading dot or slash is what a traversal needs, and neither can start a
+symbol.
+
+Seven hostile symbols are tested. Each asserts a 400, but the assertion that matters is the second
+one: that **no upstream fetch happened at all**. A 400 with the request already sent would pass a
+status check while having done the damage.
 
 ---
 
