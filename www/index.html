@@ -6967,8 +6967,25 @@ function renderFirstRun(){
   if(c) c.addEventListener("click",function(){ switchView("fundamentals"); openCreateTheme(); });
 }
 
+/* USER-FOUND CLASS, 2026-09-01, by walking the whole journey through real controls.
+   switchView used to begin with
+
+       if(v==="calc" && curView==="screener" && lastTradeView==="screener") v="screener";
+
+   whose intent was "clicking the Trade LANE returns you to whichever half of Trade you were last
+   on". It achieved the opposite of that intent, twice over, because switchView cannot tell a lane
+   click from a sub-tab click - both arrive as the string "calc".
+
+     - The Rebalance SUB-TAB was dead from Research. Its handler calls switchView("calc"), and the
+       guard fired on exactly that case and sent the user straight back to Research. Measured:
+       click Research, then click Rebalance, then click it again - still on Research, both times.
+       The only way out was to leave for another lane and come back.
+     - And the lane tab did NOT return you to Research from elsewhere, because the guard required
+       curView to already BE "screener".
+
+   The two intents are now separated: switchView goes exactly where it is told, and the LANE tab
+   resolves the last-used half of Trade before calling it. */
 function switchView(v){
-  if(v==="calc" && curView==="screener" && lastTradeView==="screener") v="screener";
   if(v==="calc"||v==="screener") lastTradeView=v;
   const changed=(curView!==v);
   curView=v;
@@ -7220,7 +7237,10 @@ function setupAutoRefresh(){
 }
 
 function setupEvents(){
-  $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b)switchView(b.dataset.view); });
+  $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(!b) return;
+    /* The LANE tab is the one that remembers. A sub-tab says exactly where to go and is obeyed. */
+    const v=b.dataset.view;
+    switchView(v==="calc" ? lastTradeView : v); });
   /* E12: the rail is deleted; the lanes in the top bar are the only web nav. */
   const _st=$("#subtabs");
   if(_st) _st.addEventListener("click",e=>{ const b=e.target.closest("button[data-sub]"); if(b)switchView(b.dataset.sub); });

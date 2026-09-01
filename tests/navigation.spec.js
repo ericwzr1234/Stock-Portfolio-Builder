@@ -9,6 +9,7 @@
  * views too, so the plan is right whenever the user chooses to go and look.
  */
 const { test, expect } = require("@playwright/test");
+const { seedBook } = require("./book");
 
 async function bookWithThemes(page) {
   await page.goto("/");
@@ -65,4 +66,42 @@ test("creating a portfolio does not navigate either", async ({ page }) => {
   await page.evaluate(() => createTheme("Gamma", "#333"));
   await page.waitForTimeout(400);
   expect(await page.evaluate(() => curView)).toBe("fundamentals");
+});
+
+/* USER-FOUND CLASS 2026-09-01, by walking the whole journey through real controls.
+ *
+ * switchView began with a guard whose intent was "clicking the Trade LANE returns you to whichever
+ * half of Trade you were last on". It achieved the opposite twice over, because switchView cannot
+ * tell a lane click from a sub-tab click - both arrive as the string "calc":
+ *   - the Rebalance SUB-TAB was dead from Research; clicking it left you on Research, every time,
+ *     so the only way back was to leave for another lane and return;
+ *   - and the lane tab did NOT return you to Research from elsewhere, because the guard required
+ *     you to already be there.
+ */
+test("the Rebalance sub-tab works from Research, and the lane tab remembers where you were", async ({ page }) => {
+  await seedBook(page);
+  const at = () => page.evaluate(() => curView);
+
+  await page.click('#tabs button[data-view="calc"]');
+  expect(await at()).toBe("calc");
+
+  await page.click('#subtabs button[data-sub="screener"]');
+  expect(await at()).toBe("screener");
+
+  // the sub-tab says exactly where to go, and is obeyed
+  await page.click('#subtabs button[data-sub="calc"]');
+  expect(await at()).toBe("calc");
+
+  // the LANE tab is the one that remembers
+  await page.click('#subtabs button[data-sub="screener"]');
+  await page.click('#tabs button[data-view="history"]');
+  expect(await at()).toBe("history");
+  await page.click('#tabs button[data-view="calc"]');
+  expect(await at()).toBe("screener");
+
+  // ...and having gone back to Rebalance, that is what it remembers next time
+  await page.click('#subtabs button[data-sub="calc"]');
+  await page.click('#tabs button[data-view="prices"]');
+  await page.click('#tabs button[data-view="calc"]');
+  expect(await at()).toBe("calc");
 });

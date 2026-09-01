@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 2 |
-| Design | 27 |
+| Design | 24 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 99 |
+| Done | 102 |
 
 ---
 
@@ -29,7 +29,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
 - **E12.9** · _E12 · V3 UI_ — **IMPORT portfolio.json on the first-run poster - owner's call** _(depends E12.6, web)_ · [spec](features/E12_v3-ui.md)
   - Spec section 4.7 puts an IMPORT portfolio.json button beside BUILD INITIAL PORTFOLIO. Not built, deliberately. No import path exists anywhere in the app - the iOS LAN sync reads a portfolio.json but nothing user-facing accepts a file - so this is a NEW feature (file input, parse, validate a whole book, decide what happens to a conflicting existing account) rather than a migration of an existing one. It is worth building only if the owner actually wants to move a book in from a file; on a brand-new account there is nothing to import from.
 
-## Design  (27)
+## Design  (24)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -103,12 +103,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
-- **E13.14** · _E13 · Security & data review_ — **W3 Fuzz the calculation engine with adversarial input** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
-  - The engine's INVARIANTS are well covered (sums to 1, bounds respected, cash conserved exactly, no zero-sum fallback). What is not covered is degenerate INPUT to those same functions: NaN, Infinity, null and zero and negative prices, string-typed numbers, missing fields, 5,000 tickers, a single ticker, deeply nested payloads. Done when every one of those either produces a correct number or degrades VISIBLY, and never silently mis-states money. Anything that would mis-state money is a defect of the same severity as an injection.
-- **E13.15** · _E13 · Security & data review_ — **W3 Walk the whole user story end to end** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
-  - There is no test that walks the journey a real person takes: land on the poster, create a portfolio, add names, choose metrics, fund it, rebalance, undo, add from Research, rebalance again. Individual lanes are well covered; the SEAMS between them are not, and the seams are where state gets out of step. Done when one test drives the full journey through real controls only - no direct state writes - and asserts the book is correct at every step.
-- **E13.16** · _E13 · Security & data review_ — **W3 Data-quality guards on everything Yahoo returns** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
-  - Yahoo is the least trusted input the app has, and its responses are merged into state with no shape check. A null price mid-refresh, a zero price, a string where a number belongs, a missing prevClose, a stale asOf - each can reach an allocation or a share count. E12 already found three DISPLAY-level instances of trusting a shape; the same assumption on a write path corrupts a book. Done when every merge point validates before use and a test proves each bad shape is refused or visibly flagged rather than quietly averaged in.
 - **E13.1** · _E13 · Security & data review_ — **P0 Remove 'unsafe-inline' from script-src** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
   - THE highest-value change in the epic: it converts every escaping bug from critical to cosmetic. 'unsafe-inline' is present because the whole app is one inline <script> block, so removing it is an architectural decision - extract to www/app.js and lose the single-file property, or keep one file and ship a sha256- hash of the block with a CI gate that fails when the hash goes stale. OWNER DECISION. Done when the live response has no 'unsafe-inline' in script-src and a test injects a script and proves the browser refuses to run it.
 - **E13.2** · _E13 · Security & data review_ — **P0 Prove Row Level Security with a test** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
@@ -154,7 +148,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (99)
+## Done  (102)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -302,9 +296,12 @@ _Integrated into the product (on main)._
 - **E12.8** — Empty the V2 compat shim and delete the dead V2 CSS · [spec](features/E12_v3-ui.md)
 
 </details>
-<details><summary><b>E13 · Security & data review</b> — 2 done</summary>
+<details><summary><b>E13 · Security & data review</b> — 5 done</summary>
 
 - **E13.12** — W1 Remove dead code left by the V3 revamp · [spec](features/E13_security-and-data-review.md)
 - **E13.13** — W1 A button that rendered and did nothing · [spec](features/E13_security-and-data-review.md)
+- **E13.14** — W3 Fuzz the calculation engine with adversarial input · [spec](features/E13_security-and-data-review.md)
+- **E13.15** — W3 Walk the whole user story end to end · [spec](features/E13_security-and-data-review.md)
+- **E13.16** — W3 Data-quality guards on everything Yahoo returns · [spec](features/E13_security-and-data-review.md)
 
 </details>
