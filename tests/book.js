@@ -66,6 +66,23 @@ async function seedBook(page) {
       { id:3, date:"2025-07-22", alloc:AL, mode:"full", type:"REBALANCE",  label:"Rebalance",     valueBefore:inv*0.96,
         valueAfter:inv, cashIn:inv*0.14, trades:mk(all,0.15),
         snapshot:{ holdings:H,          totalContributed:inv } }]};
+    /* E14 - the benchmark chart fetches a price series, and a fixture must never reach the network.
+       There is no Yahoo from CI, so an unstubbed dsHistory leaves every range-chip click waiting on
+       a per-symbol timeout: the suite passes on a developer machine with internet and hangs or
+       fails on the runner. The fixture already seeds quotes rather than fetching them; this is the
+       same rule applied to the series.
+
+       A deterministic ramp, three weekly bars per name from a little before the first checkpoint,
+       so the chart has something real to draw and the numbers are stable across runs. */
+    const barTs = ["2024-11-01","2025-03-15","2025-07-20"].map(d=>Math.floor(Date.parse(d)/1000));
+    window.dsHistory = async (syms) => {
+      const out = {};
+      (syms||[]).forEach((sym, i) => {
+        const base = (state.quotes[sym] && state.quotes[sym].price) || 100;
+        out[sym] = { t: barTs, c: [base*0.8, base*0.9, base], splits: [] };
+      });
+      return out;
+    };
     rebuildThemeOf(); renderAll();
   }, SYMS);
 }

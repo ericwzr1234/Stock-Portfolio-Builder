@@ -33,6 +33,7 @@ async function freshAccount(page) {
     window.dsSearch = async (t) => Object.keys(PRICES)
       .filter((s) => s.startsWith(String(t).toUpperCase()))
       .map((s) => ({ symbol: s, name: s + " Inc", exchange: "NMS", type: "EQUITY" }));
+    window.dsHistory = async () => ({});     // no network in a test; the chart shows its empty state
     window.dsQuotes = async (syms) => {
       const q = {}; syms.forEach((s) => { if (state.quotes[s]) q[s] = state.quotes[s]; });
       return { quotes: q };
