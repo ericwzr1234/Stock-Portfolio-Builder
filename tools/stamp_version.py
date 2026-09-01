@@ -1,4 +1,4 @@
-"""Stamp APP_VERSION in www/index.html from the current git commit.
+"""Stamp APP_VERSION in www/app.js from the current git commit.
 
     py -3 tools/stamp_version.py
 
@@ -13,7 +13,8 @@ import sys
 import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TARGET = os.path.join(BASE, "www", "index.html")
+# E13.1 moved the application out of index.html and into app.js, and APP_VERSION went with it.
+TARGET = os.path.join(BASE, "www", "app.js")
 
 
 def main():

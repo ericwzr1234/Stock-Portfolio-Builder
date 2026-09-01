@@ -44,7 +44,10 @@ const audit = (page, screen) => page.evaluate(([screen, DELEGATED]) => {
 }, [screen, DELEGATED]);
 
 test("no visible button is a dead control", async ({ page }) => {
-  const src = await page.request.get("/index.html").then((r) => r.text());
+  /* E13.1 moved the application to app.js, so a button declared in index.html is wired from a
+     different file. "The source" is both, or every button looks dead. */
+  const src = (await page.request.get("/index.html").then((r) => r.text()))
+            + (await page.request.get("/app.js").then((r) => r.text()));
   const mentions = (id) => (src.match(new RegExp("\\b" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g")) || []).length;
 
   const found = [];

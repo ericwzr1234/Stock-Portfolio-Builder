@@ -9,12 +9,12 @@ _Updated 2026-08-24. Auto-generated from [`board.json`](board.json) by `tools/re
 | Stage | Count |
 |---|---:|
 | Ideation | 3 |
-| Design | 23 |
+| Design | 22 |
 | Implementation | 0 |
 | Testing | 0 |
 | Refinement | 0 |
 | Integration | 0 |
-| Done | 103 |
+| Done | 104 |
 
 ---
 
@@ -31,7 +31,7 @@ _A half-baked idea; can be pushed further down once fleshed out._
 - **E13.17** · _E13 · Security & data review_ — **Edge rate limiting - needs a custom domain, owner's call** _(depends E13.4, web)_ · [spec](features/E13_security-and-data-review.md)
   - Cloudflare's rate-limiting rules apply to ZONES, and portfolio-builder-esb.pages.dev is Cloudflare's domain, not the owner's, so there is no panel for it. Inside the Worker, KV's free write allowance is nowhere near per-request volume and Durable Objects is paid. A custom domain on the Pages project would unlock proper edge rate limiting on the free plan, but requires owning a domain, which costs money and is therefore the owner's decision. E13.4 (requiring sign-in) is what actually closed the abuse exposure: an abuser now needs a real account, and signup is behind Turnstile and email confirmation. Revisit only if abuse from a signed-in account ever appears.
 
-## Design  (23)
+## Design  (22)
 _Detailed requirements captured; a spec exists in docs/features/._
 
 - **E11.7b** · _E11 · Online, for invited users_ — **Error monitoring (Sentry)** _(depends E11.3, web)_ · [spec](features/E11_online-deployment.md)
@@ -105,8 +105,6 @@ _Detailed requirements captured; a spec exists in docs/features/._
   - Regression: theme CRUD, metric overrides, build then rebalance then apply, history undo / redo / revert forking, watchlist add and swap, ETF rejection, and both themes.
   - Account isolation on the device: sign-out clears everything keyed by uid, and a second account sees only its own portfolio.
   - Then APP2 to done, and update docs/APP_MIGRATION.md plus V2_WEB_BASELINE.md 9.1 to record the account-only outcome.
-- **E13.1** · _E13 · Security & data review_ — **P0 Remove 'unsafe-inline' from script-src** _(depends E12.8, web)_ · [spec](features/E13_security-and-data-review.md)
-  - THE highest-value change in the epic: it converts every escaping bug from critical to cosmetic. 'unsafe-inline' is present because the whole app is one inline <script> block, so removing it is an architectural decision - extract to www/app.js and lose the single-file property, or keep one file and ship a sha256- hash of the block with a CI gate that fails when the hash goes stale. OWNER DECISION. Done when the live response has no 'unsafe-inline' in script-src and a test injects a script and proves the browser refuses to run it.
 - **E13.2** · _E13 · Security & data review_ — **P0 Prove Row Level Security with a test** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
   - RLS is what stops one signed-in user reading another's holdings, and it has NO automated test - the most important data control in the product is also the least verified. 2026-08-31 showed exactly what an unverified control is worth. Done when a test signs in as A, writes, signs in as B, and proves B's reads return nothing and B's writes to A's row are rejected against the real project with the policy FORCEd.
 - **E13.3** · _E13 · Security & data review_ — **P0 Escaping audit of all 94 innerHTML sites, plus a gate** _(depends E13.1, web)_ · [spec](features/E13_security-and-data-review.md)
@@ -148,7 +146,7 @@ _Approved; merging dev → main (prod) + updating docs._
 
 - _(none)_
 
-## Done  (103)
+## Done  (104)
 _Integrated into the product (on main)._
 
 <details><summary><b>Core tool (shipped)</b> — 10 done</summary>
@@ -296,13 +294,14 @@ _Integrated into the product (on main)._
 - **E12.8** — Empty the V2 compat shim and delete the dead V2 CSS · [spec](features/E12_v3-ui.md)
 
 </details>
-<details><summary><b>E13 · Security & data review</b> — 6 done</summary>
+<details><summary><b>E13 · Security & data review</b> — 7 done</summary>
 
 - **E13.12** — W1 Remove dead code left by the V3 revamp · [spec](features/E13_security-and-data-review.md)
 - **E13.13** — W1 A button that rendered and did nothing · [spec](features/E13_security-and-data-review.md)
 - **E13.14** — W3 Fuzz the calculation engine with adversarial input · [spec](features/E13_security-and-data-review.md)
 - **E13.15** — W3 Walk the whole user story end to end · [spec](features/E13_security-and-data-review.md)
 - **E13.16** — W3 Data-quality guards on everything Yahoo returns · [spec](features/E13_security-and-data-review.md)
+- **E13.1** — P0 Remove 'unsafe-inline' from script-src · [spec](features/E13_security-and-data-review.md)
 - **E13.4** — P1 Decide who may call /api, and throttle it · [spec](features/E13_security-and-data-review.md)
 
 </details>

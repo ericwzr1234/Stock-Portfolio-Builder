@@ -133,7 +133,9 @@ test("it fails CLOSED when the key server is unreachable", async () => {
 
 test("the Worker's project URL still matches the client's", async () => {
   const worker = fs.readFileSync(path.join(__dirname, "..", "worker", "src", "index.js"), "utf8");
-  const client = fs.readFileSync(path.join(__dirname, "..", "www", "index.html"), "utf8");
+  /* E13.1 split the client into index.html + app.js, so "the client" is both files now. */
+  const client = fs.readFileSync(path.join(__dirname, "..", "www", "index.html"), "utf8")
+               + fs.readFileSync(path.join(__dirname, "..", "www", "app.js"), "utf8");
   const w = /SUPABASE_URL\s*=\s*"([^"]+)"/.exec(worker);
   const c = /SB_URL\s*=\s*"([^"]+)"/.exec(client);
   /* One fact, two readers. If they drift, every signed-in request is refused for the wrong

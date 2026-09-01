@@ -14,54 +14,76 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGET = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE, 'www', 'index.html')
 
 s = io.open(TARGET, encoding='utf-8').read()
-i = s.index('<script>', s.index('</style>'))
-j = s.rindex('</script>')
-lines = s[i + 8:j].split('\n')
 
 BS = chr(92)          # backslash, written this way to avoid escaping headaches
 QUOTES = '"' + "'" + '`'
 
-depth = 0
-instr = None
-incomment = False
-last0 = 0
 
-for ln, line in enumerate(lines, 1):
-    k = 0
-    while k < len(line):
-        c = line[k]
-        nxt = line[k + 1] if k + 1 < len(line) else ''
-        if incomment:
-            if c == '*' and nxt == '/':
-                incomment = False
-                k += 1
-        elif instr:
-            if c == BS:
-                k += 1
-            elif c == instr:
-                instr = None
-        else:
-            if c == '/' and nxt == '*':
-                incomment = True
-                k += 1
-            elif c == '/' and nxt == '/':
-                break
-            elif c in QUOTES:
-                instr = c
-            elif c == '{':
-                depth += 1
-            elif c == '}':
-                depth -= 1
-        k += 1
-    if depth == 0 and not instr and not incomment:
-        last0 = ln
+def balance(text):
+    """Walk JavaScript tracking strings, template literals and comments. Returns
+    (final_depth, unclosed_string, in_comment, last_line_at_depth_zero, lines)."""
+    lines = text.split('\n')
+    depth, instr, incomment, last0 = 0, None, False, 0
+    for ln, line in enumerate(lines, 1):
+        k = 0
+        while k < len(line):
+            c = line[k]
+            nxt = line[k + 1] if k + 1 < len(line) else ''
+            if incomment:
+                if c == '*' and nxt == '/':
+                    incomment = False
+                    k += 1
+            elif instr:
+                if c == BS:
+                    k += 1
+                elif c == instr:
+                    instr = None
+            else:
+                if c == '/' and nxt == '*':
+                    incomment = True
+                    k += 1
+                elif c == '/' and nxt == '/':
+                    break
+                elif c in QUOTES:
+                    instr = c
+                elif c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+            k += 1
+        if depth == 0 and not instr and not incomment:
+            last0 = ln
+    return depth, instr, incomment, last0, lines
 
-print('final depth :', depth)
-print('unclosed string:', instr, ' in comment:', incomment)
-print('last balanced line:', last0)
-print('--- from there ---')
-for x in range(max(0, last0 - 1), min(last0 + 14, len(lines))):
-    print('%5d  %s' % (x + 1, lines[x][:100]))
+
+# E13.1 split the client in two. This used to scan the SPAN between the first <script> after
+# </style> and the last </script>, which was exactly the application while the application lived
+# inline. With the app moved to app.js that span is mostly HTML markup, whose quotes and braces are
+# not JavaScript - the check failed on a file that was perfectly fine. Check each real JavaScript
+# source instead: every inline block, on its own, plus app.js.
+import re as _re
+
+_sources = []
+for _m in _re.finditer(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', s, _re.S):
+    _sources.append(('index.html inline #%d' % (len(_sources) + 1), _m.group(1)))
+_appjs = os.path.join(BASE, 'www', 'app.js')
+if os.path.exists(_appjs):
+    _sources.append(('app.js', io.open(_appjs, encoding='utf-8').read()))
+
+_bad = False
+for _name, _text in _sources:
+    _d, _instr, _inc, _last0, _lines = balance(_text)
+    if _d or _instr or _inc:
+        _bad = True
+        print('BROKEN      : %s - depth %d, unclosed string %r, in comment %s'
+              % (_name, _d, _instr, _inc))
+        print('  last balanced line: %d' % _last0)
+        for _x in range(max(0, _last0 - 1), min(_last0 + 12, len(_lines))):
+            print('  %5d  %s' % (_x + 1, _lines[_x][:100]))
+    else:
+        print('%-22s %5d lines, balanced' % (_name + ' :', len(_lines)))
+if _bad:
+    sys.exit(1)
 
 # ---- CSS custom properties: a name that was never defined VOIDS its whole declaration --------
 # Silently. `background: var(--surface)` with no --surface anywhere left the guided-tour bubble
@@ -79,9 +101,9 @@ print('css vars    :', len(_defined), 'defined,', len(_used), 'used without a fa
 # Exit non-zero when it is actually broken. This only ever printed, which made it useless as a CI
 # gate - a step that cannot fail is not a check. The failure it exists to catch (a one-line comment
 # swallowing renderAll's body) is silent otherwise.
-if depth != 0 or instr or incomment:
-    sys.stderr.write('BROKEN: unbalanced braces or an unterminated string/comment\n')
-    sys.exit(1)
+# The brace/string gate now lives in the balance() loop above: it exits 1 itself and names the
+# source that broke, which the single module-level `depth` could not do once there was more than
+# one JavaScript source to check.
 if _undefined:
     sys.stderr.write('BROKEN: CSS variables used but never defined: %s\n' % ', '.join(_undefined))
     sys.exit(1)
@@ -92,8 +114,15 @@ if _undefined:
 # app reports why. Same class as the CSS-variable check above: when you teach the code a new fact,
 # teach every reader of it. Absent _headers is skipped, not failed, so a bare checkout still runs.
 _hdr = os.path.join(BASE, 'www', '_headers')
-_sbm = re.search(r'const SB_URL\s*=\s*"([^"]+)"', s)
-if _sbm and os.path.exists(_hdr):
+_client = s
+_appsrc = os.path.join(BASE, 'www', 'app.js')
+if os.path.exists(_appsrc):
+    _client += io.open(_appsrc, encoding='utf-8').read()
+_sbm = re.search(r'const SB_URL\s*=\s*"([^"]+)"', _client)
+if not _sbm:
+    sys.stderr.write('BROKEN: SB_URL not found in index.html or app.js - connect-src is unverified\n')
+    sys.exit(1)
+if os.path.exists(_hdr):
     _sb = _sbm.group(1)
     _csp = [ln for ln in io.open(_hdr, encoding='utf-8').read().splitlines()
             if 'Content-Security-Policy' in ln]
@@ -138,5 +167,28 @@ if _back:
     print('              name the V3 token instead (--bg / --surface / --ink-50 / --accent / ...)')
     sys.exit(1)
 print('compat shim : empty, as E12 section 2 requires')
+
+# ---- the CSP hashes for the inline blocks -------------------------------------------------------
+# E13.1 removed 'unsafe-inline' from script-src. The three blocks still inline in index.html are
+# named by sha256 instead, and a STALE hash does not degrade the app - the browser refuses the
+# block outright. So this must fail here, in CI, and never on the live site.
+sys.path.insert(0, os.path.join(BASE, 'tools'))
+try:
+    import csp_hashes as _csphash
+    _cur = _csphash.script_src()
+    if _cur is None:
+        print('csp hashes  : FAIL - no script-src in the Content-Security-Policy header')
+        sys.exit(1)
+    if "'unsafe-inline'" in _cur:
+        print("csp hashes  : FAIL - 'unsafe-inline' is back in script-src")
+        sys.exit(1)
+    _want = _csphash.wanted(_cur)
+    if _cur.strip() != _want.strip():
+        print('csp hashes  : FAIL - stale. Run: py -3 tools/csp_hashes.py --write')
+        sys.exit(1)
+    print('csp hashes  : %d inline blocks, all named in the CSP' % len(_csphash.hashes()))
+except ImportError:
+    print('csp hashes  : SKIP - tools/csp_hashes.py not importable')
+
 
 print('csp         : connect-src allows', _sb)

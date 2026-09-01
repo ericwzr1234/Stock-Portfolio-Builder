@@ -162,7 +162,8 @@ jobs:
           SHORT="$(git rev-parse --short "${{ github.sha }}")"
           for i in 1 2 3 4 5 6; do
             sleep 5
-            LIVE="$(curl -sL "https://portfolio-builder-esb.pages.dev/?cb=$i" | grep -oE 'APP_VERSION="[^"]*"' || true)"
+            # E13.1: the stamp lives in app.js now, so that is the file to ask.
+            LIVE="$(curl -sL "https://portfolio-builder-esb.pages.dev/app.js?cb=$i" | grep -oE 'APP_VERSION="[^"]*"' || true)"
             echo "attempt $i: $LIVE"
             case "$LIVE" in *"$SHORT"*) echo "Live site is serving $SHORT."; exit 0;; esac
           done
