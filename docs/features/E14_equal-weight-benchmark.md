@@ -87,6 +87,48 @@ they cover, with nothing on screen saying so.
 
 ---
 
+## Resolved with the owner, 2026-09-01
+
+**Segment boundaries.** The rebalance **execution price** is the shared boundary — simultaneously
+the close of segment *k* and the open of segment *k+1*. Agreed. This is what keeps the overnight
+gap from falling between two segments and vanishing from the sum; daily marks inside a segment are
+purely interior points for drawing the line, never boundaries.
+
+**The identity that makes the chart honest.** `Σ(segment returns) = V_final − Σ(contributions)`.
+Cash injections cancel because each segment starts *after* that segment's cash is added. Verified
+algebraically and numerically. It matters because it means both lines are the same kind of number —
+sum of segment dollar P&L — so they are directly comparable, and the real book's line also happens
+to equal its lifetime P&L. This is the invariant to assert in a test.
+
+**Resolution per range**, as the owner specified — and each maps 1:1 onto Yahoo's own `interval`
+parameter, measured against the live endpoint:
+
+| chip | request | points | payload |
+|---|---|---|---|
+| 1D | `range=1d&interval=5m` | 79 | 8 KB |
+| 1W, 1M | `range=1mo&interval=1d` | 22 | 3 KB |
+| 3M, 6M, 1Y, 5Y, Max | `range=5y&interval=1wk` | 263 | 29 KB |
+
+**Store nothing — compute on demand.** The owner's aim was never to calculate and store a large
+number of points; fetching at the resolution the chip asks for stores *zero*, which serves that aim
+better than storing few. Three further reasons, in order of weight:
+
+1. **Undo/redo.** Checkpoints can be undone and redone, which changes the segment structure and
+   therefore every downstream point. Stored derived points would need invalidation on every undo —
+   exactly the kind of cache-coherence bug this codebase has been bitten by. Recomputing from
+   versions plus prices, both already authoritative, makes the problem not exist.
+2. **No table, no migration, no backfill** when the arithmetic is later corrected.
+3. Closed days never change, so the fetch caches hard at the edge.
+
+The cost is N requests per range change, N being every symbol *ever held* in the window rather than
+just current holdings. The worker should strip Yahoo's OHLC+volume payload to timestamps and closes
+before returning it, which cuts what crosses the wire several-fold.
+
+**Splits** are handled by [E15](E15_stock-splits.md), which the same endpoint feeds. Mark with raw
+`close`, never `adjclose` — see that ticket for why.
+
+---
+
 ## Open questions — these change the arithmetic, so they are settled before any code
 
 **Q1 · "The total capital invested at that checkpoint" — which figure?**
@@ -102,7 +144,9 @@ usually contain **zero** of them. The sensible reading: both lines run cumulativ
 start, with the equal-weight basket being whatever the last checkpoint before the window
 established, marked forward. Needs confirmation.
 
-**Q3 · 1D and 1W may not be plottable at all, and this is a hard data constraint.**
+**Q3 · RESOLVED — 1D and 1W are plottable.** Yahoo's chart endpoint serves 5-minute intraday bars
+and daily closes from the same route that E14 needs anyway, so the constraint below no longer holds.
+Superseded, kept for the record:
 The only time points that exist in the app are checkpoints, plus live quotes. There is no daily or
 intraday price history per symbol — nothing fetches or stores one. So the equal-weight basket can
 only be marked at dates where prices are known: checkpoint dates and today. Slicing to 1M/3M/1Y/ALL
