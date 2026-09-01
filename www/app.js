@@ -760,6 +760,14 @@ async function api(path, opts, _retried){
 /* ---- web (server-backed) ---- */
 async function webQuotes(syms){ const d=await api("/api/quotes?symbols="+syms.join(",")); return {quotes:d.quotes, asOf:d.asOf}; }
 async function webFundamentals(syms,force){ const d=await api("/api/fundamentals?symbols="+syms.join(",")+(force?"&force=1":"")); return d.fundamentals; }
+/* E14/E15. `range` is a KEY the Worker maps to a (range, interval) pair - see HISTORY_SHAPE there.
+   Never a raw interval: that route interpolates the symbol into a URL path. */
+async function webHistory(syms,range){
+  if(!syms.length) return {};
+  const d=await api("/api/history?range="+encodeURIComponent(range)+
+                    "&symbols="+syms.map(encodeURIComponent).join(","));
+  return (d&&d.history)||{};
+}
 async function webLoadPortfolio(){ const d=await api("/api/portfolio"); return d.portfolio; }
 async function webSavePortfolio(p){ await api("/api/portfolio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); }
 
@@ -1440,6 +1448,11 @@ async function nativeFundamentals(syms){
 
 /* ---- unified entry points used by the rest of the app ---- */
 async function dsQuotes(syms){ return NATIVE? nativeQuotes(syms) : webQuotes(syms); }
+/* No native path yet. The Capacitor build talks to Yahoo directly and has no equivalent of this
+   route; the iOS tickets are deferred (APP2.*), so rather than half-build one this returns nothing
+   and the callers degrade - the chart says it has no data and the split check simply does not run.
+   It must NOT throw: a missing series is not a reason to fail boot. */
+async function dsHistory(syms,range){ return NATIVE? {} : webHistory(syms,range); }
 async function dsFundamentals(syms,force){ return NATIVE? nativeFundamentals(syms) : webFundamentals(syms,force); }
 /* ---- E3: financial statements (fundamentals-timeseries). Client mirror of server _STMT_FIELDS. ---- */
 const STMT_FIELD_MAP = {
@@ -2179,6 +2192,88 @@ function renderStatus(){
    (otherwise the point is null and the line breaks). No interpolation, no
    synthetic prices. Between checkpoints untraded positions are held at their
    last traded price, which is why this is labelled "at traded prices". */
+/* ===== E15 - stock splits ======================================================================
+ *
+ * Share counts are recorded from a trade and never revised; live prices come from Yahoo POST-split.
+ * So a name held across a split is marked at the wrong multiple - NVDA's 10:1 in June 2024 makes a
+ * position read as a 90% loss that never happened, and that error flows into the book value, the
+ * all-time gain and every figure derived from them.
+ *
+ * The ratio is never inferred from a price move. Yahoo returns exact numerator/denominator with the
+ * effective date on the same call that returns the closes; a heuristic would miss 3:2 and 4:3
+ * splits entirely (they move a price less than ordinary volatility does) and would mistake a
+ * genuine 50% crash for a 2:1 - inventing shares and money in a real book, which is far worse than
+ * the bug it set out to fix.
+ *
+ * HISTORICAL SNAPSHOTS ARE DELIBERATELY LEFT ALONE. A checkpoint's shares were correct when it was
+ * written and valueHistory marks them at that era's recorded trade prices, which are pre-split too.
+ * The pair is internally consistent; "correcting" one side would break it. Only the LIVE mark is
+ * wrong, so only current holdings are adjusted. (E14 handles splits inside its own segment walk,
+ * because it marks old baskets against a raw close series where the split IS visible.)
+ */
+
+/* The moment after which a split has not yet been reflected in the recorded share count: the end of
+   the day of the most recent trade in that name. End of day, not the timestamp, because a split
+   effective the same morning is already in that trade's price. */
+function splitBasis(sym){
+  let t=0;
+  (versions()||[]).forEach(v=>{
+    if(!(v.trades||[]).some(tr=>tr&&tr.sym===sym)) return;
+    const d=Date.parse(v.date);
+    if(isFinite(d)) t=Math.max(t,Math.floor(d/1000)+86399);
+  });
+  if(!t){                                     // no recorded trade: fall back to the book's own start
+    const c=Date.parse((state.portfolio&&state.portfolio.createdAt)||"");
+    if(isFinite(c)) t=Math.floor(c/1000)+86399;
+  }
+  return t;
+}
+
+/* Returns the names whose share count changed. Idempotent: once a symbol records splitsThrough,
+   the same split cannot apply twice however often this runs. */
+function reconcileSplits(hist){
+  const p=state.portfolio;
+  if(!p||!p.holdings||!hist) return [];
+  const nowS=Math.floor(Date.now()/1000), touched=[];
+  Object.keys(p.holdings).forEach(sym=>{
+    const h=p.holdings[sym], d=hist[sym];
+    if(!h||!d) return;
+    const basis=isNum(h.splitsThrough)?h.splitsThrough:splitBasis(sym);
+    let factor=1;
+    (d.splits||[]).forEach(sp=>{
+      if(!sp||!isNum(sp.date)||!isNum(sp.num)||!isNum(sp.den)||sp.num<=0||sp.den<=0) return;
+      if(sp.date<=basis) return;
+      factor*=sp.num/sp.den;
+    });
+    if(factor!==1 && isNum(h.shares)){
+      h.shares=h.shares*factor;
+      /* costBasis is a DOLLAR amount and a split moves no money, so it is untouched. That is the
+         invariant worth remembering: shares scale, value does not. */
+      touched.push(sym);
+    }
+    h.splitsThrough=nowS;
+  });
+  return touched;
+}
+
+/* Fetch the long series once and reconcile from it. Runs on boot, after the portfolio is loaded.
+   Failure is non-fatal: an unreachable proxy must not stop the app opening. */
+async function checkSplits(){
+  try{
+    const held=Object.keys((state.portfolio&&state.portfolio.holdings)||{})
+      .filter(s=>{ const h=state.portfolio.holdings[s]; return h&&isNum(h.shares)&&h.shares>0; });
+    if(!held.length) return;
+    const hist=await dsHistory(held,"max");
+    state.history=Object.assign({}, state.history||{}, hist);   // E14 reuses the same fetch
+    const touched=reconcileSplits(hist);
+    if(!touched.length) return;
+    await savePortfolio();
+    renderAll();
+    toast(touched.length===1 ? touched[0]+" split - share count corrected"
+                             : touched.length+" holdings corrected for stock splits");
+  }catch(e){ console.error("split check failed",e); }
+}
+
 function valueHistory(){
   // Respect the active timeline: restoreVersion() only moves head, it never truncates versions
   // (that is what makes Redo work), so plotting the whole array would chart undone checkpoints.
@@ -2436,6 +2531,9 @@ async function bootSignedIn(){
   try{ await Promise.all([loadQuotes(), loadFundamentals(false), loadStatements()]); rebuildFundamentals(); }
   catch(e){ console.error(e); toast("Some market data failed to load - using fallback"); }
   renderAll();
+  /* E15, deliberately AFTER the first paint and not awaited alongside the quotes. A split is rare;
+     making the book appear must not wait on a check that almost always finds nothing. */
+  checkSplits();
 }
 /* E6 FIX - the modal prompts MUST NOT live inside bootSignedIn().
    The gate is opaque and sits at z-index 400; a modal renders at 80. bootSignedIn() is awaited by
